@@ -33,7 +33,7 @@ function turnsToJson(turns) {
 /**
  * Render turns into a self-contained HTML string.
  * @param {import('./parser.mjs').Turn[]} turns
- * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, showToolResults?: boolean, theme?: Record<string,string> }} opts
+ * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, showToolResults?: boolean, theme?: Record<string,string>, userLabel?: string, assistantLabel?: string }} opts
  * @returns {string}
  */
 export function render(turns, opts = {}) {
@@ -43,6 +43,8 @@ export function render(turns, opts = {}) {
     showToolCalls = true,
     showToolResults = true,
     theme = getTheme("tokyo-night"),
+    userLabel = "User",
+    assistantLabel = "Claude",
   } = opts;
 
   let html = readFileSync(TEMPLATE_PATH, "utf-8");
@@ -54,6 +56,8 @@ export function render(turns, opts = {}) {
   html = html.replace("/*CHECKED_THINKING*/", showThinking ? "checked" : "");
   html = html.replace("/*CHECKED_TOOLS*/", showToolCalls ? "checked" : "");
   html = html.replace("/*CHECKED_RESULTS*/", showToolResults ? "checked" : "");
+  html = html.replace("/*USER_LABEL*/", userLabel);
+  html = html.replace("/*ASSISTANT_LABEL*/", assistantLabel);
 
   return html;
 }

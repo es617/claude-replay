@@ -211,13 +211,19 @@ export function parseTranscript(filePath) {
       i = nextI;
       i = attachToolResults(assistantBlocks, entries, i);
 
-      turnIndex++;
-      turns.push({
-        index: turnIndex,
-        user_text: "",
-        blocks: assistantBlocks,
-        timestamp: entry.timestamp ?? "",
-      });
+      // Merge orphan assistant blocks into the previous turn
+      if (turns.length > 0) {
+        turns[turns.length - 1].blocks.push(...assistantBlocks);
+      } else {
+        // No previous turn — create one (first entry is assistant)
+        turnIndex++;
+        turns.push({
+          index: turnIndex,
+          user_text: "",
+          blocks: assistantBlocks,
+          timestamp: entry.timestamp ?? "",
+        });
+      }
     } else {
       i++;
     }

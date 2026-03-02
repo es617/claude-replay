@@ -22,6 +22,8 @@ const options = {
   theme: { type: "string", default: "tokyo-night" },
   "theme-file": { type: "string" },
   "list-themes": { type: "boolean", default: false },
+  "user-label": { type: "string", default: "User" },
+  "assistant-label": { type: "string", default: "Claude" },
   help: { type: "boolean", short: "h", default: false },
 };
 
@@ -51,6 +53,8 @@ Options:
   --no-tool-results       Hide tool results by default
   --theme NAME            Built-in theme (default: tokyo-night)
   --theme-file FILE       Custom theme JSON file (overrides --theme)
+  --user-label NAME       Label for user messages (default: User)
+  --assistant-label NAME  Label for assistant messages (default: Claude)
   --list-themes           List available built-in themes and exit
   -h, --help              Show this help message`);
   process.exit(0);
@@ -133,6 +137,8 @@ const html = render(turns, {
   showToolCalls: !values["no-tool-calls"],
   showToolResults: !values["no-tool-results"],
   theme,
+  userLabel: values["user-label"],
+  assistantLabel: values["assistant-label"],
 });
 
 if (values.output) {

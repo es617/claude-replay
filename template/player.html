@@ -110,6 +110,7 @@ body {
 /* Transcript area */
 .transcript {
   padding: 16px;
+  padding-bottom: 100vh;
   min-height: calc(100vh - 50px);
 }
 
@@ -117,11 +118,15 @@ body {
   margin-bottom: 24px;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.3s, transform 0.3s;
+  transition: opacity 0.4s, transform 0.3s;
+  scroll-margin-top: 52px;
 }
 .turn.visible {
-  opacity: 1;
+  opacity: 0.35;
   transform: translateY(0);
+}
+.turn.visible.active {
+  opacity: 1;
 }
 
 /* User message */
@@ -230,6 +235,49 @@ body {
   font-weight: 600;
 }
 
+/* Tool group (consecutive tool calls) */
+.tool-group {
+  margin: 6px 0;
+}
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--cyan);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--tool-bg);
+  transition: background 0.15s;
+}
+.tool-group-header:hover { background: var(--bg-hover); }
+.tool-group-chevron {
+  font-size: 10px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+.tool-group.open .tool-group-chevron { transform: rotate(90deg); }
+.tool-group-names {
+  color: var(--text-dim);
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.tool-group-body {
+  display: none;
+}
+.tool-group.open .tool-group-body { display: block; }
+.tool-group.open .tool-group-header {
+  border-radius: 6px 6px 0 0;
+  border-bottom: none;
+}
+
 /* Thinking block */
 .thinking-block {
   margin: 6px 0;
@@ -262,6 +310,90 @@ body {
   overflow-y: auto;
 }
 .thinking-block.open .thinking-body { display: block; }
+
+/* Turn header bar */
+.turn-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.turn-header:hover { background: var(--bg-hover); }
+.turn-header-chevron {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.turn.collapsed .turn-header-chevron { transform: rotate(-90deg); }
+.turn-header-label { font-weight: 600; color: var(--text); }
+.turn-header-ts { margin-left: auto; font-size: 10px; }
+.turn-body {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.turn.collapsed .turn-body { display: none; }
+
+/* Role sections */
+.role-section {
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: 4px;
+}
+.role-section.role-user {
+  background: var(--bg-surface);
+  border-left: 3px solid var(--accent);
+}
+.role-section.role-assistant {
+  border-left: 3px solid var(--cyan);
+}
+.role-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.role-label.role-user-label { color: var(--accent); }
+.role-label.role-assistant-label { color: var(--cyan); }
+
+/* Collapsible long content */
+.collapsible-wrap { position: relative; }
+.collapsible-wrap.is-collapsed .collapsible-content {
+  max-height: 13em;
+  overflow: hidden;
+}
+.collapsible-wrap.is-collapsed .collapsible-fade {
+  display: block;
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  height: 3em;
+  background: linear-gradient(transparent, var(--bg));
+  pointer-events: none;
+}
+.role-section.role-user .collapsible-wrap.is-collapsed .collapsible-fade {
+  background: linear-gradient(transparent, var(--bg-surface));
+}
+.collapsible-fade { display: none; }
+.collapsible-toggle {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 0;
+  user-select: none;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+.collapsible-toggle:hover { text-decoration: underline; }
 
 /* Typing cursor */
 .cursor {
@@ -356,6 +488,28 @@ body {
     }
   }
 
+  function countLines(text) {
+    if (!text) return 0;
+    return text.split("\n").length;
+  }
+
+  function wrapCollapsible(contentHtml, totalLines, threshold) {
+    if (totalLines <= threshold) return contentHtml;
+    return `<div class="collapsible-wrap is-collapsed">
+      <div class="collapsible-content">${contentHtml}</div>
+      <div class="collapsible-fade"></div>
+      <button class="collapsible-toggle" onclick="toggleCollapsible(this)">Show more (${totalLines} lines)</button>
+    </div>`;
+  }
+
+  // Exposed globally for onclick
+  window.toggleCollapsible = function(btn) {
+    const wrap = btn.closest(".collapsible-wrap");
+    const collapsed = wrap.classList.toggle("is-collapsed");
+    const totalLines = wrap.querySelector(".collapsible-content").textContent.split("\n").length;
+    btn.textContent = collapsed ? `Show more (${totalLines} lines)` : "Show less";
+  };
+
   function renderTurn(turn) {
     const el = document.createElement("div");
     el.className = "turn";
@@ -363,47 +517,106 @@ body {
 
     let html = "";
 
-    // Timestamp
+    // Turn header bar
+    let tsStr = "";
     if (turn.timestamp) {
       const d = new Date(turn.timestamp);
-      const ts = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      html += `<div class="timestamp">${ts}</div>`;
+      tsStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     }
+    html += `<div class="turn-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <span class="turn-header-chevron">&#9660;</span>
+      <span class="turn-header-label">#${turn.index}</span>
+      ${tsStr ? `<span class="turn-header-ts">${tsStr}</span>` : ""}
+    </div>`;
+
+    html += `<div class="turn-body">`;
 
     // User message
     if (turn.user_text) {
-      html += `<div class="user-msg"><span class="user-prompt">&gt; </span><span class="user-text">${escapeHtml(turn.user_text)}</span></div>`;
+      const userLines = countLines(turn.user_text);
+      const userContent = `<div class="user-text">${escapeHtml(turn.user_text)}</div>`;
+      html += `<div class="role-section role-user">
+        <div class="role-label role-user-label">/*USER_LABEL*/</div>
+        ${wrapCollapsible(userContent, userLines, 10)}
+      </div>`;
     }
 
     // Assistant blocks
-    for (const block of turn.blocks) {
-      if (block.kind === "text") {
-        html += `<div class="assistant-text">${escapeHtml(block.text)}</div>`;
-      } else if (block.kind === "thinking") {
-        html += `<div class="thinking-block" data-type="thinking">
-          <div class="thinking-header" onclick="this.parentElement.classList.toggle('open')">
-            <span class="thinking-chevron">&#9654;</span> Thinking...
-          </div>
-          <div class="thinking-body">${escapeHtml(block.text)}</div>
-        </div>`;
-      } else if (block.kind === "tool_use" && block.tool_call) {
-        const tc = block.tool_call;
-        const preview = truncate(tc.input, 60);
-        let bodyHtml = `<div class="tool-input"><div class="tool-input-label">Input</div>${formatInput(tc.input)}</div>`;
-        if (tc.result != null) {
-          bodyHtml += `<div class="tool-result" data-type="result"><div class="tool-result-label">Result</div>${escapeHtml(tc.result)}</div>`;
+    if (turn.blocks.length > 0) {
+      html += `<div class="role-section role-assistant">`;
+      html += `<div class="role-label role-assistant-label">/*ASSISTANT_LABEL*/</div>`;
+
+      // Group consecutive tool_use blocks into runs
+      const segments = [];
+      let toolRun = [];
+      for (const block of turn.blocks) {
+        if (block.kind === "tool_use" && block.tool_call) {
+          toolRun.push(block);
+        } else {
+          if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); toolRun = []; }
+          segments.push({ type: "single", block });
         }
-        html += `<div class="tool-block" data-type="tool">
-          <div class="tool-header" onclick="this.parentElement.classList.toggle('open')">
-            <span class="tool-indicator"></span>
-            <span class="tool-name">${escapeHtml(tc.name)}</span>
-            <span class="tool-args-preview">${escapeHtml(preview)}</span>
-            <span class="tool-chevron">&#9654;</span>
-          </div>
-          <div class="tool-body">${bodyHtml}</div>
-        </div>`;
       }
+      if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); }
+
+      for (const seg of segments) {
+        if (seg.type === "single") {
+          const block = seg.block;
+          if (block.kind === "text") {
+            const lines = countLines(block.text);
+            const textContent = `<div class="assistant-text">${escapeHtml(block.text)}</div>`;
+            html += wrapCollapsible(textContent, lines, 15);
+          } else if (block.kind === "thinking") {
+            html += `<div class="thinking-block" data-type="thinking">
+              <div class="thinking-header" onclick="this.parentElement.classList.toggle('open')">
+                <span class="thinking-chevron">&#9654;</span> Thinking...
+              </div>
+              <div class="thinking-body">${escapeHtml(block.text)}</div>
+            </div>`;
+          }
+        } else {
+          // Consecutive tool calls
+          const toolHtml = seg.blocks.map(block => {
+            const tc = block.tool_call;
+            const preview = truncate(tc.input, 60);
+            let bodyHtml = `<div class="tool-input"><div class="tool-input-label">Input</div>${formatInput(tc.input)}</div>`;
+            if (tc.result != null) {
+              bodyHtml += `<div class="tool-result" data-type="result"><div class="tool-result-label">Result</div>${escapeHtml(tc.result)}</div>`;
+            }
+            return `<div class="tool-block" data-type="tool">
+              <div class="tool-header" onclick="this.parentElement.classList.toggle('open')">
+                <span class="tool-indicator"></span>
+                <span class="tool-name">${escapeHtml(tc.name)}</span>
+                <span class="tool-args-preview">${escapeHtml(preview)}</span>
+                <span class="tool-chevron">&#9654;</span>
+              </div>
+              <div class="tool-body">${bodyHtml}</div>
+            </div>`;
+          }).join("");
+
+          if (seg.blocks.length <= 2) {
+            // Short run — render inline without grouping
+            html += toolHtml;
+          } else {
+            // Long run — wrap in collapsible group
+            const names = seg.blocks.map(b => b.tool_call.name);
+            const uniqueNames = [...new Set(names)].join(", ");
+            html += `<div class="tool-group" data-type="tool">
+              <div class="tool-group-header" onclick="this.parentElement.classList.toggle('open')">
+                <span class="tool-group-chevron">&#9654;</span>
+                ${seg.blocks.length} tool calls
+                <span class="tool-group-names">${escapeHtml(uniqueNames)}</span>
+              </div>
+              <div class="tool-group-body">${toolHtml}</div>
+            </div>`;
+          }
+        }
+      }
+
+      html += `</div>`; // close role-assistant
     }
+
+    html += `</div>`; // close turn-body
 
     el.innerHTML = html;
     return el;
@@ -414,6 +627,27 @@ body {
     const pct = total ? (currentTurn / total) * 100 : 0;
     progressFill.style.width = pct + "%";
     progressText.textContent = currentTurn + " / " + total;
+  }
+
+  const CONTROLS_HEIGHT = 52;
+  const PEEK_OFFSET = 20; // px of previous dimmed turn visible above
+
+  function scrollToTurn(el) {
+    // Wait for layout to be fully resolved before measuring
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const absTop = el.getBoundingClientRect().top + window.scrollY;
+        const targetY = absTop - CONTROLS_HEIGHT - PEEK_OFFSET;
+        window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+      });
+    });
+  }
+
+  function setActiveTurn(index) {
+    for (const el of $$(".turn.active")) el.classList.remove("active");
+    if (index >= 0 && index < transcript.children.length) {
+      transcript.children[index].classList.add("active");
+    }
   }
 
   function showUpTo(index) {
@@ -428,12 +662,43 @@ body {
     }
     currentTurn = Math.min(index, TURNS.length);
     updateProgress();
+    setActiveTurn(currentTurn - 1);
 
-    // Scroll to latest
+    // Pin active turn just below the controls bar, with a peek of previous turn
     if (currentTurn > 0) {
-      const last = transcript.children[currentTurn - 1];
-      if (last) last.scrollIntoView({ behavior: "smooth", block: "end" });
+      const el = transcript.children[currentTurn - 1];
+      if (el) scrollToTurn(el);
     }
+  }
+
+  // Smooth scroll animation for auto-play on tall turns
+  let scrollAnim = null;
+
+  function cancelScrollAnim() {
+    if (scrollAnim) { cancelAnimationFrame(scrollAnim); scrollAnim = null; }
+  }
+
+  function smoothScrollTo(targetY, duration, callback) {
+    cancelScrollAnim();
+    const startY = window.scrollY;
+    const dist = targetY - startY;
+    if (Math.abs(dist) < 2) { if (callback) callback(); return; }
+    const startTime = performance.now();
+    function step(now) {
+      if (!playing) { cancelScrollAnim(); return; }
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      // ease-in-out
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      window.scrollTo(0, startY + dist * ease);
+      if (t < 1) {
+        scrollAnim = requestAnimationFrame(step);
+      } else {
+        scrollAnim = null;
+        if (callback) callback();
+      }
+    }
+    scrollAnim = requestAnimationFrame(step);
   }
 
   function stepForward() {
@@ -450,10 +715,17 @@ body {
       const last = transcript.children[currentTurn - 1];
       if (last) {
         last.classList.remove("visible");
+        last.classList.remove("active");
         setTimeout(() => last.remove(), 300);
       }
       currentTurn--;
       updateProgress();
+      setActiveTurn(currentTurn - 1);
+      // Pin active turn just below the controls bar
+      if (currentTurn > 0) {
+        const el = transcript.children[currentTurn - 1];
+        if (el) scrollToTurn(el);
+      }
     }
   }
 
@@ -462,33 +734,64 @@ body {
       // Reset if at end
       transcript.innerHTML = "";
       currentTurn = 0;
-      showUpTo(1); // Show first turn immediately
     }
     playing = true;
     btnPlay.innerHTML = "&#9646;&#9646;";
     btnPlay.classList.add("active");
-    scheduleNext();
+    playStep();
   }
 
   function stopPlay() {
     playing = false;
+    cancelScrollAnim();
     btnPlay.innerHTML = "&#9654;";
     btnPlay.classList.remove("active");
     if (playTimer) { clearTimeout(playTimer); playTimer = null; }
   }
 
-  function scheduleNext() {
+  function playStep() {
     if (!playing) return;
-    const delay = 1500 / speed;
-    playTimer = setTimeout(() => {
+    if (currentTurn >= TURNS.length) { stopPlay(); return; }
+
+    // Show next turn
+    showUpTo(currentTurn + 1);
+
+    const el = transcript.children[currentTurn - 1];
+    if (!el) { stopPlay(); return; }
+
+    // Wait for layout, then decide: scroll through or advance
+    requestAnimationFrame(() => {
       if (!playing) return;
-      stepForward();
-      if (currentTurn < TURNS.length) {
-        scheduleNext();
+      const rect = el.getBoundingClientRect();
+      const viewH = window.innerHeight - CONTROLS_HEIGHT;
+      const overflow = rect.height - viewH;
+
+      if (overflow > 50) {
+        // Tall turn: first pause at top, then scroll to bottom, then advance
+        const pauseTop = 800 / speed;
+        const scrollDuration = Math.min(Math.max(overflow / speed * 3, 1500 / speed), 8000 / speed);
+        const targetY = el.offsetTop - CONTROLS_HEIGHT + el.offsetHeight - viewH;
+
+        playTimer = setTimeout(() => {
+          if (!playing) return;
+          smoothScrollTo(targetY, scrollDuration, () => {
+            if (!playing) return;
+            // Pause at bottom before next step
+            playTimer = setTimeout(() => {
+              if (!playing) return;
+              playStep();
+            }, 800 / speed);
+          });
+        }, pauseTop);
       } else {
-        stopPlay();
+        // Short turn: just wait then advance
+        const delay = 1500 / speed;
+        playTimer = setTimeout(() => {
+          if (!playing) return;
+          playStep();
+        }, delay);
       }
-    }, delay);
+    });
   }
 
   function applyVisibility() {
