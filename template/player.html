@@ -124,6 +124,15 @@ body.in-iframe .bar-title:hover {
   white-space: nowrap;
 }
 
+.countdown-text {
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+}
+.countdown-text:empty { display: none; }
+
 .speed-control {
   display: flex;
   align-items: center;
@@ -708,6 +717,7 @@ mark.search-highlight.active {
       <button id="btn-next" title="Next turn">&rarr;</button>
       <a class="bar-title" id="bar-title" title="/*PAGE_TITLE*/">/*PAGE_TITLE*/</a>
       <span class="progress-text" id="progress-text">0 / 0</span>
+      <span class="countdown-text" id="countdown-text"></span>
       <div class="chapter-wrap" id="chapter-wrap" style="display:none">
         <button id="chapter-btn" title="Chapters" style="font-size:16px">&#9776;</button>
         <div class="chapter-menu" id="chapter-menu"></div>
@@ -779,7 +789,7 @@ mark.search-highlight.active {
   const progressText = $("#progress-text");
   const progressBar = $("#progress-bar");
   const speedBtn = $("#speed-btn");
-  const SPEED_STEPS = [0.5, 1, 1.5, 2];
+  const SPEED_STEPS = [0.5, 1, 2, 3, 5];
   const toggleThinking = $("#toggle-thinking");
   const toggleTools = $("#toggle-tools");
 
@@ -1155,14 +1165,45 @@ mark.search-highlight.active {
     btnPlay.classList.remove("active");
     if (playTimer) { clearTimeout(playTimer); playTimer = null; }
     if (animateCancelFn) { animateCancelFn(); animateCancelFn = null; }
+    countdownEl.textContent = "";
   }
 
   const ANIMATE_MIN_DELAY = 600;       // minimum ms between consecutive block reveals
   const ANIMATE_FALLBACK_DELAY = 800;  // ms between blocks when timestamps missing
   const ANIMATE_MAX_DELAY = 10000;     // max ms between blocks (before speed scaling)
 
+  const countdownEl = $("#countdown-text");
+  let countdownTimer = null;
+
+  // Adaptive wait: sleeps for gapMs/speed, but reads speed LIVE every tick
+  // so changing speed mid-wait takes effect immediately. Shows countdown.
+  function adaptiveWait(gapMs, onDone) {
+    let elapsed = 0;
+    const tickMs = 100;
+    let timer = null;
+
+    function tick() {
+      const remaining = gapMs - elapsed * speed;
+      if (remaining <= 0) {
+        countdownEl.textContent = "";
+        onDone();
+        return;
+      }
+      // Show countdown for waits > 1s
+      const remSec = Math.ceil(remaining / 1000);
+      countdownEl.textContent = remaining > 800 ? remSec + "s" : "";
+      elapsed += tickMs;
+      timer = setTimeout(tick, tickMs);
+    }
+
+    tick();
+    // Return cancel function
+    return function() { clearTimeout(timer); countdownEl.textContent = ""; };
+  }
+
   /**
    * Progressively reveal blocks within a turn using timestamps.
+   * Reads speed live so changes take effect immediately.
    * Returns a cancel function that instantly reveals remaining blocks.
    */
   function animateTurn(turnIndex, onComplete) {
@@ -1175,10 +1216,7 @@ mark.search-highlight.active {
     const wrappers = el.querySelectorAll(".block-wrapper");
     if (wrappers.length === 0) { onComplete(); return function(){}; }
 
-    // Build schedule: compute delay for each block
-    // Segments map to blocks — we need timestamps from the turn data
-    // The segments were built from turn.blocks grouping consecutive tool_use blocks.
-    // We rebuild the same segment structure to get timestamps.
+    // Rebuild segment structure to get timestamps
     const segments = [];
     let toolRun = [];
     for (const block of turn.blocks) {
@@ -1191,37 +1229,15 @@ mark.search-highlight.active {
     }
     if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); }
 
-    // Get timestamp for each segment (use first block's timestamp for tool groups)
     function getSegTs(seg) {
       if (seg.type === "single") return seg.block.timestamp || null;
       return (seg.blocks[0] && seg.blocks[0].timestamp) || null;
     }
 
-    // Get result timestamp for tool segments (use last tool's resultTimestamp)
-    function getSegResultTs(seg) {
-      if (seg.type !== "tools") return null;
-      for (let i = seg.blocks.length - 1; i >= 0; i--) {
-        const rt = seg.blocks[i].tool_call && seg.blocks[i].tool_call.resultTimestamp;
-        if (rt) return rt;
-      }
-      return null;
-    }
-
-    // Build reveal items: each item is { idx, delayMs }
-    // Use timestamps to compute gaps, but enforce a minimum delay between
-    // consecutive reveals so each block is readable before the next appears.
-    const items = [];
-    const t0Str = getSegTs(segments[0]);
-    const t0 = t0Str ? new Date(t0Str).getTime() : 0;
-    let cumulativeDelay = 0;
-
-    for (let si = 0; si < segments.length && si < wrappers.length; si++) {
-      const seg = segments[si];
-      if (si === 0) {
-        items.push({ idx: 0, delayMs: 0 });
-        continue;
-      }
-      const tsStr = getSegTs(seg);
+    // Compute raw gaps (in real ms) between consecutive segments
+    const gaps = [0]; // first block: no wait
+    for (let si = 1; si < segments.length && si < wrappers.length; si++) {
+      const tsStr = getSegTs(segments[si]);
       const prevTsStr = getSegTs(segments[si - 1]);
       let gapMs;
       if (tsStr && prevTsStr) {
@@ -1229,22 +1245,18 @@ mark.search-highlight.active {
       } else {
         gapMs = ANIMATE_FALLBACK_DELAY;
       }
-      // Enforce minimum and maximum gap
-      gapMs = Math.max(gapMs, ANIMATE_MIN_DELAY);
-      gapMs = Math.min(gapMs, ANIMATE_MAX_DELAY);
-      cumulativeDelay += gapMs / speed;
-      items.push({ idx: si, delayMs: cumulativeDelay });
+      gaps.push(Math.min(Math.max(gapMs, ANIMATE_MIN_DELAY), ANIMATE_MAX_DELAY));
     }
 
     let cancelled = false;
-    const timers = [];
+    let currentWaitCancel = null;
+    let currentIdx = 0;
 
     function revealWrapper(idx) {
       const w = wrappers[idx];
       if (!w) return;
       w.classList.remove("block-hidden");
       w.classList.add("block-revealing");
-      // Scroll to keep newly revealed content visible
       requestAnimationFrame(() => {
         const barH = getControlsHeight();
         const viewBottom = window.innerHeight - barH;
@@ -1261,34 +1273,41 @@ mark.search-highlight.active {
         w.classList.remove("block-hidden");
         w.classList.remove("block-revealing");
       }
+      countdownEl.textContent = "";
+    }
+
+    function revealNext() {
+      if (cancelled || currentIdx >= gaps.length) {
+        if (!cancelled) onComplete();
+        return;
+      }
+      const idx = currentIdx;
+      const gapMs = gaps[idx];
+      currentIdx++;
+
+      if (gapMs === 0) {
+        revealWrapper(idx);
+        revealNext();
+        return;
+      }
+
+      currentWaitCancel = adaptiveWait(gapMs, () => {
+        if (cancelled) return;
+        currentWaitCancel = null;
+        revealWrapper(idx);
+        revealNext();
+      });
     }
 
     function cancel() {
       if (cancelled) return;
       cancelled = true;
-      for (const t of timers) clearTimeout(t);
-      timers.length = 0;
+      if (currentWaitCancel) { currentWaitCancel(); currentWaitCancel = null; }
       revealAll();
     }
 
-    // Schedule reveals
-    let maxDelay = 0;
-    for (const item of items) {
-      const t = setTimeout(() => {
-        if (cancelled) return;
-        revealWrapper(item.idx);
-      }, item.delayMs);
-      timers.push(t);
-      if (item.delayMs > maxDelay) maxDelay = item.delayMs;
-    }
-
-    // Schedule completion callback after last reveal + small buffer
-    const completionTimer = setTimeout(() => {
-      if (cancelled) return;
-      onComplete();
-    }, maxDelay + 300 / speed);
-    timers.push(completionTimer);
-
+    // Start the chain
+    revealNext();
     return cancel;
   }
 
@@ -1303,13 +1322,11 @@ mark.search-highlight.active {
       const el = turnElements()[currentTurn - 1];
       if (!el) { stopPlay(); return; }
 
-      // Animate blocks within the turn, then use same inter-turn timing as normal mode
+      // Animate blocks within the turn, then dwell before advancing
       animateCancelFn = animateTurn(currentTurn - 1, () => {
         animateCancelFn = null;
         if (!playing) return;
 
-        // After block animation completes, use the same dwell/scroll logic
-        // as non-animate mode so turns don't rush by
         requestAnimationFrame(() => {
           if (!playing) return;
           const rect = el.getBoundingClientRect();
@@ -1317,26 +1334,27 @@ mark.search-highlight.active {
           const overflow = rect.height - viewH;
 
           if (overflow > TALL_THRESHOLD) {
-            const pauseTop = PAUSE_TOP_MS / speed;
-            const scrollDuration = Math.min(Math.max(overflow / speed * SCROLL_SPEED_FACTOR, SCROLL_MIN_MS / speed), SCROLL_MAX_MS / speed);
             const targetY = el.offsetTop - getTopOffset() + el.offsetHeight - viewH;
+            const scrollDist = Math.abs(targetY - window.scrollY);
+            const scrollDuration = Math.min(Math.max(scrollDist * SCROLL_SPEED_FACTOR / speed, SCROLL_MIN_MS / speed), SCROLL_MAX_MS / speed);
 
-            playTimer = setTimeout(() => {
+            animateCancelFn = adaptiveWait(PAUSE_TOP_MS, () => {
               if (!playing) return;
               smoothScrollTo(targetY, scrollDuration, () => {
                 if (!playing) return;
-                playTimer = setTimeout(() => {
+                animateCancelFn = adaptiveWait(PAUSE_BOTTOM_MS, () => {
                   if (!playing) return;
+                  animateCancelFn = null;
                   playStep();
-                }, PAUSE_BOTTOM_MS / speed);
+                });
               });
-            }, pauseTop);
+            });
           } else {
-            const delay = SHORT_TURN_DELAY_MS / speed;
-            playTimer = setTimeout(() => {
+            animateCancelFn = adaptiveWait(SHORT_TURN_DELAY_MS, () => {
               if (!playing) return;
+              animateCancelFn = null;
               playStep();
-            }, delay);
+            });
           }
         });
       });
