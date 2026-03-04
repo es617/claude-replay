@@ -379,6 +379,41 @@ body.scroll-bottom .transcript {
   border-top: 1px solid var(--border);
   margin: 0.8em 0;
 }
+.assistant-text table, .user-text table, .thinking-body table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 0.95em;
+  width: auto;
+  overflow-x: auto;
+  display: block;
+}
+.assistant-text th, .assistant-text td,
+.user-text th, .user-text td,
+.thinking-body th, .thinking-body td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+}
+.assistant-text th, .user-text th, .thinking-body th {
+  background: var(--bg-surface);
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+/* Background task notification badge */
+.bg-task-badge {
+  display: inline-block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--text);
+  margin: 4px 0;
+}
+.bg-task-badge::before {
+  content: "⚡ ";
+}
 
 /* Markdown in user text and thinking */
 .user-text pre, .thinking-body pre {
@@ -610,6 +645,7 @@ body.scroll-bottom .transcript {
 }
 .role-label.role-user-label { color: var(--accent); }
 .role-label.role-assistant-label { color: var(--cyan); }
+.role-label.role-system-label { color: var(--text); font-style: italic; }
 
 /* Collapsible long content */
 .collapsible-wrap { position: relative; }
@@ -917,6 +953,24 @@ body.scroll-bottom .transcript {
       }
       // Close any open list
       if (inList && line.trim() === "") { out += `</${inList}>`; inList = null; }
+      // Table: detect header row followed by separator row
+      if (line.trim().startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1].trim())) {
+        if (inList) { out += `</${inList}>`; inList = null; }
+        const parseRow = (r) => r.replace(/^\||\|$/g, "").split("|").map(c => inlineMarkdown(escapeHtml(c.trim())));
+        const headers = parseRow(line);
+        i++; // skip separator row
+        let rows = [];
+        while (i + 1 < lines.length && lines[i + 1].trim().startsWith("|")) {
+          i++;
+          rows.push(parseRow(lines[i]));
+        }
+        out += "<table><thead><tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr></thead>";
+        if (rows.length) {
+          out += "<tbody>" + rows.map(r => "<tr>" + r.map(c => `<td>${c}</td>`).join("") + "</tr>").join("") + "</tbody>";
+        }
+        out += "</table>";
+        continue;
+      }
       // Regular text — wrap non-empty lines in <p>, blank lines as breaks
       if (line.trim() === "") {
         if (out.length > 0) out += "\n";
@@ -1034,6 +1088,16 @@ body.scroll-bottom .transcript {
         <div class="role-label role-user-label">/*USER_LABEL*/</div>
         ${wrapCollapsible(userContent, userLines, 10)}
       </div>`;
+    }
+
+    // System events (background task notifications)
+    if (turn.system_events && turn.system_events.length) {
+      html += `<div class="role-section role-system">`;
+      html += `<div class="role-label role-system-label">System</div>`;
+      for (const ev of turn.system_events) {
+        html += `<div class="bg-task-badge">${escapeHtml(ev)}</div>`;
+      }
+      html += `</div>`;
     }
 
     // Assistant blocks

@@ -40,6 +40,7 @@ function turnsToJson(turns, { redact = true } = {}) {
       return block;
     }),
     timestamp: turn.timestamp,
+    ...(turn.system_events ? { system_events: turn.system_events } : {}),
   }));
   // Escape </script> sequences so the JSON blob doesn't break the HTML parser
   return JSON.stringify(data).replace(/<\//g, "<\\/");

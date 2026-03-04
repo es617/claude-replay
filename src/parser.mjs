@@ -13,13 +13,24 @@ import { readFileSync } from "node:fs";
 /**
  * Extract plain text from user message content (string or block array).
  */
+function cleanSystemTags(text) {
+  // Replace <task-notification> blocks with a compact marker the renderer can style
+  text = text.replace(/<task-notification>\s*<task-id>[^<]*<\/task-id>\s*<output-file>[^<]*<\/output-file>\s*<status>([^<]*)<\/status>\s*<summary>([^<]*)<\/summary>\s*<\/task-notification>/g,
+    (_, status, summary) => `[bg-task: ${summary}]`);
+  // Remove trailing "Read the output file..." lines that follow notifications
+  text = text.replace(/\n*Read the output file to retrieve the result:[^\n]*/g, "");
+  // Remove <system-reminder> blocks
+  text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>\s*/g, "");
+  return text.trim();
+}
+
 function extractText(content) {
-  if (typeof content === "string") return content;
+  if (typeof content === "string") return cleanSystemTags(content);
   const parts = [];
   for (const block of content) {
     if (block.type === "text") parts.push(block.text);
   }
-  return parts.join("\n");
+  return cleanSystemTags(parts.join("\n"));
 }
 
 /**
@@ -195,8 +206,17 @@ export function parseTranscript(filePath) {
         i++;
         continue;
       }
-      const userText = extractText(content);
+      let userText = extractText(content);
       const timestamp = entry.timestamp ?? "";
+
+      // Extract system events (bg-task notifications) from user text
+      const systemEvents = [];
+      userText = userText.replace(/\[bg-task:\s*(.+)\]/g, (_, summary) => {
+        systemEvents.push(summary);
+        return "";
+      });
+      userText = userText.trim();
+
       i++;
 
       const [assistantBlocks, nextI] = collectAssistantBlocks(entries, i);
@@ -204,12 +224,14 @@ export function parseTranscript(filePath) {
       i = attachToolResults(assistantBlocks, entries, i);
 
       turnIndex++;
-      turns.push({
+      const turn = {
         index: turnIndex,
         user_text: userText,
         blocks: assistantBlocks,
         timestamp,
-      });
+      };
+      if (systemEvents.length) turn.system_events = systemEvents;
+      turns.push(turn);
     } else if (role === "assistant") {
       const [assistantBlocks, nextI] = collectAssistantBlocks(entries, i);
       i = nextI;
