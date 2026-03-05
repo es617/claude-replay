@@ -26,40 +26,40 @@ const SAMPLE_TURNS = [
 
 describe("render", () => {
   it("produces valid HTML", () => {
-    const html = render(SAMPLE_TURNS);
+    const html = render(SAMPLE_TURNS, { minified: false });
     assert.match(html, /<!DOCTYPE html>/);
     assert.match(html, /<\/html>/);
   });
 
   it("embeds turns as JSON", () => {
-    const html = render(SAMPLE_TURNS);
+    const html = render(SAMPLE_TURNS, { minified: false });
     assert.match(html, /"user_text":"Hello"/);
     assert.match(html, /"name":"Read"/);
   });
 
   it("injects theme CSS", () => {
-    const html = render(SAMPLE_TURNS, { theme: getTheme("dracula") });
+    const html = render(SAMPLE_TURNS, { theme: getTheme("dracula"), minified: false });
     assert.match(html, /--bg: #282a36/);
   });
 
   it("sets initial speed", () => {
-    const html = render(SAMPLE_TURNS, { speed: 2.5 });
+    const html = render(SAMPLE_TURNS, { speed: 2.5, minified: false });
     assert.match(html, /2\.5x/);
   });
 
   it("respects showThinking=false", () => {
-    const html = render(SAMPLE_TURNS, { showThinking: false });
+    const html = render(SAMPLE_TURNS, { showThinking: false, minified: false });
     // The thinking checkbox should NOT have "checked"
     assert.match(html, /id="toggle-thinking" >/);
   });
 
   it("respects showThinking=true", () => {
-    const html = render(SAMPLE_TURNS, { showThinking: true });
+    const html = render(SAMPLE_TURNS, { showThinking: true, minified: false });
     assert.match(html, /id="toggle-thinking" checked>/);
   });
 
   it("has no leftover placeholders", () => {
-    const html = render(SAMPLE_TURNS);
+    const html = render(SAMPLE_TURNS, { minified: false });
     assert.doesNotMatch(html, /\/\*THEME_CSS\*\//);
     assert.doesNotMatch(html, /\/\*TURNS_JSON\*\//);
     assert.doesNotMatch(html, /\/\*CHECKED_THINKING\*\//);

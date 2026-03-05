@@ -11,6 +11,13 @@
     "src/",
     "template/"
   ],
+  "scripts": {
+    "build": "node scripts/build-template.mjs",
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
   "engines": {
     "node": ">=18"
   },

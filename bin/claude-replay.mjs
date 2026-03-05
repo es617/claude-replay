@@ -29,6 +29,7 @@ const options = {
   mark: { type: "string", multiple: true },
   bookmarks: { type: "string" },
   "scroll-top": { type: "boolean", default: false },
+  "no-minify": { type: "boolean", default: false },
   help: { type: "boolean", short: "h", default: false },
 };
 
@@ -64,6 +65,7 @@ Options:
   --mark "N:Label"        Add a bookmark at turn N (repeatable)
   --bookmarks FILE        JSON file with bookmarks [{turn, label}]
   --scroll-top            Scroll top-to-bottom (default: bottom-to-top terminal style)
+  --no-minify             Use unminified template (default: minified if available)
   --list-themes           List available built-in themes and exit
   -h, --help              Show this help message`);
   process.exit(0);
@@ -213,6 +215,7 @@ const html = render(turns, {
   title,
   bookmarks,
   scrollMode: values["scroll-top"] ? "top" : "bottom",
+  minified: !values["no-minify"],
 });
 
 if (values.output) {

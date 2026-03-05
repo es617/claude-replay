@@ -40,6 +40,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "18"
+      - run: npm install
+      - run: npm run build
       - run: npm pack --dry-run
       - run: npm pack
       - uses: actions/upload-artifact@v4
@@ -89,6 +91,8 @@ jobs:
         with:
           node-version: "18"
           registry-url: "https://registry.npmjs.org"
+      - run: npm install
+      - run: npm run build
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

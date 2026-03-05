@@ -7,6 +7,7 @@ import { themeToCss, getTheme } from "./themes.mjs";
 import { redactSecrets, redactObject } from "./secrets.mjs";
 
 const TEMPLATE_PATH = new URL("../template/player.html", import.meta.url);
+const TEMPLATE_MIN_PATH = new URL("../template/player.min.html", import.meta.url);
 
 /** Escape text for safe embedding in HTML text nodes and attribute values. */
 function escapeHtml(str) {
@@ -84,7 +85,16 @@ export function render(turns, opts = {}) {
   const speed = Number.isFinite(rawSpeed) ? Math.max(0.1, Math.min(rawSpeed, 10)) : 1.0;
   const scrollMode = rawScrollMode === "top" ? "top" : "bottom";
 
-  let html = readFileSync(TEMPLATE_PATH, "utf-8");
+  let html;
+  if (opts.minified === false) {
+    html = readFileSync(TEMPLATE_PATH, "utf-8");
+  } else {
+    try {
+      html = readFileSync(TEMPLATE_MIN_PATH, "utf-8");
+    } catch {
+      html = readFileSync(TEMPLATE_PATH, "utf-8");
+    }
+  }
 
   // Replace all template placeholders BEFORE injecting TURNS/BOOKMARKS JSON,
   // because the JSON data can contain arbitrary text (including placeholder strings
