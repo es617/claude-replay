@@ -1214,19 +1214,19 @@ body.scroll-bottom .transcript {
 
   let scrollProtectUntil = 0; // timestamp — suppress scroll tracking after programmatic scrolls
 
-  function scrollToTurn(el) {
+  function scrollToTurn(el, { anchorTop = false } = {}) {
     scrollProtectUntil = Date.now() + 2000;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         let targetY;
-        if (SCROLL_MODE === "bottom") {
+        if (SCROLL_MODE === "bottom" && !anchorTop) {
           // Terminal style: position turn's bottom above the controls bar
           const absBottom = el.getBoundingClientRect().bottom + window.scrollY;
           const barH = getControlsHeight();
           const viewH = window.innerHeight - barH;
           targetY = Math.max(0, absBottom - viewH + PEEK_OFFSET);
         } else {
-          // Classic: position turn's top near the top of the viewport
+          // Top anchor: position turn's top near the top of the viewport
           const prev = el.previousElementSibling;
           const scrollTarget = (prev && prev.classList.contains("bookmark-divider")) ? prev : el;
           const absTop = scrollTarget.getBoundingClientRect().top + window.scrollY;
@@ -1271,7 +1271,7 @@ body.scroll-bottom .transcript {
     }
   }
 
-  function showUpTo(index) {
+  function showUpTo(index, { anchorTop = false } = {}) {
     currentTurn = Math.min(index, TURNS.length);
     const turns = turnElements();
     // Mark turns up to currentTurn as visible
@@ -1307,7 +1307,7 @@ body.scroll-bottom .transcript {
     // Pin active turn just below the controls bar, with a peek of previous turn
     if (currentTurn > 0) {
       const el = turns[currentTurn - 1];
-      if (el) scrollToTurn(el);
+      if (el) scrollToTurn(el, { anchorTop });
     }
   }
 
@@ -1346,7 +1346,7 @@ body.scroll-bottom .transcript {
     if (playing) stopPlay();
     animatePausedState = null;
     if (currentTurn < TURNS.length) {
-      showUpTo(currentTurn + 1);
+      showUpTo(currentTurn + 1, { anchorTop: true });
     }
   }
 
@@ -1354,7 +1354,7 @@ body.scroll-bottom .transcript {
     if (playing) stopPlay();
     animatePausedState = null;
     if (currentTurn > 0) {
-      showUpTo(currentTurn - 1);
+      showUpTo(currentTurn - 1, { anchorTop: true });
     }
   }
 
@@ -1879,20 +1879,25 @@ body.scroll-bottom .transcript {
     }
     if (best >= 0) {
       const idx = best + 1; // 1-based
-      // Only advance forward — never snap backward after programmatic scrolls
-      if (idx > currentTurn) {
-        currentTurn = idx;
-        for (let i = 0; i < turns.length; i++) {
-          turns[i].classList.toggle("visible", i < currentTurn);
-          if (ANIMATE && i < currentTurn) {
-            for (const w of turns[i].querySelectorAll(".block-wrapper.block-hidden")) {
-              w.classList.remove("block-hidden");
+      if (idx !== currentTurn) {
+        if (idx > currentTurn) {
+          // Scrolling forward — reveal new turns
+          currentTurn = idx;
+          for (let i = 0; i < turns.length; i++) {
+            turns[i].classList.toggle("visible", i < currentTurn);
+            if (ANIMATE && i < currentTurn) {
+              for (const w of turns[i].querySelectorAll(".block-wrapper.block-hidden")) {
+                w.classList.remove("block-hidden");
+              }
             }
           }
-        }
-        for (const div of transcript.querySelectorAll(".bookmark-divider")) {
-          const t = parseInt(div.dataset.turn, 10);
-          div.classList.toggle("visible", t <= currentTurn);
+          for (const div of transcript.querySelectorAll(".bookmark-divider")) {
+            const t = parseInt(div.dataset.turn, 10);
+            div.classList.toggle("visible", t <= currentTurn);
+          }
+        } else {
+          // Scrolling backward — update active turn (don't hide already-revealed turns)
+          currentTurn = idx;
         }
         updateProgress();
         setActiveTurn(currentTurn - 1);
