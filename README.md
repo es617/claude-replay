@@ -68,6 +68,8 @@ claude-replay <input.jsonl> [options]
 | `--theme NAME` | Built-in theme (default: `tokyo-night`) |
 | `--theme-file FILE` | Custom theme JSON file (overrides `--theme`) |
 | `--scroll-top` | Scroll top-to-bottom (default: bottom-to-top terminal style) |
+| `--no-minify` | Use unminified template (default: minified if available) |
+| `--no-compress` | Embed raw JSON instead of compressed data (for older browsers) |
 | `--list-themes` | List available built-in themes and exit |
 
 ### Examples
@@ -187,8 +189,26 @@ The output is a single HTML file with no external dependencies. Embed it in blog
 
 1. **Parser** reads the JSONL transcript line by line, handling Claude Code's streaming format (where a single assistant message appears as multiple lines with incremental content blocks)
 2. Turns are grouped as: user message + assistant response (text, tool calls, thinking blocks) + tool results
-3. **Renderer** injects the parsed turns as an inline JSON blob into the HTML template via string replacement
-4. The **player** is vanilla JS — no frameworks, no external requests
+3. **Renderer** compresses the parsed turns (deflate + base64) and injects them into the HTML template
+4. The **player** is vanilla JS — no frameworks, no external requests. Data is decompressed at load time using the browser-native `DecompressionStream` API
+
+### Output optimization
+
+Generated HTML files use two layers of optimization (zero external dependencies):
+
+- **Minified CSS/JS** — the player template is minified with esbuild (mangled variable names, whitespace removed). Use `--no-minify` for readable output.
+- **Compressed data** — transcript JSON is deflate-compressed and base64-encoded, typically reducing output size by ~60-70%. The browser decompresses it natively at load time.
+
+### Development
+
+To rebuild the minified template after editing `template/player.html`:
+
+```bash
+npm install    # installs esbuild (devDependency)
+npm run build  # generates template/player.min.html
+```
+
+The minified template is built in CI and included in npm releases. Without it, the CLI falls back to the unminified template automatically.
 
 ## Secret redaction
 
@@ -227,7 +247,7 @@ Claude Code transcripts use one JSON object per line with a `type` field:
 ## Requirements
 
 - Node.js 18+
-- Zero npm dependencies
+- Zero runtime dependencies (esbuild is a dev-only dependency for building the minified template)
 
 ## License
 

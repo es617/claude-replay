@@ -3,6 +3,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { deflateSync } from "node:zlib";
 import { themeToCss, getTheme } from "./themes.mjs";
 import { redactSecrets, redactObject } from "./secrets.mjs";
 
@@ -24,13 +25,18 @@ function escapeJsonForScript(json) {
   return json.replace(/<\//g, "<\\/").replace(/<!--/g, "<\\!--");
 }
 
+/** Compress a JSON string to base64-encoded deflate for embedding. */
+function compressForEmbed(json) {
+  return deflateSync(Buffer.from(json)).toString("base64");
+}
+
 /**
- * Serialize turns into a JSON string for embedding in HTML.
+ * Prepare turns data for serialization.
  * @param {import('./parser.mjs').Turn[]} turns
  * @param {{ redact?: boolean }} options
  */
-function turnsToJson(turns, { redact = true } = {}) {
-  const data = turns.map((turn) => ({
+function turnsToJsonData(turns, { redact = true } = {}) {
+  return turns.map((turn) => ({
     index: turn.index,
     user_text: redact ? redactSecrets(turn.user_text) : turn.user_text,
     blocks: turn.blocks.map((b) => {
@@ -58,7 +64,6 @@ function turnsToJson(turns, { redact = true } = {}) {
     timestamp: turn.timestamp,
     ...(turn.system_events ? { system_events: turn.system_events } : {}),
   }));
-  return escapeJsonForScript(JSON.stringify(data));
 }
 
 /**
@@ -109,11 +114,15 @@ export function render(turns, opts = {}) {
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*SCROLL_MODE*/", scrollMode);
 
-  // JSON blobs last — they may contain text matching any of the above placeholders.
+  // Data blobs last — they may contain text matching any of the above placeholders.
   // BOOKMARKS before TURNS, because TURNS data may contain the literal placeholder
   // string in user messages (e.g. from pasted plans).
-  html = html.replace("/*BOOKMARKS_JSON*/[]", escapeJsonForScript(JSON.stringify(bookmarks)));
-  html = html.replace("/*TURNS_JSON*/[]", turnsToJson(turns, { redact }));
+  const compress = opts.compress !== false;
+  const embedData = (json) => compress
+    ? compressForEmbed(json)
+    : escapeJsonForScript(json);
+  html = html.replace("/*BOOKMARKS_DATA*/", embedData(JSON.stringify(bookmarks)));
+  html = html.replace("/*TURNS_DATA*/", embedData(JSON.stringify(turnsToJsonData(turns, { redact }))));
 
   return html;
 }

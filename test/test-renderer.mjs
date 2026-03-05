@@ -31,8 +31,15 @@ describe("render", () => {
     assert.match(html, /<\/html>/);
   });
 
-  it("embeds turns as JSON", () => {
+  it("embeds turns as compressed base64 by default", () => {
     const html = render(SAMPLE_TURNS, { minified: false });
+    // Data is deflate+base64 compressed, not raw JSON
+    assert.match(html, /await decodeData\("/);
+    assert.doesNotMatch(html, /"user_text":"Hello"/);
+  });
+
+  it("embeds raw JSON with compress=false", () => {
+    const html = render(SAMPLE_TURNS, { minified: false, compress: false });
     assert.match(html, /"user_text":"Hello"/);
     assert.match(html, /"name":"Read"/);
   });
@@ -61,7 +68,8 @@ describe("render", () => {
   it("has no leftover placeholders", () => {
     const html = render(SAMPLE_TURNS, { minified: false });
     assert.doesNotMatch(html, /\/\*THEME_CSS\*\//);
-    assert.doesNotMatch(html, /\/\*TURNS_JSON\*\//);
+    assert.doesNotMatch(html, /\/\*TURNS_DATA\*\//);
+    assert.doesNotMatch(html, /\/\*BOOKMARKS_DATA\*\//);
     assert.doesNotMatch(html, /\/\*CHECKED_THINKING\*\//);
     assert.doesNotMatch(html, /\/\*CHECKED_TOOLS\*\//);
   });

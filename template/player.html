@@ -883,19 +883,40 @@ body.scroll-bottom .transcript {
       </div>
     </div>
   </div>
-  <div class="transcript" id="transcript"></div>
+  <div class="transcript" id="transcript" style="opacity:0.5">Loading...</div>
 </div>
 
 <script>
-(function() {
+(async function() {
   "use strict";
 
   // ═══════════════════════════════════════════
   // § CONFIG & CONSTANTS
   // ═══════════════════════════════════════════
 
-  const TURNS = /*TURNS_JSON*/[];
-  const BOOKMARKS = /*BOOKMARKS_JSON*/[];
+  // Decode embedded data: deflate+base64 (compressed) or raw JSON string.
+  // Uses browser-native DecompressionStream — Node deflateSync ↔ browser DecompressionStream("deflate").
+  async function decodeData(raw) {
+    // Raw JSON (from --no-compress): starts with [ or {
+    if (raw.startsWith("[") || raw.startsWith("{")) return JSON.parse(raw);
+    // Compressed base64 — requires DecompressionStream
+    if (typeof DecompressionStream === "undefined") {
+      document.getElementById("transcript").textContent =
+        "This replay uses compressed data, but your browser does not support DecompressionStream. " +
+        "Please use a modern browser (Chrome 80+, Firefox 113+, Safari 16.4+), " +
+        "or rebuild with --no-compress.";
+      throw new Error("DecompressionStream not supported");
+    }
+    const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
+    const ds = new DecompressionStream("deflate");
+    const writer = ds.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    return JSON.parse(await new Response(ds.readable).text());
+  }
+
+  const TURNS = await decodeData("/*TURNS_DATA*/");
+  const BOOKMARKS = await decodeData("/*BOOKMARKS_DATA*/");
   const SCROLL_MODE = "/*SCROLL_MODE*/";
   const ANIMATE = true;
 
@@ -2008,6 +2029,8 @@ body.scroll-bottom .transcript {
 
   // Init
   if (SCROLL_MODE === "bottom") document.body.classList.add("scroll-bottom");
+  transcript.textContent = "";
+  transcript.style.opacity = "";
   renderAllTurns();
   applyVisibility();
   const hashMatch = location.hash.match(/turn=(\d+)/);

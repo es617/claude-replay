@@ -22,8 +22,8 @@ const PLACEHOLDERS = [
   // CSS placeholder
   { pattern: "/*THEME_CSS*/", token: "__PLACEHOLDER_THEME_CSS__" },
   // JS placeholders (inside string literals or as values)
-  { pattern: "/*TURNS_JSON*/[]", token: '"__PLACEHOLDER_TURNS_JSON__"' },
-  { pattern: "/*BOOKMARKS_JSON*/[]", token: '"__PLACEHOLDER_BOOKMARKS_JSON__"' },
+  { pattern: '"/*TURNS_DATA*/"', token: '"__PLACEHOLDER_TURNS_DATA__"' },
+  { pattern: '"/*BOOKMARKS_DATA*/"', token: '"__PLACEHOLDER_BOOKMARKS_DATA__"' },
   { pattern: '"/*SCROLL_MODE*/"', token: '"__PLACEHOLDER_SCROLL_MODE__"' },
   { pattern: "/*INITIAL_SPEED*/1", token: "__PLACEHOLDER_INITIAL_SPEED_VAL__" },
   { pattern: "/*INITIAL_SPEED*/", token: "__PLACEHOLDER_INITIAL_SPEED__" },
@@ -69,14 +69,17 @@ const [minCss, minJs] = await Promise.all([
   transform(js, { loader: "js", minify: true, target: "es2020" }),
 ]);
 
-// Reassemble: everything before <style>, minified CSS, middle HTML, minified JS, end
-const beforeStyle = protected_.slice(0, protected_.indexOf("<style>") + "<style>".length);
-const afterStyle = protected_.slice(protected_.indexOf("</style>"));
-const middle = afterStyle.slice("</style>".length, afterStyle.indexOf("<script>") + "<script>".length);
-const afterScript = protected_.slice(protected_.indexOf("</script>"));
-const end = afterScript.slice("</script>".length);
+// Reassemble: split into 5 parts around CSS and JS
+const styleOpen = protected_.indexOf("<style>");
+const styleClose = protected_.indexOf("</style>");
+const scriptOpen = protected_.indexOf("<script>");
+const scriptClose = protected_.indexOf("</script>");
 
-let out = beforeStyle + "\n" + minCss.code + middle + "\n" + minJs.code + end;
+const beforeCss = protected_.slice(0, styleOpen + "<style>".length);
+const betweenCssAndJs = protected_.slice(styleClose + "</style>".length, scriptOpen + "<script>".length);
+const afterJs = protected_.slice(scriptClose + "</script>".length);
+
+let out = beforeCss + "\n" + minCss.code + "</style>" + betweenCssAndJs + "\n" + minJs.code + "</script>" + afterJs;
 
 // Restore original placeholders
 for (const { pattern, token } of PLACEHOLDERS) {
