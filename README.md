@@ -21,7 +21,7 @@ Claude Code stores full conversation transcripts as JSONL files in `~/.claude/pr
 - Bookmarks / chapters
 - Secret redaction before export
 - Multiple color themes
-- Terminal-style bottom-to-top scroll (default) or classic top-to-bottom
+- Terminal-style bottom-to-top scroll
 - Embeddable via iframe
 
 ## Installation
@@ -72,7 +72,6 @@ claude-replay <input.jsonl> [options]
 | `--title TEXT` | Page title (default: derived from input path) |
 | `--theme NAME` | Built-in theme (default: `tokyo-night`) |
 | `--theme-file FILE` | Custom theme JSON file (overrides `--theme`) |
-| `--scroll-top` | Scroll top-to-bottom (default: bottom-to-top terminal style) |
 | `--no-minify` | Use unminified template (default: minified if available) |
 | `--no-compress` | Embed raw JSON instead of compressed data (for older browsers) |
 | `--list-themes` | List available built-in themes and exit |
@@ -91,9 +90,6 @@ claude-replay session.jsonl --no-thinking --no-tool-calls -o replay.html
 
 # Use a different theme
 claude-replay session.jsonl --theme dracula -o replay.html
-
-# Classic top-to-bottom scroll (instead of default terminal style)
-claude-replay session.jsonl --scroll-top -o replay.html
 
 # Pipe to stdout for further processing
 claude-replay session.jsonl --turns 1-5 > snippet.html

@@ -303,12 +303,8 @@ body.in-iframe .progress-text { display: none; }
 
 /* Transcript area */
 .transcript {
-  padding: 16px;
-  padding-bottom: 100vh;
+  padding: calc(100vh - 80px) 16px 100vh;
   min-height: 100vh;
-}
-body.scroll-bottom .transcript {
-  padding-top: calc(100vh - 80px);
 }
 
 .turn {
@@ -990,7 +986,6 @@ body.scroll-bottom .transcript {
 
   const TURNS = await decodeData("/*TURNS_DATA*/");
   const BOOKMARKS = await decodeData("/*BOOKMARKS_DATA*/");
-  const SCROLL_MODE = "/*SCROLL_MODE*/";
   const ANIMATE = true;
 
   const SPEED_STEPS = [0.5, 1, 2, 3, 5];
@@ -1221,7 +1216,6 @@ body.scroll-bottom .transcript {
   }
 
   function getControlsHeight() { return controlsEl.offsetHeight; }
-  function getTopOffset() { return 0; } // controls are at bottom
 
   // Splash screen helpers
   function showSplash() { splash.classList.remove("hidden"); }
@@ -1476,24 +1470,14 @@ body.scroll-bottom .transcript {
     scrollAnim = requestAnimationFrame(step);
   }
 
-  function scrollToTurn(el, { anchorTop = false } = {}) {
+  function scrollToTurn(el) {
     scrollProtectUntil = Date.now() + 2000;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        let targetY;
-        if (SCROLL_MODE === "bottom" && !anchorTop) {
-          // Terminal style: position turn's bottom above the controls bar
-          const absBottom = el.getBoundingClientRect().bottom + window.scrollY;
-          const barH = getControlsHeight();
-          const viewH = window.innerHeight - barH;
-          targetY = Math.max(0, absBottom - viewH + PEEK_OFFSET);
-        } else {
-          // Top anchor: position turn's top near the top of the viewport
-          const prev = el.previousElementSibling;
-          const scrollTarget = (prev && prev.classList.contains("bookmark-divider")) ? prev : el;
-          const absTop = scrollTarget.getBoundingClientRect().top + window.scrollY;
-          targetY = Math.max(0, absTop - getTopOffset() - PEEK_OFFSET);
-        }
+        const absBottom = el.getBoundingClientRect().bottom + window.scrollY;
+        const barH = getControlsHeight();
+        const viewH = window.innerHeight - barH;
+        const targetY = Math.max(0, absBottom - viewH + PEEK_OFFSET);
         const dist = Math.abs(targetY - window.scrollY);
         if (dist < 2) return;
         const duration = Math.min(TURN_SCROLL_MS + dist * 0.3, 1500);
@@ -1502,7 +1486,7 @@ body.scroll-bottom .transcript {
     });
   }
 
-  function showUpTo(index, { anchorTop = false, skipScroll = false, hideActiveBlocks = false } = {}) {
+  function showUpTo(index, { skipScroll = false, hideActiveBlocks = false } = {}) {
     currentTurn = Math.min(index, TURNS.length);
     const turns = turnElements();
     // Mark turns up to currentTurn as visible
@@ -1533,7 +1517,7 @@ body.scroll-bottom .transcript {
     // Pin active turn just below the controls bar, with a peek of previous turn
     if (!skipScroll && currentTurn > 0) {
       const el = turns[currentTurn - 1];
-      if (el) scrollToTurn(el, { anchorTop });
+      if (el) scrollToTurn(el);
     }
   }
 
@@ -1680,13 +1664,13 @@ body.scroll-bottom .transcript {
       showUpTo(currentTurn + 1, { skipScroll: true });
 
       // From splash: instantly position at the first turn
-      if (fromSplash && SCROLL_MODE === "bottom") {
+      if (fromSplash) {
         const el = turnElements()[0];
         if (el) {
           const barH = getControlsHeight();
           const viewH = window.innerHeight - barH;
           const absBottom = el.getBoundingClientRect().bottom + window.scrollY;
-          window.scrollTo({ top: Math.max(0, absBottom - viewH + 20), behavior: "instant" });
+          window.scrollTo({ top: Math.max(0, absBottom - viewH + PEEK_OFFSET), behavior: "instant" });
         }
       }
 
@@ -1705,19 +1689,16 @@ body.scroll-bottom .transcript {
           const overflow = rect.height - viewH;
 
           if (overflow > TALL_THRESHOLD) {
-            const targetY = SCROLL_MODE === "bottom"
-              ? el.offsetTop - getTopOffset()  // scroll up to top of turn
-              : el.offsetTop - getTopOffset() + el.offsetHeight - viewH;  // scroll down to bottom
-            const firstPause = SCROLL_MODE === "bottom" ? PAUSE_BOTTOM_MS : PAUSE_TOP_MS;
-            const secondPause = SCROLL_MODE === "bottom" ? PAUSE_TOP_MS : PAUSE_BOTTOM_MS;
+            // Tall turn: pause at bottom, scroll up to top, pause again, then advance
+            const targetY = el.offsetTop;
             const scrollDist = Math.abs(targetY - window.scrollY);
             const scrollDuration = Math.min(Math.max(scrollDist * SCROLL_SPEED_FACTOR / speed, SCROLL_MIN_MS / speed), SCROLL_MAX_MS / speed);
 
-            animateCancelFn = adaptiveWait(firstPause, () => {
+            animateCancelFn = adaptiveWait(PAUSE_BOTTOM_MS, () => {
               if (!playing) return;
               smoothScrollTo(targetY, scrollDuration, () => {
                 if (!playing) return;
-                animateCancelFn = adaptiveWait(secondPause, () => {
+                animateCancelFn = adaptiveWait(PAUSE_TOP_MS, () => {
                   if (!playing) return;
                   animateCancelFn = null;
                   playStep();
@@ -1736,13 +1717,12 @@ body.scroll-bottom .transcript {
       return;
     }
 
-    // Non-animate mode: original behavior
+    // Non-animate mode: show turn instantly, then dwell
     showUpTo(currentTurn + 1);
 
     const el = turnElements()[currentTurn - 1];
     if (!el) { stopPlay(); return; }
 
-    // Wait for layout, then decide: scroll through or advance
     requestAnimationFrame(() => {
       if (!playing) return;
       const rect = el.getBoundingClientRect();
@@ -1750,11 +1730,7 @@ body.scroll-bottom .transcript {
       const overflow = rect.height - viewH;
 
       if (overflow > TALL_THRESHOLD) {
-        const targetY = SCROLL_MODE === "bottom"
-          ? el.offsetTop - getTopOffset()
-          : el.offsetTop - getTopOffset() + el.offsetHeight - viewH;
-        const firstPause = (SCROLL_MODE === "bottom" ? PAUSE_BOTTOM_MS : PAUSE_TOP_MS) / speed;
-        const secondPause = (SCROLL_MODE === "bottom" ? PAUSE_TOP_MS : PAUSE_BOTTOM_MS) / speed;
+        const targetY = el.offsetTop;
         const scrollDuration = Math.min(Math.max(overflow / speed * SCROLL_SPEED_FACTOR, SCROLL_MIN_MS / speed), SCROLL_MAX_MS / speed);
 
         playTimer = setTimeout(() => {
@@ -1764,11 +1740,10 @@ body.scroll-bottom .transcript {
             playTimer = setTimeout(() => {
               if (!playing) return;
               playStep();
-            }, secondPause);
+            }, PAUSE_TOP_MS / speed);
           });
-        }, firstPause);
+        }, PAUSE_BOTTOM_MS / speed);
       } else {
-        // Short turn: just wait then advance
         const delay = SHORT_TURN_DELAY_MS / speed;
         playTimer = setTimeout(() => {
           if (!playing) return;
@@ -1813,6 +1788,23 @@ body.scroll-bottom .transcript {
         playStep();
       }, ps.blockIdx);
       return;
+    }
+
+    // Resume if current turn has unrevealed blocks (from block-by-block stepping)
+    if (ANIMATE && currentTurn > 0) {
+      const turnEl = turnElements()[currentTurn - 1];
+      if (turnEl) {
+        const revealed = turnEl.querySelectorAll(".block-wrapper:not(.block-hidden)").length;
+        const total = turnEl.querySelectorAll(".block-wrapper").length;
+        if (revealed < total) {
+          animateCancelFn = animateTurn(currentTurn - 1, () => {
+            animateCancelFn = null;
+            if (!playing) return;
+            playStep();
+          }, revealed);
+          return;
+        }
+      }
     }
 
     playStep();
@@ -2277,7 +2269,6 @@ body.scroll-bottom .transcript {
   }
 
   // Init
-  if (SCROLL_MODE === "bottom") document.body.classList.add("scroll-bottom");
   transcript.textContent = "";
   transcript.style.opacity = "";
   renderAllTurns();

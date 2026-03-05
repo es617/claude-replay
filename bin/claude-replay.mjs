@@ -28,7 +28,6 @@ const options = {
   "assistant-label": { type: "string", default: "Claude" },
   mark: { type: "string", multiple: true },
   bookmarks: { type: "string" },
-  "scroll-top": { type: "boolean", default: false },
   "no-minify": { type: "boolean", default: false },
   "no-compress": { type: "boolean", default: false },
   help: { type: "boolean", short: "h", default: false },
@@ -65,7 +64,6 @@ Options:
   --assistant-label NAME  Label for assistant messages (default: Claude)
   --mark "N:Label"        Add a bookmark at turn N (repeatable)
   --bookmarks FILE        JSON file with bookmarks [{turn, label}]
-  --scroll-top            Scroll top-to-bottom (default: bottom-to-top terminal style)
   --no-minify             Use unminified template (default: minified if available)
   --no-compress           Embed raw JSON instead of compressed (for older browsers)
   --list-themes           List available built-in themes and exit
@@ -216,7 +214,6 @@ const html = render(turns, {
   assistantLabel: values["assistant-label"],
   title,
   bookmarks,
-  scrollMode: values["scroll-top"] ? "top" : "bottom",
   minified: !values["no-minify"],
   compress: !values["no-compress"],
 });

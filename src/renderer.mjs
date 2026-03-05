@@ -83,12 +83,10 @@ export function render(turns, opts = {}) {
     title = "Claude Code Replay",
     redactSecrets: redact = true,
     bookmarks = [],
-    scrollMode: rawScrollMode = "bottom",
   } = opts;
 
   // Validate inputs
   const speed = Number.isFinite(rawSpeed) ? Math.max(0.1, Math.min(rawSpeed, 10)) : 1.0;
-  const scrollMode = rawScrollMode === "top" ? "top" : "bottom";
 
   let html;
   if (opts.minified === false) {
@@ -112,7 +110,6 @@ export function render(turns, opts = {}) {
   html = html.replaceAll("/*PAGE_TITLE*/", escapeHtml(title));
   html = html.replace("/*USER_LABEL*/", escapeHtml(userLabel));
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
-  html = html.replace("/*SCROLL_MODE*/", scrollMode);
 
   // Data blobs last — they may contain text matching any of the above placeholders.
   // BOOKMARKS before TURNS, because TURNS data may contain the literal placeholder
