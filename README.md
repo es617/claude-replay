@@ -1,5 +1,6 @@
 # claude-replay
 
+![npm](https://img.shields.io/npm/v/claude-replay)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-replay-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
@@ -9,20 +10,30 @@
 
 Claude Code sessions are great for development, but hard to share. Screen recordings are bulky and transcripts are hard to navigate.
 
-**claude-replay** turns raw session logs into interactive HTML replays that can be shared, embedded, and explored. The generated replay is a single HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
+**claude-replay** turns Claude Code session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
 
-Claude Code stores full conversation transcripts as JSONL files in `~/.claude/projects/`. These contain every user message, assistant response, tool call, tool result, and thinking block — with timestamps. **claude-replay** converts them into visual replays that look like a Claude Code terminal session, suitable for blog posts, demos, and documentation.
+Claude Code stores full conversation transcripts as JSONL files on disk in `~/.claude/projects/`. These contain every user message, assistant response, tool call, tool result, and thinking block — with timestamps. **claude-replay** converts them into visual replays that look like a Claude Code terminal session, suitable for blog posts, demos, and documentation.
 
 ## Features
 
 - Self-contained HTML output (no dependencies)
 - Interactive playback with speed control
-- Collapse/expand tool calls and thinking blocks
+- Collapse/expand tool calls and thinking blocks (Claude's internal reasoning traces)
 - Bookmarks / chapters
 - Secret redaction before export
 - Multiple color themes
 - Terminal-style bottom-to-top scroll
 - Embeddable via iframe
+
+## Use cases
+
+claude-replay is useful for:
+
+- **Blog posts** — show AI-assisted development sessions interactively
+- **Documentation** — embed AI debugging sessions or code walkthroughs
+- **Demos** — share reproducible sessions without video
+- **Bug reports** — attach a replay instead of long logs
+- **Teaching** — step through AI reasoning and tool usage
 
 ## Installation
 
