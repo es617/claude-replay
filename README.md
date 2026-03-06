@@ -12,6 +12,9 @@ Claude Code sessions are great for development, but hard to share. Screen record
 
 **claude-replay** turns Claude Code session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
 
+[![Demo screenshot](https://raw.githubusercontent.com/es617/claude-replay/main/docs/screenshot-dracula.png)](https://es617.github.io/claude-replay/demo.html)
+**[Try the live demo](https://es617.github.io/claude-replay/demo.html)**
+
 Claude Code stores full conversation transcripts as JSONL files on disk in `~/.claude/projects/`. These contain every user message, assistant response, tool call, tool result, and thinking block — with timestamps. **claude-replay** converts them into visual replays that look like a Claude Code terminal session, suitable for blog posts, demos, and documentation.
 
 ## Features
