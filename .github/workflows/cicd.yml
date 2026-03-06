@@ -33,6 +33,17 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: node --test test/test-*.mjs
 
+  test-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +62,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint, test, build]
+    needs: [lint, test, test-e2e, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

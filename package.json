@@ -13,9 +13,11 @@
   ],
   "scripts": {
     "build": "node scripts/build-template.mjs",
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "test:e2e": "npx playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "esbuild": "^0.25.0"
   },
   "engines": {
