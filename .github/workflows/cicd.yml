@@ -62,7 +62,7 @@ jobs:
         if: ${{ !contains(github.ref_name, 'rc') }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          awk "/^## ${VERSION}$/,/^## /" CHANGELOG.md | head -n -1 > release-notes.md
+          awk "/^## ${VERSION}/,/^## /" CHANGELOG.md | head -n -1 > release-notes.md
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,7 +84,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, 'rc')
     needs: release
     runs-on: ubuntu-latest
-    environment: npm
+    permissions:
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -94,5 +95,3 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
