@@ -398,13 +398,13 @@ test("Write tool renders code block", async ({ page }) => {
   await expect(writeTool.locator(".diff-result")).toContainText("Created /src/config.json");
 });
 
-test("Edit/Write tool headers show file basename as preview", async ({ page }) => {
+test("Edit/Write tool headers show file path as preview", async ({ page }) => {
   await goto(page, "turn=3");
   const editPreview = page.locator('.turn[data-index="3"] .tool-block', { hasText: "Edit" }).first().locator(".tool-args-preview");
   const writePreview = page.locator('.turn[data-index="3"] .tool-block', { hasText: "Write" }).first().locator(".tool-args-preview");
 
-  await expect(editPreview).toContainText("app.ts");
-  await expect(writePreview).toContainText("config.json");
+  await expect(editPreview).toContainText("/src/app.ts");
+  await expect(writePreview).toContainText("/src/config.json");
 });
 
 test("other tools still render generic input/result", async ({ page }) => {

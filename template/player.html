@@ -1213,9 +1213,15 @@ body.in-iframe .bar-title:hover {
   function toolPreview(tc) {
     const name = tc.name || "";
     const input = tc.input || {};
-    if (name === "Edit" || name === "Write") {
-      const fp = input.file_path || "";
-      return fp.split("/").pop() || fp;
+    if (name === "Edit" || name === "Write" || name === "Read") {
+      return input.file_path || "";
+    }
+    if (name === "Grep" || name === "Glob") {
+      const p = input.pattern || "";
+      return input.path ? p + " in " + input.path : p;
+    }
+    if (name === "Bash") {
+      return input.command || "";
     }
     return truncate(input, 60);
   }
