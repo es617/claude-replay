@@ -7,6 +7,7 @@
 import { parseArgs } from "node:util";
 import { basename, dirname } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { exec } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "../src/parser.mjs";
 import { render } from "../src/renderer.mjs";
 import { getTheme, loadThemeFile, listThemes } from "../src/themes.mjs";
@@ -33,6 +34,7 @@ const options = {
   bookmarks: { type: "string" },
   "no-minify": { type: "boolean", default: false },
   "no-compress": { type: "boolean", default: false },
+  open: { type: "boolean", default: false },
   help: { type: "boolean", short: "h", default: false },
 };
 
@@ -75,6 +77,7 @@ Options:
   --bookmarks FILE        JSON file with bookmarks [{turn, label}]
   --no-minify             Use unminified template (default: minified if available)
   --no-compress           Embed raw JSON instead of compressed (for older browsers)
+  --open                  Open the generated HTML in the default browser (requires -o)
   --list-themes           List available built-in themes and exit
   -h, --help              Show this help message`);
   process.exit(0);
@@ -285,6 +288,14 @@ const html = render(turns, {
 if (values.output) {
   writeFileSync(values.output, html);
   console.error(`Wrote ${values.output} (${turns.length} turns)`);
+  if (values.open) {
+    const cmd = process.platform === "darwin" ? "open"
+      : process.platform === "win32" ? "start" : "xdg-open";
+    exec(`${cmd} ${JSON.stringify(values.output)}`);
+  }
 } else {
+  if (values.open) {
+    console.error("Warning: --open requires -o/--output (cannot open stdout output)");
+  }
   process.stdout.write(html);
 }

@@ -125,6 +125,7 @@ Note: the extracted data is the *parsed* representation (system tags stripped, s
 | `--theme-file FILE` | Custom theme JSON file (overrides `--theme`) |
 | `--no-minify` | Use unminified template (default: minified if available) |
 | `--no-compress` | Embed raw JSON instead of compressed data (for older browsers) |
+| `--open` | Open the generated HTML in the default browser (requires `-o`) |
 | `--list-themes` | List available built-in themes and exit |
 
 ### Examples
