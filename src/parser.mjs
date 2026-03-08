@@ -365,7 +365,7 @@ export function applyPacedTiming(turns) {
 /**
  * Filter turns by index range or time range.
  * @param {Turn[]} turns
- * @param {{ turnRange?: [number,number], timeFrom?: string, timeTo?: string }} opts
+ * @param {{ turnRange?: [number,number], excludeTurns?: number[], timeFrom?: string, timeTo?: string }} opts
  * @returns {Turn[]}
  */
 export function filterTurns(turns, opts = {}) {
@@ -374,6 +374,11 @@ export function filterTurns(turns, opts = {}) {
   if (opts.turnRange) {
     const [start, end] = opts.turnRange;
     result = result.filter((t) => t.index >= start && t.index <= end);
+  }
+
+  if (opts.excludeTurns) {
+    const excluded = new Set(opts.excludeTurns);
+    result = result.filter((t) => !excluded.has(t.index));
   }
 
   if (opts.timeFrom) {

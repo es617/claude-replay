@@ -96,6 +96,21 @@ describe("filterTurns", () => {
     assert.equal(filtered[0].index, 2);
   });
 
+  it("excludes specific turns", () => {
+    const turns = parseTranscript(FIXTURE);
+    const filtered = filterTurns(turns, { excludeTurns: [1, 3] });
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].index, 2);
+  });
+
+  it("combines turn range with exclude", () => {
+    const turns = parseTranscript(FIXTURE);
+    const filtered = filterTurns(turns, { turnRange: [1, 3], excludeTurns: [2] });
+    assert.equal(filtered.length, 2);
+    assert.equal(filtered[0].index, 1);
+    assert.equal(filtered[1].index, 3);
+  });
+
   it("returns all turns with no filters", () => {
     const turns = parseTranscript(FIXTURE);
     const filtered = filterTurns(turns);

@@ -15,6 +15,7 @@ import { extractData } from "../src/extract.mjs";
 const options = {
   output: { type: "string", short: "o" },
   turns: { type: "string" },
+  "exclude-turns": { type: "string" },
   from: { type: "string" },
   to: { type: "string" },
   speed: { type: "string", default: "1" },
@@ -57,6 +58,7 @@ Commands:
 Options:
   -o, --output FILE       Output HTML file (default: stdout)
   --turns N-M             Only include turns N through M
+  --exclude-turns N,N,... Exclude specific turns by index
   --from TIMESTAMP        Start time filter (ISO 8601)
   --to TIMESTAMP          End time filter (ISO 8601)
   --speed N               Initial playback speed (default: 1.0)
@@ -164,11 +166,25 @@ if (values.turns) {
   turnRange = [start, end];
 }
 
+// Parse excluded turns
+let excludeTurns;
+if (values["exclude-turns"]) {
+  excludeTurns = values["exclude-turns"].split(",").map((s) => {
+    const n = parseInt(s.trim(), 10);
+    if (isNaN(n)) {
+      console.error(`Error: invalid turn number '${s.trim()}' in --exclude-turns`);
+      process.exit(1);
+    }
+    return n;
+  });
+}
+
 // Parse and filter
 const format = detectFormat(inputFile);
 let turns = parseTranscript(inputFile);
 turns = filterTurns(turns, {
   turnRange,
+  excludeTurns,
   timeFrom: values.from,
   timeTo: values.to,
 });

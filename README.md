@@ -108,6 +108,7 @@ Note: the extracted data is the *parsed* representation (system tags stripped, s
 |---|---|
 | `-o, --output FILE` | Output HTML file (default: stdout) |
 | `--turns N-M` | Only include turns N through M |
+| `--exclude-turns N,N,...` | Exclude specific turns by index |
 | `--from TIMESTAMP` | Start time filter (ISO 8601) |
 | `--to TIMESTAMP` | End time filter (ISO 8601) |
 | `--speed N` | Initial playback speed, e.g. `2.0` (default: 1.0) |
