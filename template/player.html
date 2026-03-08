@@ -727,6 +727,7 @@ body.in-iframe .bar-title:hover {
   flex-shrink: 0;
 }
 .block-active .block-spinner { display: inline-block; }
+.block-active { border-left: 2px solid var(--accent); padding-left: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Mobile: larger touch targets, prevent iOS zoom */
@@ -2249,12 +2250,114 @@ body.in-iframe .bar-title:hover {
     }
   });
 
+  // Jump to next/prev turn (all blocks revealed)
+  function jumpTurn(dir) {
+    if (playing) stopPlay();
+    animatePausedState = null;
+    scrollProtectUntil = Date.now() + 2000;
+    const target = dir > 0
+      ? Math.min(currentTurn + 1, TURNS.length)
+      : Math.max(currentTurn - 1, 0);
+    navigate(target);
+  }
+
+  // Track the last block highlighted by jumpBlock so we can collapse it on next jump
+  let lastJumpedBlock = null;
+
+  // Jump to next/prev thinking or tool block, expand it, collapse previous
+  function jumpBlock(dir) {
+    if (playing) stopPlay();
+    animatePausedState = null;
+    scrollProtectUntil = Date.now() + 2000;
+
+    // Collect all thinking/tool elements across all turns, respecting filter toggles
+    const showThinking = toggleThinking.checked;
+    const showTools = toggleTools.checked;
+    const allBlocks = [];
+    const turns = turnElements();
+    for (const turn of turns) {
+      for (const wrapper of turn.querySelectorAll(".block-wrapper")) {
+        if (showThinking) {
+          for (const el of wrapper.querySelectorAll('[data-type="thinking"]')) allBlocks.push(el);
+        }
+        if (showTools) {
+          for (const el of wrapper.querySelectorAll('[data-type="tool"]')) allBlocks.push(el);
+        }
+      }
+    }
+    if (allBlocks.length === 0) return;
+
+    // Find current position — either from last jumped block or infer from current turn
+    let curIdx = -1;
+    if (lastJumpedBlock) {
+      curIdx = allBlocks.indexOf(lastJumpedBlock);
+    }
+    if (curIdx < 0 && currentTurn > 0) {
+      // No previous jump — find the last block in/before the current turn
+      const curTurnEl = turns[currentTurn - 1];
+      if (curTurnEl) {
+        for (let i = allBlocks.length - 1; i >= 0; i--) {
+          if (curTurnEl.contains(allBlocks[i])) { curIdx = i; break; }
+        }
+        // If nothing in current turn, find last block before it
+        if (curIdx < 0) {
+          for (let i = allBlocks.length - 1; i >= 0; i--) {
+            const blockTurn = allBlocks[i].closest(".turn");
+            const blockTurnIdx = blockTurn ? parseInt(blockTurn.dataset.index, 10) : 0;
+            if (blockTurnIdx <= currentTurn) { curIdx = i; break; }
+          }
+        }
+      }
+    }
+
+    // Compute next index
+    let nextIdx;
+    if (dir > 0) {
+      nextIdx = curIdx < 0 ? 0 : Math.min(curIdx + 1, allBlocks.length - 1);
+    } else {
+      nextIdx = curIdx < 0 ? allBlocks.length - 1 : Math.max(curIdx - 1, 0);
+    }
+
+    const target = allBlocks[nextIdx];
+
+    // Ensure the target's turn is visible — navigate to it
+    const turnEl = target.closest(".turn");
+    if (turnEl) {
+      const turnIdx = parseInt(turnEl.dataset.index, 10);
+      if (turnIdx !== currentTurn) {
+        hideSplash();
+        showUpTo(turnIdx, { skipScroll: true });
+      }
+    }
+
+    // Collapse previous, expand target
+    if (lastJumpedBlock && lastJumpedBlock !== target) {
+      lastJumpedBlock.classList.remove("open");
+    }
+    target.classList.add("open");
+    lastJumpedBlock = target;
+
+    // Set block-active on the wrapper for visual highlight
+    const wrapper = target.closest(".block-wrapper");
+    if (wrapper) {
+      const prevActive = transcript.querySelector(".block-active");
+      if (prevActive) prevActive.classList.remove("block-active");
+      wrapper.classList.add("block-active");
+    }
+
+    scrollIntoView(target);
+  }
+
   // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
     if (e.key === " " || e.key === "k") { e.preventDefault(); playing ? stopPlay() : startPlay(); }
+    if (e.shiftKey && (e.key === "ArrowRight" || e.key === "L")) { e.preventDefault(); jumpTurn(1); return; }
+    if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "H")) { e.preventDefault(); jumpTurn(-1); return; }
     if (e.key === "ArrowRight" || e.key === "l") { e.preventDefault(); stepForward(); }
     if (e.key === "ArrowLeft" || e.key === "h") { e.preventDefault(); stepBack(); }
+    if (e.key === "n") { e.preventDefault(); jumpBlock(1); }
+    if (e.key === "N") { e.preventDefault(); jumpBlock(-1); }
   });
 
   // Iframe detection — compact mode + title as pop-out link

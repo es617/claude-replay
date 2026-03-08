@@ -181,8 +181,12 @@ The generated HTML file is a fully self-contained interactive player:
 | Key | Action |
 |---|---|
 | `Space` / `K` | Play / Pause |
-| `→` / `L` | Step forward |
-| `←` / `H` | Step back |
+| `→` / `L` | Step forward (block) |
+| `←` / `H` | Step back (block) |
+| `Shift+→` / `Shift+L` | Jump to next turn |
+| `Shift+←` / `Shift+H` | Jump to previous turn |
+| `N` | Jump to next thinking/tool block |
+| `Shift+N` | Jump to previous thinking/tool block |
 
 ## Themes
 
