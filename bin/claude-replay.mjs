@@ -28,6 +28,8 @@ const options = {
   "no-auto-redact": { type: "boolean", default: false },
   redact: { type: "string", multiple: true },
   title: { type: "string" },
+  description: { type: "string" },
+  "og-image": { type: "string" },
   "user-label": { type: "string", default: "User" },
   "assistant-label": { type: "string" },
   timing: { type: "string" },
@@ -68,6 +70,8 @@ Options:
   --no-thinking           Hide thinking blocks by default
   --no-tool-calls         Hide tool call blocks by default
   --title TEXT             Page title (default: derived from input path)
+  --description TEXT       Meta description for link previews (default: "Interactive AI session replay")
+  --og-image URL          OG image URL for link previews (default: hosted default)
   --no-auto-redact        Disable automatic secret redaction
   --redact "text"         Replace text with [REDACTED] (repeatable)
   --redact "text=repl"    Replace text with custom replacement (repeatable)
@@ -294,6 +298,8 @@ const html = render(turns, {
   userLabel: values["user-label"],
   assistantLabel: values["assistant-label"] || (format === "cursor" ? "Assistant" : "Claude"),
   title,
+  description: values.description,
+  ogImage: values["og-image"],
   bookmarks,
   minified: !values["no-minify"],
   compress: !values["no-compress"],

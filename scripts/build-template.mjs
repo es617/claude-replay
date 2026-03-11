@@ -28,9 +28,12 @@ const PLACEHOLDERS = [
   { pattern: "/*INITIAL_SPEED*/", token: "__PLACEHOLDER_INITIAL_SPEED__" },
   { pattern: "/*CHECKED_THINKING*/", token: "__PLACEHOLDER_CHECKED_THINKING__" },
   { pattern: "/*CHECKED_TOOLS*/", token: "__PLACEHOLDER_CHECKED_TOOLS__" },
+  { pattern: "/*THEME_BG*/", token: "__PLACEHOLDER_THEME_BG__" },
   { pattern: "/*PAGE_TITLE*/", token: "__PLACEHOLDER_PAGE_TITLE__" },
   { pattern: "/*USER_LABEL*/", token: "__PLACEHOLDER_USER_LABEL__" },
   { pattern: "/*ASSISTANT_LABEL*/", token: "__PLACEHOLDER_ASSISTANT_LABEL__" },
+  { pattern: "/*PAGE_DESCRIPTION*/", token: "__PLACEHOLDER_PAGE_DESCRIPTION__" },
+  { pattern: "/*OG_IMAGE*/", token: "__PLACEHOLDER_OG_IMAGE__" },
 ];
 
 // Replace placeholders with safe tokens

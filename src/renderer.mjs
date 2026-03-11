@@ -120,6 +120,8 @@ export function render(turns, opts = {}) {
     userLabel = "User",
     assistantLabel = "Claude",
     title = "Claude Code Replay",
+    description = "Interactive AI session replay",
+    ogImage = "https://es617.github.io/claude-replay/og.png",
     redactSecrets: redact = true,
     bookmarks = [],
   } = opts;
@@ -142,11 +144,14 @@ export function render(turns, opts = {}) {
   // because the JSON data can contain arbitrary text (including placeholder strings
   // from session transcripts) which would collide with .replace().
   html = html.replace("/*THEME_CSS*/", themeToCss(theme));
+  html = html.replace("/*THEME_BG*/", escapeHtml(theme.bg || "#1a1b26"));
   html = html.replace("/*INITIAL_SPEED*/1", String(speed));  // JS default
   html = html.replace(/\/\*INITIAL_SPEED\*\//g, String(speed));  // HTML attrs
   html = html.replaceAll("/*CHECKED_THINKING*/", showThinking ? "checked" : "");
   html = html.replaceAll("/*CHECKED_TOOLS*/", showToolCalls ? "checked" : "");
   html = html.replaceAll("/*PAGE_TITLE*/", escapeHtml(title));
+  html = html.replaceAll("/*PAGE_DESCRIPTION*/", escapeHtml(description));
+  html = html.replaceAll("/*OG_IMAGE*/", escapeHtml(ogImage));
   html = html.replace("/*USER_LABEL*/", escapeHtml(userLabel));
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
 

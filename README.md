@@ -120,6 +120,8 @@ Note: the extracted data is the *parsed* representation (system tags stripped, s
 | `--redact "text"` | Replace all occurrences of text with `[REDACTED]` (repeatable) |
 | `--redact "text=repl"` | Replace all occurrences of text with custom replacement (repeatable) |
 | `--title TEXT` | Page title (default: derived from input path) |
+| `--description TEXT` | Meta description for link previews (default: `Interactive AI session replay`) |
+| `--og-image URL` | OG image URL for link previews (default: [hosted default](https://es617.github.io/claude-replay/og.png)). A default image is always included; to use your own, host it and pass the URL. |
 | `--user-label NAME` | Label for user messages (default: `User`) |
 | `--assistant-label NAME` | Label for assistant messages (default: auto-detected) |
 | `--timing MODE` | Timestamp mode: `auto`, `real`, `paced` (default: `auto`) |

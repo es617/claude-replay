@@ -107,9 +107,12 @@ describe("render", () => {
   it("has no leftover placeholders", () => {
     const html = render(SAMPLE_TURNS, { minified: false });
     assert.doesNotMatch(html, /\/\*THEME_CSS\*\//);
+    assert.doesNotMatch(html, /\/\*THEME_BG\*\//);
     assert.doesNotMatch(html, /\/\*TURNS_DATA\*\//);
     assert.doesNotMatch(html, /\/\*BOOKMARKS_DATA\*\//);
     assert.doesNotMatch(html, /\/\*CHECKED_THINKING\*\//);
     assert.doesNotMatch(html, /\/\*CHECKED_TOOLS\*\//);
+    assert.doesNotMatch(html, /\/\*PAGE_DESCRIPTION\*\//);
+    assert.doesNotMatch(html, /\/\*OG_IMAGE\*\//);
   });
 });

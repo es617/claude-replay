@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build": "node scripts/build-template.mjs",
-    "test": "node --test test/",
+    "test": "node --test test/test-*.mjs",
     "test:e2e": "npx playwright test"
   },
   "devDependencies": {
