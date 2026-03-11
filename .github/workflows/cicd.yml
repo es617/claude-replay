@@ -73,7 +73,7 @@ jobs:
         if: ${{ !contains(github.ref_name, 'rc') }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          awk "/^## ${VERSION}/,/^## /" CHANGELOG.md | head -n -1 > release-notes.md
+          awk "/^## ${VERSION}/{found=1; next} /^## /{if(found) exit} found" CHANGELOG.md > release-notes.md
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
