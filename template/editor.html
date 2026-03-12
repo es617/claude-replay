@@ -55,12 +55,12 @@ body {
 /* Three-panel grid layout */
 .app {
   display: grid;
-  grid-template-columns: 260px 1fr 45%;
+  grid-template-columns: 260px 1fr 4px 1fr;
   grid-template-rows: auto 1fr;
   height: 100vh;
 }
 body.sidebar-collapsed .app {
-  grid-template-columns: 16px 1fr 45%;
+  grid-template-columns: 16px 1fr 4px 1fr;
 }
 body.sidebar-collapsed .app .sidebar {
   overflow: hidden;
@@ -491,8 +491,15 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 .bookmark-label-input:focus { outline: 1px solid var(--accent); }
 
 /* Preview panel (right) */
+.resize-handle {
+  background: var(--border);
+  cursor: col-resize;
+  width: 4px;
+  transition: background 0.15s;
+}
+.resize-handle:hover, .resize-handle.active { background: var(--accent); }
+
 .preview-panel {
-  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -650,6 +657,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       <div class="empty-state">Select a session to begin editing</div>
     </div>
   </div>
+
+  <div class="resize-handle" id="resizeHandle"></div>
 
   <!-- Preview panel -->
   <div class="preview-panel">
@@ -1137,6 +1146,39 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     root.classList.toggle("dark", !isLight);
     themeModeBtn.innerHTML = isLight ? "&#9728;" : "&#9790;";
   });
+
+  // --- Resize handle ---
+  const resizeHandle = document.getElementById("resizeHandle");
+  const appEl = document.querySelector(".app");
+  let dragging = false;
+  resizeHandle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    dragging = true;
+    resizeHandle.classList.add("active");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    previewIframe.style.pointerEvents = "none";
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const appRect = appEl.getBoundingClientRect();
+    const sidebar = document.querySelector(".sidebar");
+    const sidebarWidth = sidebar.getBoundingClientRect().width;
+    const available = appRect.width - sidebarWidth - 4;
+    const editorWidth = Math.max(100, Math.min(available - 100, e.clientX - appRect.left - sidebarWidth));
+    const previewWidth = available - editorWidth;
+    appEl.style.gridTemplateColumns = `${sidebarWidth}px ${editorWidth}px 4px ${previewWidth}px`;
+  });
+  function stopDrag() {
+    if (!dragging) return;
+    dragging = false;
+    resizeHandle.classList.remove("active");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    previewIframe.style.pointerEvents = "";
+  }
+  document.addEventListener("mouseup", stopDrag);
+  window.addEventListener("blur", stopDrag);
 
   // --- Init ---
   loadSessions();
