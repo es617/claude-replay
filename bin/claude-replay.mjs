@@ -7,7 +7,7 @@
 import { parseArgs } from "node:util";
 import { basename, dirname } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "../src/parser.mjs";
 import { render } from "../src/renderer.mjs";
 import { getTheme, loadThemeFile, listThemes } from "../src/themes.mjs";
@@ -56,7 +56,7 @@ const { values, positionals } = parsed;
 if (positionals.length === 0 || positionals[0] === "editor") {
   if (positionals[0] === "editor" || !values.help) {
     const { startEditor } = await import("../src/editor-server.mjs");
-    const port = values.port ? parseInt(values.port) : 7331;
+    const port = values.port ? parseInt(values.port, 10) : 7331;
     await startEditor(port);
     // startEditor returns a promise that never resolves — server stays running
   }
@@ -321,7 +321,7 @@ if (values.output) {
   if (values.open) {
     const cmd = process.platform === "darwin" ? "open"
       : process.platform === "win32" ? "start" : "xdg-open";
-    exec(`${cmd} ${JSON.stringify(values.output)}`);
+    execFile(cmd, [values.output], () => {});
   }
 } else {
   if (values.open) {

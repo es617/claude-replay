@@ -1232,8 +1232,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     }
   }
 
-  const debouncedEdit = debounce((index, text) => {
-    apiJson("POST", "/api/edit", { sessionId: currentSessionId, turnIndex: index, user_text: text })
+  const debouncedEdit = debounce((sessionId, index, text) => {
+    if (sessionId !== currentSessionId) return; // session changed, discard
+    apiJson("POST", "/api/edit", { sessionId, turnIndex: index, user_text: text })
       .then((data) => { updateEditState(data.hasEdits); schedulePreview(); })
       .catch((e) => console.error("Edit failed:", e));
   }, 300);
@@ -1241,7 +1242,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   function handleTurnInput(e) {
     const { action, index: rawIndex } = e.target.dataset;
     const index = parseInt(rawIndex);
-    if (action === "edit") debouncedEdit(index, e.target.value);
+    if (action === "edit") debouncedEdit(currentSessionId, index, e.target.value);
     if (action === "bookmark-label" && bookmarks.has(index)) {
       bookmarks.set(index, e.target.value || `Turn ${index}`);
       debouncedPreview();

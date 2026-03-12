@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, join, dirname } from "node:path";
 import { homedir } from "node:os";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "./parser.mjs";
 import { render } from "./renderer.mjs";
 import { getTheme, listThemes } from "./themes.mjs";
@@ -25,10 +25,21 @@ let sessionCounter = 0;
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
+const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (c) => chunks.push(c));
+    let size = 0;
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error("Request body too large"));
+        return;
+      }
+      chunks.push(c);
+    });
     req.on("end", () => {
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString()));
@@ -420,7 +431,7 @@ export function startEditor(port, { open = true } = {}) {
       if (open) {
         const cmd = process.platform === "darwin" ? "open"
           : process.platform === "win32" ? "start" : "xdg-open";
-        exec(`${cmd} ${url}`);
+        execFile(cmd, [url], () => {});
       }
     });
   });
