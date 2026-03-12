@@ -3,8 +3,7 @@
  */
 
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { exec } from "node:child_process";
@@ -14,15 +13,18 @@ import { getTheme, listThemes } from "./themes.mjs";
 
 const EDITOR_HTML_PATH = new URL("../template/editor.html", import.meta.url);
 
+// ---------------------------------------------------------------------------
 // In-memory session store
 // Map<sessionId, { originalTurns, workingTurns, sourcePath, format }>
-const sessions = new Map();
+// ---------------------------------------------------------------------------
 
+const sessions = new Map();
 let sessionCounter = 0;
 
-/**
- * Read JSON body from a request.
- */
+// ---------------------------------------------------------------------------
+// HTTP helpers
+// ---------------------------------------------------------------------------
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -38,9 +40,6 @@ function readBody(req) {
   });
 }
 
-/**
- * Send a JSON response.
- */
 function json(res, data, status = 200) {
   const body = JSON.stringify(data);
   res.writeHead(status, {
@@ -50,17 +49,91 @@ function json(res, data, status = 200) {
   res.end(body);
 }
 
-/**
- * Send an error response.
- */
 function error(res, message, status = 400) {
   json(res, { error: message }, status);
 }
 
+// ---------------------------------------------------------------------------
+// Session helpers
+// ---------------------------------------------------------------------------
+
+/** Summarize a turn's blocks into a human-readable string. */
+function summarizeBlocks(blocks) {
+  const counts = { text: 0, thinking: 0, tool_use: 0 };
+  for (const b of blocks) {
+    counts[b.kind] = (counts[b.kind] || 0) + 1;
+  }
+  const parts = [];
+  if (counts.text) parts.push(`${counts.text} text`);
+  if (counts.thinking) parts.push(`${counts.thinking} thinking`);
+  if (counts.tool_use) parts.push(`${counts.tool_use} tool call${counts.tool_use > 1 ? "s" : ""}`);
+  return parts.join(", ") || "empty";
+}
+
+/** Map full turns to the lightweight shape sent to the client. */
+function summarizeTurns(turns) {
+  return turns.map((t) => ({
+    index: t.index,
+    user_text: t.user_text,
+    blockSummary: summarizeBlocks(t.blocks),
+    timestamp: t.timestamp,
+    system_events: t.system_events || [],
+  }));
+}
+
+/** Resolve a theme name, falling back to tokyo-night. */
+function getThemeSafe(name) {
+  try {
+    return getTheme(name);
+  } catch {
+    return getTheme("tokyo-night");
+  }
+}
+
 /**
- * Browse a directory and return its contents (directories + .jsonl files).
- * Only serves filesystem entries — the user navigates explicitly.
+ * Prepare turns for rendering: clone, filter, apply timing.
+ * Returns ready-to-render turns array.
  */
+function prepareTurns(session, options) {
+  let turns = session.workingTurns;
+  if (options.excludeTurns && options.excludeTurns.length > 0) {
+    turns = filterTurns(turns, { excludeTurns: options.excludeTurns });
+  }
+  const cloned = JSON.parse(JSON.stringify(turns));
+  const timing = options.timing || "auto";
+  const hasTimestamps = cloned.some((t) => t.timestamp);
+  if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
+    applyPacedTiming(cloned);
+  }
+  return cloned;
+}
+
+/** Build render options from client options + session metadata. */
+function buildRenderOpts(options, session, overrides = {}) {
+  return {
+    speed: parseFloat(options.speed) || 1.0,
+    showThinking: options.showThinking !== false,
+    showToolCalls: options.showToolCalls !== false,
+    theme: getThemeSafe(options.theme || "tokyo-night"),
+    redactSecrets: options.redactSecrets !== false,
+    redactRules: options.redactRules || [],
+    userLabel: options.userLabel || "User",
+    assistantLabel: options.assistantLabel || (session.format === "cursor" ? "Assistant" : "Claude"),
+    title: options.title || "Replay",
+    description: options.description || "",
+    ogImage: options.ogImage || "",
+    bookmarks: (options.bookmarks || []).sort((a, b) => a.turn - b.turn),
+    minified: false,
+    compress: false,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem browsing
+// ---------------------------------------------------------------------------
+
+/** Browse a directory — returns dirs + .jsonl files. */
 function browseDirectory(dirPath) {
   const resolved = resolve(dirPath);
   const entries = readdirSync(resolved);
@@ -68,7 +141,7 @@ function browseDirectory(dirPath) {
   const files = [];
 
   for (const name of entries) {
-    if (name.startsWith(".")) continue; // skip hidden files
+    if (name.startsWith(".")) continue;
     const fullPath = join(resolved, name);
     try {
       const stat = statSync(fullPath);
@@ -81,15 +154,13 @@ function browseDirectory(dirPath) {
   }
 
   dirs.sort((a, b) => a.name.localeCompare(b.name));
-  files.sort((a, b) => b.date.localeCompare(a.date)); // newest first
+  files.sort((a, b) => b.date.localeCompare(a.date));
 
   const parent = dirname(resolved);
   return { path: resolved, parent: parent !== resolved ? parent : null, dirs, files };
 }
 
-/**
- * List session folders and files under Claude Code and Cursor project dirs.
- */
+/** Discover session folders under Claude Code and Cursor project dirs. */
 function discoverSessions() {
   const home = homedir();
   const groups = [];
@@ -105,7 +176,6 @@ function discoverSessions() {
       const projPath = join(claudeBase, proj);
       const files = readdirSync(projPath).filter((f) => f.endsWith(".jsonl")).sort().reverse();
       if (files.length === 0) continue;
-      // Display name: last 2 path segments from project dir name
       const parts = proj.replace(/^-+/, "").split("-");
       const displayName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
       claudeGroup.projects.push({
@@ -114,10 +184,7 @@ function discoverSessions() {
         sessions: files.map((f) => {
           const fullPath = join(projPath, f);
           let date = null;
-          try {
-            const stat = statSync(fullPath);
-            date = stat.mtime.toISOString();
-          } catch { /* ignore */ }
+          try { date = statSync(fullPath).mtime.toISOString(); } catch { /* ignore */ }
           return { file: f, path: fullPath, date };
         }),
       });
@@ -136,18 +203,18 @@ function discoverSessions() {
       const transcriptsDir = join(cursorBase, proj, "agent-transcripts");
       let ids;
       try { ids = readdirSync(transcriptsDir); } catch { continue; }
-      const sessions = [];
+      const cursorSessions = [];
       for (const id of ids.sort().reverse()) {
         const filePath = join(transcriptsDir, id, "transcript.jsonl");
         try {
           const stat = statSync(filePath);
-          sessions.push({ file: id, path: filePath, date: stat.mtime.toISOString() });
+          cursorSessions.push({ file: id, path: filePath, date: stat.mtime.toISOString() });
         } catch { continue; }
       }
-      if (sessions.length === 0) continue;
+      if (cursorSessions.length === 0) continue;
       const parts = proj.replace(/^-+/, "").split("-");
       const displayName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
-      cursorGroup.projects.push({ name: displayName, dirName: proj, sessions });
+      cursorGroup.projects.push({ name: displayName, dirName: proj, sessions: cursorSessions });
     }
     if (cursorGroup.projects.length > 0) groups.push(cursorGroup);
   } catch { /* directory doesn't exist */ }
@@ -155,34 +222,35 @@ function discoverSessions() {
   return groups;
 }
 
-/**
- * Handle API requests.
- */
+// ---------------------------------------------------------------------------
+// API route handler
+// ---------------------------------------------------------------------------
+
 async function handleApi(req, res, pathname) {
-  // GET /api/sessions
+  // GET /api/sessions — list discovered sessions + home directory
   if (pathname === "/api/sessions" && req.method === "GET") {
     return json(res, { groups: discoverSessions(), homedir: homedir() });
   }
 
-  // GET /api/themes
+  // GET /api/themes — list available themes
   if (pathname === "/api/themes" && req.method === "GET") {
     return json(res, listThemes());
   }
 
-  // POST /api/browse
+  // POST /api/browse — browse a directory for .jsonl files
   if (pathname === "/api/browse" && req.method === "POST") {
     const body = await readBody(req);
-    const dirPath = body.path;
-    if (!dirPath) return error(res, "Missing 'path' field");
+    if (!body.path) return error(res, "Missing 'path' field");
     try {
-      return json(res, browseDirectory(dirPath));
+      return json(res, browseDirectory(body.path));
     } catch (e) {
-      const msg = e.code === "ENOENT" ? "Folder not found" : e.code === "EACCES" ? "Permission denied" : e.message;
+      const msg = e.code === "ENOENT" ? "Folder not found"
+        : e.code === "EACCES" ? "Permission denied" : e.message;
       return error(res, msg, 400);
     }
   }
 
-  // POST /api/load
+  // POST /api/load — parse a JSONL file (or return cached session)
   if (pathname === "/api/load" && req.method === "POST") {
     const body = await readBody(req);
     const filePath = body.path;
@@ -196,16 +264,11 @@ async function handleApi(req, res, pathname) {
             sessionId: existingId,
             format: s.format,
             hasEdits,
-            turns: s.workingTurns.map((t) => ({
-              index: t.index,
-              user_text: t.user_text,
-              blockSummary: summarizeBlocks(t.blocks),
-              timestamp: t.timestamp,
-              system_events: t.system_events || [],
-            })),
+            turns: summarizeTurns(s.workingTurns),
           });
         }
       }
+      // New session
       const format = detectFormat(filePath);
       const turns = parseTranscript(filePath);
       const id = "s" + (++sessionCounter);
@@ -219,20 +282,14 @@ async function handleApi(req, res, pathname) {
         sessionId: id,
         format,
         hasEdits: false,
-        turns: turns.map((t) => ({
-          index: t.index,
-          user_text: t.user_text,
-          blockSummary: summarizeBlocks(t.blocks),
-          timestamp: t.timestamp,
-          system_events: t.system_events || [],
-        })),
+        turns: summarizeTurns(turns),
       });
     } catch (e) {
       return error(res, `Failed to parse: ${e.message}`, 500);
     }
   }
 
-  // POST /api/edit
+  // POST /api/edit — update a turn's user text
   if (pathname === "/api/edit" && req.method === "POST") {
     const body = await readBody(req);
     const { sessionId, turnIndex, user_text } = body;
@@ -245,89 +302,28 @@ async function handleApi(req, res, pathname) {
     return json(res, { ok: true, hasEdits });
   }
 
-  // POST /api/preview
+  // POST /api/preview — render HTML for live preview
   if (pathname === "/api/preview" && req.method === "POST") {
     const body = await readBody(req);
     const { sessionId, options = {} } = body;
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
-
-    let turns = session.workingTurns;
-
-    // Apply excludeTurns filter
-    if (options.excludeTurns && options.excludeTurns.length > 0) {
-      turns = filterTurns(turns, { excludeTurns: options.excludeTurns });
-    }
-
-    const previewTurns = JSON.parse(JSON.stringify(turns));
-    const timing = options.timing || "auto";
-    const hasTimestamps = previewTurns.some((t) => t.timestamp);
-    if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
-      applyPacedTiming(previewTurns);
-    }
-
-    const theme = getThemeSafe(options.theme || "tokyo-night");
-    const bookmarks = (options.bookmarks || []).sort((a, b) => a.turn - b.turn);
-
-    const html = render(previewTurns, {
-      speed: parseFloat(options.speed) || 1.0,
-      showThinking: options.showThinking !== false,
-      showToolCalls: options.showToolCalls !== false,
-      theme,
-      redactSecrets: options.redactSecrets !== false,
-      redactRules: options.redactRules || [],
-      userLabel: options.userLabel || "User",
-      assistantLabel: options.assistantLabel || (session.format === "cursor" ? "Assistant" : "Claude"),
-      title: options.title || "Replay Preview",
-      description: options.description || "",
-      ogImage: options.ogImage || "",
-      bookmarks,
-      minified: false,
-      compress: false,
-    });
-
+    const turns = prepareTurns(session, options);
+    const html = render(turns, buildRenderOpts(options, session));
     return json(res, { html });
   }
 
-  // POST /api/export
+  // POST /api/export — render HTML and serve as download
   if (pathname === "/api/export" && req.method === "POST") {
     const body = await readBody(req);
     const { sessionId, options = {} } = body;
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
-
-    let turns = session.workingTurns;
-    if (options.excludeTurns && options.excludeTurns.length > 0) {
-      turns = filterTurns(turns, { excludeTurns: options.excludeTurns });
-    }
-
-    const exportTurns = JSON.parse(JSON.stringify(turns));
-    const timing = options.timing || "auto";
-    const hasTimestamps = exportTurns.some((t) => t.timestamp);
-    if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
-      applyPacedTiming(exportTurns);
-    }
-
-    const theme = getThemeSafe(options.theme || "tokyo-night");
-    const bookmarks = (options.bookmarks || []).sort((a, b) => a.turn - b.turn);
-
-    const html = render(exportTurns, {
-      speed: parseFloat(options.speed) || 1.0,
-      showThinking: options.showThinking !== false,
-      showToolCalls: options.showToolCalls !== false,
-      theme,
-      redactSecrets: options.redactSecrets !== false,
-      redactRules: options.redactRules || [],
-      userLabel: options.userLabel || "User",
-      assistantLabel: options.assistantLabel || (session.format === "cursor" ? "Assistant" : "Claude"),
-      title: options.title || "Replay",
-      description: options.description || "",
-      ogImage: options.ogImage || "",
-      bookmarks,
+    const turns = prepareTurns(session, options);
+    const html = render(turns, buildRenderOpts(options, session, {
       minified: options.minified !== false,
       compress: options.compress !== false,
-    });
-
+    }));
     const filename = (options.title || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".html";
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
@@ -337,50 +333,26 @@ async function handleApi(req, res, pathname) {
     return res.end(html);
   }
 
-  // POST /api/reset
+  // POST /api/reset — restore working turns from original
   if (pathname === "/api/reset" && req.method === "POST") {
     const body = await readBody(req);
     const { sessionId } = body;
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
     session.workingTurns = JSON.parse(JSON.stringify(session.originalTurns));
-    return json(res, {
-      turns: session.workingTurns.map((t) => ({
-        index: t.index,
-        user_text: t.user_text,
-        blockSummary: summarizeBlocks(t.blocks),
-        timestamp: t.timestamp,
-        system_events: t.system_events || [],
-      })),
-    });
+    return json(res, { turns: summarizeTurns(session.workingTurns) });
   }
 
   return error(res, "Not found", 404);
 }
 
-function getThemeSafe(name) {
-  try {
-    return getTheme(name);
-  } catch {
-    return getTheme("tokyo-night");
-  }
-}
-
-function summarizeBlocks(blocks) {
-  const counts = { text: 0, thinking: 0, tool_use: 0 };
-  for (const b of blocks) {
-    counts[b.kind] = (counts[b.kind] || 0) + 1;
-  }
-  const parts = [];
-  if (counts.text) parts.push(`${counts.text} text`);
-  if (counts.thinking) parts.push(`${counts.thinking} thinking`);
-  if (counts.tool_use) parts.push(`${counts.tool_use} tool call${counts.tool_use > 1 ? "s" : ""}`);
-  return parts.join(", ") || "empty";
-}
+// ---------------------------------------------------------------------------
+// Server entry point
+// ---------------------------------------------------------------------------
 
 /**
  * Start the editor HTTP server.
- * Returns a promise that never resolves (keeps the caller waiting while the server runs).
+ * Returns a promise that never resolves (keeps the caller waiting).
  * @param {number} port
  * @returns {Promise<void>}
  */
@@ -392,7 +364,6 @@ export function startEditor(port) {
     const pathname = url.pathname;
 
     try {
-      // Serve editor HTML
       if (pathname === "/" && req.method === "GET") {
         res.writeHead(200, {
           "Content-Type": "text/html; charset=utf-8",
@@ -401,12 +372,10 @@ export function startEditor(port) {
         return res.end(editorHtml);
       }
 
-      // API routes
       if (pathname.startsWith("/api/")) {
         return await handleApi(req, res, pathname);
       }
 
-      // 404
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not found");
     } catch (e) {
@@ -430,12 +399,9 @@ export function startEditor(port) {
       const url = `http://127.0.0.1:${port}`;
       console.log(`claude-replay editor running at ${url}`);
       console.log("Press Ctrl+C to stop.\n");
-
-      // Auto-open browser
       const cmd = process.platform === "darwin" ? "open"
         : process.platform === "win32" ? "start" : "xdg-open";
       exec(`${cmd} ${url}`);
     });
-    // Never resolve — server runs until process is killed
   });
 }

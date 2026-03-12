@@ -292,7 +292,18 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 }
 
 .browse-item:hover { background: var(--bg-hover); color: var(--text); }
+.browse-item.selected { background: var(--accent-dim); color: var(--text-bright); }
 .browse-item .icon { font-size: 12px; flex-shrink: 0; }
+.browse-item .icon-folder { color: var(--blue); }
+.browse-item .icon-file { color: var(--green); }
+.browse-item .browse-date { margin-left: auto; font-size: 9px; color: var(--text-dim); }
+
+.browse-error { color: var(--red); }
+.browse-empty { color: var(--text-dim); }
+.browse-parent { color: var(--text-dim); }
+
+.empty-state-error { color: var(--red); }
+.empty-state-hint { padding: 12px; font-size: 11px; }
 
 .browse-path-input {
   width: calc(100% - 24px);
@@ -367,6 +378,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 }
 
 .redact-rule input:focus { outline: 1px solid var(--accent); }
+.redact-rule .arrow { color: var(--text-dim); }
 
 .redact-rule .remove-rule {
   background: none;
@@ -673,69 +685,21 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
 <script>
 (function() {
-  // --- State ---
-  let currentSessionId = null;
-  let currentTurns = [];
-  let excludedTurns = new Set();
-  let bookmarks = new Map();
-  let previewBlobUrl = null;
+  // =========================================================================
+  // Utilities
+  // =========================================================================
 
-  // --- DOM refs ---
-  const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
-  const titleInput = document.getElementById("titleInput");
-  const resetBtn = document.getElementById("resetBtn");
-  const exportBtn = document.getElementById("exportBtn");
-  const sessionsToggle = document.getElementById("sessionsToggle");
-  const sessionsSection = document.getElementById("sessionsSection");
-  const optionsToggle = document.getElementById("optionsToggle");
-  const optionsSection = document.getElementById("optionsSection");
-  const sessionsTree = document.getElementById("sessionsTree");
-  const browseToggle = document.getElementById("browseToggle");
-  const browseBody = document.getElementById("browseBody");
-  const browsePathInput = document.getElementById("browsePathInput");
-  const browseList = document.getElementById("browseList");
-  const turnsList = document.getElementById("turnsList");
-  const previewIframe = document.getElementById("previewIframe");
-  const refreshIndicator = document.getElementById("refreshIndicator");
-  const optTheme = document.getElementById("optTheme");
-  const optSpeed = document.getElementById("optSpeed");
-  const optThinking = document.getElementById("optThinking");
-  const optToolCalls = document.getElementById("optToolCalls");
-  const optRedact = document.getElementById("optRedact");
-  const redactRulesContainer = document.getElementById("redactRules");
-  const addRuleBtn = document.getElementById("addRuleBtn");
-  const optUserLabel = document.getElementById("optUserLabel");
-  const optAssistantLabel = document.getElementById("optAssistantLabel");
-  const optDescription = document.getElementById("optDescription");
-  const optOgImage = document.getElementById("optOgImage");
-  const optTiming = document.getElementById("optTiming");
-  const optMinify = document.getElementById("optMinify");
-  const optCompress = document.getElementById("optCompress");
-
-  // --- Sidebar section toggling ---
-  function toggleSidebarSection(toggle, section) {
-    toggle.classList.toggle("open");
-    section.classList.toggle("open");
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
   }
 
-  sidebarToggleBtn.addEventListener("click", () => {
-    const collapsed = document.body.classList.toggle("sidebar-collapsed");
-    sidebarToggleBtn.innerHTML = collapsed ? "&#8250;" : "&#8249;";
-  });
-  sessionsToggle.addEventListener("click", () => toggleSidebarSection(sessionsToggle, sessionsSection));
-  optionsToggle.addEventListener("click", () => toggleSidebarSection(optionsToggle, optionsSection));
-  browseToggle.addEventListener("click", () => {
-    browseToggle.classList.toggle("open");
-    browseBody.style.display = browseToggle.classList.contains("open") ? "block" : "none";
-  });
-
-  /** Ensure options panel is visible — called after loading a file. */
-  function showOptionsPanel() {
-    optionsToggle.classList.add("open");
-    optionsSection.classList.add("open");
+  function debounce(fn, ms) {
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
   }
 
-  // --- API helpers ---
   async function api(method, path, body) {
     const opts = { method, headers: {} };
     if (body !== undefined) {
@@ -751,20 +715,82 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   }
 
   async function apiJson(method, path, body) {
-    const res = await api(method, path, body);
-    return res.json();
+    return (await api(method, path, body)).json();
   }
 
-  // --- Debounce ---
-  function debounce(fn, ms) {
-    let timer;
-    return (...args) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn(...args), ms);
-    };
+  // =========================================================================
+  // State
+  // =========================================================================
+
+  let currentSessionId = null;
+  let currentTurns = [];
+  let excludedTurns = new Set();
+  let bookmarks = new Map();
+  let previewBlobUrl = null;
+  let dragging = false;
+
+  // =========================================================================
+  // DOM refs
+  // =========================================================================
+
+  const $ = (id) => document.getElementById(id);
+
+  const appEl             = document.querySelector(".app");
+  const sidebarToggleBtn  = $("sidebarToggleBtn");
+  const titleInput        = $("titleInput");
+  const resetBtn          = $("resetBtn");
+  const exportBtn         = $("exportBtn");
+  const themeModeBtn      = $("themeModeBtn");
+  const sessionsToggle    = $("sessionsToggle");
+  const sessionsSection   = $("sessionsSection");
+  const optionsToggle     = $("optionsToggle");
+  const optionsSection    = $("optionsSection");
+  const sessionsTree      = $("sessionsTree");
+  const browseToggle      = $("browseToggle");
+  const browseBody        = $("browseBody");
+  const browsePathInput   = $("browsePathInput");
+  const browseList        = $("browseList");
+  const turnsList         = $("turnsList");
+  const previewIframe     = $("previewIframe");
+  const refreshIndicator  = $("refreshIndicator");
+  const resizeHandle      = $("resizeHandle");
+  const redactRulesContainer = $("redactRules");
+  const addRuleBtn        = $("addRuleBtn");
+
+  // Option controls
+  const opt = {
+    theme:     $("optTheme"),
+    speed:     $("optSpeed"),
+    thinking:  $("optThinking"),
+    toolCalls: $("optToolCalls"),
+    redact:    $("optRedact"),
+    userLabel: $("optUserLabel"),
+    asstLabel: $("optAssistantLabel"),
+    desc:      $("optDescription"),
+    ogImage:   $("optOgImage"),
+    timing:    $("optTiming"),
+    minify:    $("optMinify"),
+    compress:  $("optCompress"),
+  };
+
+  // =========================================================================
+  // Sidebar
+  // =========================================================================
+
+  function toggleSidebarSection(toggle, section) {
+    toggle.classList.toggle("open");
+    section.classList.toggle("open");
   }
 
-  // --- Sessions panel ---
+  function showOptionsPanel() {
+    optionsToggle.classList.add("open");
+    optionsSection.classList.add("open");
+  }
+
+  // =========================================================================
+  // Sessions
+  // =========================================================================
+
   async function loadSessions() {
     try {
       const data = await apiJson("GET", "/api/sessions");
@@ -772,19 +798,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       if (data.homedir) browsePathInput.value = data.homedir;
       renderSessions(groups);
     } catch (e) {
-      sessionsTree.innerHTML = `<div class="empty-state" style="color:var(--red)">Failed to load sessions: ${esc(e.message)}</div>`;
+      sessionsTree.innerHTML = `<div class="empty-state empty-state-error">Failed to load sessions: ${esc(e.message)}</div>`;
     }
-  }
-
-  function esc(s) {
-    const d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML;
   }
 
   function renderSessions(groups) {
     if (groups.length === 0) {
-      sessionsTree.innerHTML = `<div class="empty-state" style="padding:12px;font-size:11px">No sessions found in default locations.</div>`;
+      sessionsTree.innerHTML = `<div class="empty-state empty-state-hint">No sessions found in default locations.</div>`;
       return;
     }
     let html = "";
@@ -811,19 +831,14 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         if (list) list.classList.toggle("open");
       });
     });
-
     sessionsTree.querySelectorAll(".session-item").forEach((el) => {
       el.addEventListener("click", () => loadSession(el.dataset.path, el));
     });
   }
 
-  // --- Folder browser ---
-  browsePathInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const path = browsePathInput.value.trim();
-      if (path) browseTo(path);
-    }
-  });
+  // =========================================================================
+  // Folder browser
+  // =========================================================================
 
   async function browseTo(dirPath) {
     try {
@@ -831,42 +846,43 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       browsePathInput.value = data.path;
       renderBrowseResults(data);
     } catch (e) {
-      browseList.innerHTML = `<div class="browse-item" style="color:var(--red)">${esc(e.message)}</div>`;
+      browseList.innerHTML = `<div class="browse-item browse-error">${esc(e.message)}</div>`;
     }
   }
 
   function renderBrowseResults(data) {
     let html = "";
     if (data.parent) {
-      html += `<div class="browse-item" data-browse="${esc(data.parent)}"><span class="icon">..</span> <span style="color:var(--text-dim)">(parent)</span></div>`;
+      html += `<div class="browse-item" data-browse="${esc(data.parent)}"><span class="icon">..</span> <span class="browse-parent">(parent)</span></div>`;
     }
     for (const dir of data.dirs) {
-      html += `<div class="browse-item" data-browse="${esc(dir.path)}"><span class="icon" style="color:var(--blue)">&#128193;</span> ${esc(dir.name)}</div>`;
+      html += `<div class="browse-item" data-browse="${esc(dir.path)}"><span class="icon icon-folder">&#128193;</span> ${esc(dir.name)}</div>`;
     }
     for (const file of data.files) {
       const dateStr = file.date ? new Date(file.date).toLocaleDateString() : "";
-      html += `<div class="browse-item" data-path="${esc(file.path)}"><span class="icon" style="color:var(--green)">&#128196;</span> ${esc(file.name)} <span class="badge" style="margin-left:auto;font-size:9px;color:var(--text-dim)">${dateStr}</span></div>`;
+      html += `<div class="browse-item" data-path="${esc(file.path)}"><span class="icon icon-file">&#128196;</span> ${esc(file.name)} <span class="browse-date">${dateStr}</span></div>`;
     }
     if (data.dirs.length === 0 && data.files.length === 0) {
-      html += `<div class="browse-item" style="color:var(--text-dim)">No folders or .jsonl files</div>`;
+      html += `<div class="browse-item browse-empty">No folders or .jsonl files</div>`;
     }
     browseList.innerHTML = html;
 
     browseList.querySelectorAll("[data-browse]").forEach((el) => {
       el.addEventListener("click", () => browseTo(el.dataset.browse));
     });
-
     browseList.querySelectorAll("[data-path]").forEach((el) => {
       el.addEventListener("click", () => {
         document.querySelectorAll(".session-item.active").forEach((s) => s.classList.remove("active"));
-        el.style.background = "var(--accent-dim)";
-        el.style.color = "var(--text-bright)";
+        el.classList.add("selected");
         loadSession(el.dataset.path, null);
       });
     });
   }
 
-  // --- Load session ---
+  // =========================================================================
+  // Load session
+  // =========================================================================
+
   function updateEditState(hasEdits) {
     resetBtn.classList.toggle("btn-warn", hasEdits);
     const activeItem = document.querySelector(".session-item.active");
@@ -892,10 +908,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       exportBtn.disabled = false;
 
       updateEditState(data.hasEdits || false);
-
-      // Ensure options panel is visible
       showOptionsPanel();
-
       renderTurns();
       schedulePreview();
     } catch (e) {
@@ -903,7 +916,10 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     }
   }
 
-  // --- Render turn cards ---
+  // =========================================================================
+  // Turn cards
+  // =========================================================================
+
   function renderTurns() {
     if (currentTurns.length === 0) {
       turnsList.innerHTML = `<div class="empty-state">No turns in this session</div>`;
@@ -914,8 +930,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     for (const turn of currentTurns) {
       const excluded = excludedTurns.has(turn.index);
       const checked = excluded ? "" : "checked";
-      const bookmarkChecked = bookmarks.has(turn.index) ? "checked" : "";
-      const bookmarkLabel = bookmarks.get(turn.index) || "";
+      const bkChecked = bookmarks.has(turn.index) ? "checked" : "";
+      const bkLabel = bookmarks.get(turn.index) || "";
       const userText = turn.user_text || "";
       const rows = Math.max(2, Math.min(8, userText.split("\n").length));
 
@@ -929,37 +945,30 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
           <textarea class="turn-textarea" data-action="edit" data-index="${turn.index}" rows="${rows}">${esc(userText)}</textarea>
           <div class="turn-blocks-summary">${esc(turn.blockSummary)}</div>
           <div class="turn-bookmark-row">
-            <label><input type="checkbox" ${bookmarkChecked} data-action="bookmark" data-index="${turn.index}"> Bookmark</label>
-            <input type="text" class="bookmark-label-input" data-action="bookmark-label" data-index="${turn.index}" placeholder="Chapter label..." value="${esc(bookmarkLabel)}" ${bookmarkChecked ? "" : "disabled"}>
+            <label><input type="checkbox" ${bkChecked} data-action="bookmark" data-index="${turn.index}"> Bookmark</label>
+            <input type="text" class="bookmark-label-input" data-action="bookmark-label" data-index="${turn.index}" placeholder="Chapter label..." value="${esc(bkLabel)}" ${bkChecked ? "" : "disabled"}>
           </div>
         </div>
       </div>`;
     }
     turnsList.innerHTML = html;
-
     turnsList.addEventListener("change", handleTurnEvent);
     turnsList.addEventListener("input", handleTurnInput);
   }
 
   function handleTurnEvent(e) {
-    const target = e.target;
-    const action = target.dataset.action;
-    const index = parseInt(target.dataset.index);
+    const { action, index: rawIndex } = e.target.dataset;
+    const index = parseInt(rawIndex);
 
     if (action === "toggle") {
-      if (target.checked) {
-        excludedTurns.delete(index);
-      } else {
-        excludedTurns.add(index);
-      }
-      const card = target.closest(".turn-card");
-      card.classList.toggle("excluded", !target.checked);
+      e.target.checked ? excludedTurns.delete(index) : excludedTurns.add(index);
+      e.target.closest(".turn-card").classList.toggle("excluded", !e.target.checked);
       schedulePreview();
     }
 
     if (action === "bookmark") {
       const labelInput = turnsList.querySelector(`input[data-action="bookmark-label"][data-index="${index}"]`);
-      if (target.checked) {
+      if (e.target.checked) {
         bookmarks.set(index, labelInput.value || `Turn ${index}`);
         labelInput.disabled = false;
       } else {
@@ -969,11 +978,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       schedulePreview();
     }
 
-    if (action === "bookmark-label") {
-      if (bookmarks.has(index)) {
-        bookmarks.set(index, target.value || `Turn ${index}`);
-        schedulePreview();
-      }
+    if (action === "bookmark-label" && bookmarks.has(index)) {
+      bookmarks.set(index, e.target.value || `Turn ${index}`);
+      schedulePreview();
     }
   }
 
@@ -984,55 +991,35 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   }, 300);
 
   function handleTurnInput(e) {
-    const target = e.target;
-    if (target.dataset.action === "edit") {
-      const index = parseInt(target.dataset.index);
-      debouncedEdit(index, target.value);
-    }
-    if (target.dataset.action === "bookmark-label") {
-      const index = parseInt(target.dataset.index);
-      if (bookmarks.has(index)) {
-        bookmarks.set(index, target.value || `Turn ${index}`);
-        debouncedPreview();
-      }
+    const { action, index: rawIndex } = e.target.dataset;
+    const index = parseInt(rawIndex);
+    if (action === "edit") debouncedEdit(index, e.target.value);
+    if (action === "bookmark-label" && bookmarks.has(index)) {
+      bookmarks.set(index, e.target.value || `Turn ${index}`);
+      debouncedPreview();
     }
   }
 
-  // --- Load themes into select ---
+  // =========================================================================
+  // Options & redact rules
+  // =========================================================================
+
   async function loadThemes() {
     try {
       const themes = await apiJson("GET", "/api/themes");
-      optTheme.innerHTML = themes.map((t) => `<option value="${esc(t)}" ${t === "tokyo-night" ? "selected" : ""}>${esc(t)}</option>`).join("");
+      opt.theme.innerHTML = themes.map((t) => `<option value="${esc(t)}" ${t === "tokyo-night" ? "selected" : ""}>${esc(t)}</option>`).join("");
     } catch { /* ignore */ }
   }
-
-  // Option change listeners
-  [optTheme, optSpeed, optThinking, optToolCalls, optRedact, optTiming, optMinify, optCompress, optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
-    el.addEventListener("change", () => schedulePreview());
-  });
-  [optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
-    el.addEventListener("input", debounce(() => schedulePreview(), 300));
-  });
-
-  // Redact rules
-  addRuleBtn.addEventListener("click", () => {
-    addRedactRule("", "[REDACTED]");
-    schedulePreview();
-  });
 
   function addRedactRule(search, replacement) {
     const row = document.createElement("div");
     row.className = "redact-rule";
     row.innerHTML = `<input type="text" placeholder="Search text" value="${esc(search)}">
-      <span style="color:var(--text-dim)">&rarr;</span>
+      <span class="arrow">&rarr;</span>
       <input type="text" placeholder="Replacement" value="${esc(replacement)}">
       <button class="remove-rule">&times;</button>`;
     redactRulesContainer.appendChild(row);
-
-    row.querySelector(".remove-rule").addEventListener("click", () => {
-      row.remove();
-      schedulePreview();
-    });
+    row.querySelector(".remove-rule").addEventListener("click", () => { row.remove(); schedulePreview(); });
     row.querySelectorAll("input").forEach((inp) => {
       inp.addEventListener("input", debounce(() => schedulePreview(), 300));
     });
@@ -1042,52 +1029,50 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     const rules = [];
     redactRulesContainer.querySelectorAll(".redact-rule").forEach((row) => {
       const inputs = row.querySelectorAll("input");
-      const search = inputs[0].value;
-      const replacement = inputs[1].value;
-      if (search) rules.push({ search, replacement });
+      if (inputs[0].value) rules.push({ search: inputs[0].value, replacement: inputs[1].value });
     });
     return rules;
   }
 
-  // --- Preview ---
   function gatherOptions() {
     return {
-      theme: optTheme.value,
-      speed: parseFloat(optSpeed.value) || 1,
-      showThinking: optThinking.checked,
-      showToolCalls: optToolCalls.checked,
-      redactSecrets: optRedact.checked,
+      theme: opt.theme.value,
+      speed: parseFloat(opt.speed.value) || 1,
+      showThinking: opt.thinking.checked,
+      showToolCalls: opt.toolCalls.checked,
+      redactSecrets: opt.redact.checked,
       redactRules: getRedactRules(),
-      userLabel: optUserLabel.value || "User",
-      assistantLabel: optAssistantLabel.value || "",
+      userLabel: opt.userLabel.value || "User",
+      assistantLabel: opt.asstLabel.value || "",
       title: titleInput.value || "Replay",
-      description: optDescription.value || "",
-      ogImage: optOgImage.value || "",
-      timing: optTiming.value,
-      minified: optMinify.checked,
-      compress: optCompress.checked,
+      description: opt.desc.value || "",
+      ogImage: opt.ogImage.value || "",
+      timing: opt.timing.value,
+      minified: opt.minify.checked,
+      compress: opt.compress.checked,
       excludeTurns: Array.from(excludedTurns),
       bookmarks: Array.from(bookmarks.entries()).map(([turn, label]) => ({ turn, label })),
     };
   }
 
+  // =========================================================================
+  // Preview
+  // =========================================================================
+
   const debouncedPreview = debounce(() => refreshPreview(), 150);
 
   function schedulePreview() {
-    if (!currentSessionId) return;
-    debouncedPreview();
+    if (currentSessionId) debouncedPreview();
   }
 
   async function refreshPreview() {
     if (!currentSessionId) return;
     refreshIndicator.classList.add("active");
-
     try {
       const data = await apiJson("POST", "/api/preview", {
         sessionId: currentSessionId,
         options: gatherOptions(),
       });
-
       if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
       previewBlobUrl = URL.createObjectURL(new Blob([data.html], { type: "text/html" }));
       previewIframe.src = previewBlobUrl;
@@ -1098,10 +1083,11 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     }
   }
 
-  titleInput.addEventListener("input", debounce(() => schedulePreview(), 300));
+  // =========================================================================
+  // Export & Reset
+  // =========================================================================
 
-  // --- Reset ---
-  resetBtn.addEventListener("click", async () => {
+  async function doReset() {
     if (!currentSessionId) return;
     try {
       const data = await apiJson("POST", "/api/reset", { sessionId: currentSessionId });
@@ -1114,10 +1100,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     } catch (e) {
       alert("Reset failed: " + e.message);
     }
-  });
+  }
 
-  // --- Export ---
-  exportBtn.addEventListener("click", async () => {
+  async function doExport() {
     if (!currentSessionId) return;
     try {
       const res = await api("POST", "/api/export", {
@@ -1136,21 +1121,65 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     } catch (e) {
       alert("Export failed: " + e.message);
     }
+  }
+
+  // =========================================================================
+  // Resize handle (editor ↔ preview)
+  // =========================================================================
+
+  function stopDrag() {
+    if (!dragging) return;
+    dragging = false;
+    resizeHandle.classList.remove("active");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    previewIframe.style.pointerEvents = "";
+  }
+
+  // =========================================================================
+  // Event listeners (all in one place)
+  // =========================================================================
+
+  // Sidebar collapse/expand
+  sidebarToggleBtn.addEventListener("click", () => {
+    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+    sidebarToggleBtn.innerHTML = collapsed ? "&#8250;" : "&#8249;";
+  });
+  sessionsToggle.addEventListener("click", () => toggleSidebarSection(sessionsToggle, sessionsSection));
+  optionsToggle.addEventListener("click", () => toggleSidebarSection(optionsToggle, optionsSection));
+  browseToggle.addEventListener("click", () => {
+    browseToggle.classList.toggle("open");
+    browseBody.style.display = browseToggle.classList.contains("open") ? "block" : "none";
   });
 
-  // --- Dark/light mode toggle ---
-  const themeModeBtn = document.getElementById("themeModeBtn");
-  const root = document.documentElement;
+  // Folder browser
+  browsePathInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const path = browsePathInput.value.trim();
+      if (path) browseTo(path);
+    }
+  });
+
+  // Options: immediate change + debounced text input
+  Object.values(opt).forEach((el) => el.addEventListener("change", () => schedulePreview()));
+  [opt.userLabel, opt.asstLabel, opt.desc, opt.ogImage].forEach((el) => {
+    el.addEventListener("input", debounce(() => schedulePreview(), 300));
+  });
+  addRuleBtn.addEventListener("click", () => { addRedactRule("", "[REDACTED]"); schedulePreview(); });
+  titleInput.addEventListener("input", debounce(() => schedulePreview(), 300));
+
+  // Toolbar actions
+  resetBtn.addEventListener("click", doReset);
+  exportBtn.addEventListener("click", doExport);
+
+  // Dark/light mode
   themeModeBtn.addEventListener("click", () => {
-    const isLight = root.classList.toggle("light");
-    root.classList.toggle("dark", !isLight);
+    const isLight = document.documentElement.classList.toggle("light");
+    document.documentElement.classList.toggle("dark", !isLight);
     themeModeBtn.innerHTML = isLight ? "&#9728;" : "&#9790;";
   });
 
-  // --- Resize handle ---
-  const resizeHandle = document.getElementById("resizeHandle");
-  const appEl = document.querySelector(".app");
-  let dragging = false;
+  // Resize handle
   resizeHandle.addEventListener("mousedown", (e) => {
     e.preventDefault();
     dragging = true;
@@ -1162,25 +1191,19 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   document.addEventListener("mousemove", (e) => {
     if (!dragging) return;
     const appRect = appEl.getBoundingClientRect();
-    const sidebar = document.querySelector(".sidebar");
-    const sidebarWidth = sidebar.getBoundingClientRect().width;
+    const sidebarWidth = document.querySelector(".sidebar").getBoundingClientRect().width;
     const available = appRect.width - sidebarWidth - 4;
     const editorWidth = Math.max(100, Math.min(available - 100, e.clientX - appRect.left - sidebarWidth));
     const previewWidth = available - editorWidth;
     appEl.style.gridTemplateColumns = `${sidebarWidth}px ${editorWidth}px 4px ${previewWidth}px`;
   });
-  function stopDrag() {
-    if (!dragging) return;
-    dragging = false;
-    resizeHandle.classList.remove("active");
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    previewIframe.style.pointerEvents = "";
-  }
   document.addEventListener("mouseup", stopDrag);
   window.addEventListener("blur", stopDrag);
 
-  // --- Init ---
+  // =========================================================================
+  // Init
+  // =========================================================================
+
   loadSessions();
   loadThemes();
 })();
