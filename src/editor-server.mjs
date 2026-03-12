@@ -374,7 +374,7 @@ async function handleApi(req, res, pathname) {
  * @param {number} port
  * @returns {Promise<void>}
  */
-export function startEditor(port) {
+export function startEditor(port, { open = true } = {}) {
   const editorHtml = readFileSync(EDITOR_HTML_PATH, "utf-8");
 
   const server = createServer(async (req, res) => {
@@ -417,9 +417,11 @@ export function startEditor(port) {
       const url = `http://127.0.0.1:${port}`;
       console.log(`claude-replay editor running at ${url}`);
       console.log("Press Ctrl+C to stop.\n");
-      const cmd = process.platform === "darwin" ? "open"
-        : process.platform === "win32" ? "start" : "xdg-open";
-      exec(`${cmd} ${url}`);
+      if (open) {
+        const cmd = process.platform === "darwin" ? "open"
+          : process.platform === "win32" ? "start" : "xdg-open";
+        exec(`${cmd} ${url}`);
+      }
     });
   });
 }
