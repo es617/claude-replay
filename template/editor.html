@@ -1194,7 +1194,12 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     if (header && !e.target.closest("input")) {
       const index = parseInt(header.dataset.index || header.closest(".turn-card").dataset.index);
       if (index && previewIframe.contentWindow) {
-        try { previewIframe.contentWindow.location.hash = "#turn=" + index; } catch {}
+        // Map original index to display position (preview uses sequential 1-based numbering)
+        const included = currentTurns.filter((t) => !excludedTurns.has(t.index));
+        const pos = included.findIndex((t) => t.index === index);
+        if (pos >= 0) {
+          try { previewIframe.contentWindow.location.hash = "#turn=" + (pos + 1); } catch {}
+        }
       }
     }
   }

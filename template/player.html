@@ -1373,7 +1373,7 @@ body.in-iframe .bar-title:hover {
   // § RENDERING
   // ═══════════════════════════════════════════
 
-  function renderTurn(turn) {
+  function renderTurn(turn, displayNum) {
     const el = document.createElement("div");
     el.className = "turn";
     el.dataset.index = turn.index;
@@ -1394,9 +1394,10 @@ body.in-iframe .bar-title:hover {
     const tsHtml = relStr || absStr
       ? `<span class="turn-header-ts" ${absStr ? `title="${absStr}"` : ""}>${relStr || absStr}</span>`
       : "";
+    const label = displayNum != null ? displayNum : turn.index;
     html += `<div class="turn-header" onclick="this.parentElement.classList.toggle('collapsed')">
       <span class="turn-header-chevron">&#9660;</span>
-      <span class="turn-header-label">#${turn.index}</span>
+      <span class="turn-header-label">#${label}</span>
       ${tsHtml}
     </div>`;
 
@@ -1514,7 +1515,7 @@ body.in-iframe .bar-title:hover {
         divider.textContent = bmLabel;
         transcript.appendChild(divider);
       }
-      const el = renderTurn(turn);
+      const el = renderTurn(turn, i + 1);
       transcript.appendChild(el);
     }
   }
