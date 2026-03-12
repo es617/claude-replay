@@ -41,6 +41,16 @@ body {
   grid-template-rows: auto 1fr;
   height: 100vh;
 }
+.app.sidebar-collapsed {
+  grid-template-columns: 32px 1fr 45%;
+}
+.app.sidebar-collapsed .sidebar {
+  overflow: hidden;
+}
+.app.sidebar-collapsed .sidebar-section-toggle,
+.app.sidebar-collapsed .sidebar-section {
+  display: none;
+}
 
 /* Top bar */
 .topbar {
@@ -74,6 +84,30 @@ body {
 
 .topbar-title-input:focus { outline: 1px solid var(--accent); }
 
+.sidebar-collapse-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 6px 2px;
+  flex-shrink: 0;
+}
+.app.sidebar-collapsed .sidebar-collapse-bar {
+  justify-content: center;
+  padding: 6px 0 2px;
+}
+.sidebar-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.sidebar-toggle-btn:hover { color: var(--text-bright); background: var(--bg-hover); }
+.sidebar-toggle-btn line { opacity: 1; transition: opacity 0.15s; }
+.app.sidebar-collapsed .sidebar-toggle-btn line { opacity: 0.3; }
+
 .btn {
   background: var(--bg-hover);
   border: 1px solid var(--border);
@@ -87,6 +121,8 @@ body {
 .btn:hover { background: var(--accent-dim); color: var(--text-bright); }
 .btn-primary { background: var(--accent); color: var(--bg); font-weight: 600; }
 .btn-primary:hover { background: var(--accent-dim); color: var(--text-bright); }
+.btn-warn { background: var(--orange); color: var(--bg); font-weight: 600; }
+.btn-warn:hover { background: #e0874e; color: var(--text-bright); }
 
 /* Left sidebar */
 .sidebar {
@@ -179,6 +215,17 @@ body {
 
 .session-item:hover { background: var(--bg-hover); color: var(--text); }
 .session-item.active { background: var(--accent-dim); color: var(--text-bright); }
+.session-item.edited::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--orange);
+  border-radius: 50%;
+  margin-right: 4px;
+  margin-left: -12px;
+  flex-shrink: 0;
+}
 
 .session-item .badge {
   font-size: 9px;
@@ -489,6 +536,14 @@ body {
 
   <!-- Left sidebar: Sessions + Options -->
   <div class="sidebar">
+    <div class="sidebar-collapse-bar">
+      <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle sidebar">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <rect x="2" y="2" width="14" height="14" rx="2"/>
+          <line x1="7" y1="2" x2="7" y2="16"/>
+        </svg>
+      </button>
+    </div>
     <!-- Sessions section -->
     <div class="sidebar-section-toggle open" id="sessionsToggle">
       <span class="arrow">&#9654;</span> Sessions
@@ -588,6 +643,8 @@ body {
   let previewBlobUrl = null;
 
   // --- DOM refs ---
+  const appEl = document.querySelector(".app");
+  const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
   const titleInput = document.getElementById("titleInput");
   const resetBtn = document.getElementById("resetBtn");
   const exportBtn = document.getElementById("exportBtn");
@@ -621,6 +678,7 @@ body {
     section.classList.toggle("open");
   }
 
+  sidebarToggleBtn.addEventListener("click", () => appEl.classList.toggle("sidebar-collapsed"));
   sessionsToggle.addEventListener("click", () => toggleSidebarSection(sessionsToggle, sessionsSection));
   optionsToggle.addEventListener("click", () => toggleSidebarSection(optionsToggle, optionsSection));
   browseToggle.addEventListener("click", () => {
@@ -766,6 +824,12 @@ body {
   }
 
   // --- Load session ---
+  function updateEditState(hasEdits) {
+    resetBtn.classList.toggle("btn-warn", hasEdits);
+    const activeItem = document.querySelector(".session-item.active");
+    if (activeItem) activeItem.classList.toggle("edited", hasEdits);
+  }
+
   async function loadSession(path, itemEl) {
     document.querySelectorAll(".session-item.active").forEach((el) => el.classList.remove("active"));
     if (itemEl) itemEl.classList.add("active");
@@ -784,7 +848,9 @@ body {
       resetBtn.disabled = false;
       exportBtn.disabled = false;
 
-      // Switch sidebar: collapse sessions, show options
+      updateEditState(data.hasEdits || false);
+
+      // Ensure options panel is visible
       showOptionsPanel();
 
       renderTurns();
@@ -870,7 +936,7 @@ body {
 
   const debouncedEdit = debounce((index, text) => {
     apiJson("POST", "/api/edit", { sessionId: currentSessionId, turnIndex: index, user_text: text })
-      .then(() => schedulePreview())
+      .then((data) => { updateEditState(data.hasEdits); schedulePreview(); })
       .catch((e) => console.error("Edit failed:", e));
   }, 300);
 
@@ -996,6 +1062,7 @@ body {
       currentTurns = data.turns;
       excludedTurns = new Set();
       bookmarks = new Map();
+      updateEditState(false);
       renderTurns();
       schedulePreview();
     } catch (e) {

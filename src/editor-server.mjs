@@ -188,6 +188,24 @@ async function handleApi(req, res, pathname) {
     const filePath = body.path;
     if (!filePath) return error(res, "Missing 'path' field");
     try {
+      // Reuse existing session for the same file
+      for (const [existingId, s] of sessions) {
+        if (s.sourcePath === filePath) {
+          const hasEdits = JSON.stringify(s.workingTurns) !== JSON.stringify(s.originalTurns);
+          return json(res, {
+            sessionId: existingId,
+            format: s.format,
+            hasEdits,
+            turns: s.workingTurns.map((t) => ({
+              index: t.index,
+              user_text: t.user_text,
+              blockSummary: summarizeBlocks(t.blocks),
+              timestamp: t.timestamp,
+              system_events: t.system_events || [],
+            })),
+          });
+        }
+      }
       const format = detectFormat(filePath);
       const turns = parseTranscript(filePath);
       const id = "s" + (++sessionCounter);
@@ -200,6 +218,7 @@ async function handleApi(req, res, pathname) {
       return json(res, {
         sessionId: id,
         format,
+        hasEdits: false,
         turns: turns.map((t) => ({
           index: t.index,
           user_text: t.user_text,
@@ -222,7 +241,8 @@ async function handleApi(req, res, pathname) {
     const turn = session.workingTurns.find((t) => t.index === turnIndex);
     if (!turn) return error(res, `Turn ${turnIndex} not found`, 404);
     turn.user_text = user_text;
-    return json(res, { ok: true });
+    const hasEdits = JSON.stringify(session.workingTurns) !== JSON.stringify(session.originalTurns);
+    return json(res, { ok: true, hasEdits });
   }
 
   // POST /api/preview
