@@ -88,6 +88,8 @@ claude-replay
 claude-replay --port 8080
 ```
 
+![Editor](https://raw.githubusercontent.com/es617/claude-replay/main/docs/editor-demo.gif)
+
 The editor provides:
 - **Session browser** — auto-discovers sessions from `~/.claude/projects/` and `~/.cursor/projects/`, plus a folder navigator for JSONL files stored elsewhere
 - **Turn editor** — include/exclude turns, edit user prompts, expand assistant blocks (read-only), add bookmarks
