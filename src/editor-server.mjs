@@ -5,7 +5,7 @@
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { readdirSync, statSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { exec } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "./parser.mjs";
@@ -83,7 +83,8 @@ function browseDirectory(dirPath) {
   dirs.sort((a, b) => a.name.localeCompare(b.name));
   files.sort((a, b) => b.date.localeCompare(a.date)); // newest first
 
-  return { path: resolved, dirs, files };
+  const parent = dirname(resolved);
+  return { path: resolved, parent: parent !== resolved ? parent : null, dirs, files };
 }
 
 /**
@@ -160,7 +161,7 @@ function discoverSessions() {
 async function handleApi(req, res, pathname) {
   // GET /api/sessions
   if (pathname === "/api/sessions" && req.method === "GET") {
-    return json(res, discoverSessions());
+    return json(res, { groups: discoverSessions(), homedir: homedir() });
   }
 
   // GET /api/themes
@@ -176,7 +177,8 @@ async function handleApi(req, res, pathname) {
     try {
       return json(res, browseDirectory(dirPath));
     } catch (e) {
-      return error(res, `Cannot browse: ${e.message}`, 400);
+      const msg = e.code === "ENOENT" ? "Folder not found" : e.code === "EACCES" ? "Permission denied" : e.message;
+      return error(res, msg, 400);
     }
   }
 

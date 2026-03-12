@@ -201,7 +201,15 @@ body {
   color: var(--text-dim);
   padding: 4px 12px;
   font-weight: 600;
+  cursor: pointer;
 }
+.browse-header:hover { color: var(--text); }
+.browse-header .arrow {
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.15s;
+}
+.browse-header.open .arrow { transform: rotate(90deg); }
 
 .browse-item {
   font-size: 11px;
@@ -487,10 +495,14 @@ body {
     <div class="sidebar-section open" id="sessionsSection">
       <div class="sessions-content">
         <div id="sessionsTree"></div>
-        <div class="browse-section" id="browseSection">
-          <div class="browse-header">Open Folder</div>
-          <input type="text" class="browse-path-input" id="browsePathInput" placeholder="Enter path and press Enter...">
-          <div id="browseList"></div>
+        <div class="browse-section">
+          <div class="browse-header browse-toggle" id="browseToggle">
+            <span class="arrow">&#9654;</span> Open Folder
+          </div>
+          <div class="browse-body" id="browseBody" style="display:none">
+            <input type="text" class="browse-path-input" id="browsePathInput" placeholder="Enter path and press Enter...">
+            <div id="browseList"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -583,6 +595,8 @@ body {
   const optionsToggle = document.getElementById("optionsToggle");
   const optionsSection = document.getElementById("optionsSection");
   const sessionsTree = document.getElementById("sessionsTree");
+  const browseToggle = document.getElementById("browseToggle");
+  const browseBody = document.getElementById("browseBody");
   const browsePathInput = document.getElementById("browsePathInput");
   const browseList = document.getElementById("browseList");
   const turnsList = document.getElementById("turnsList");
@@ -608,6 +622,10 @@ body {
 
   sessionsToggle.addEventListener("click", () => toggleSidebarSection(sessionsToggle, sessionsSection));
   optionsToggle.addEventListener("click", () => toggleSidebarSection(optionsToggle, optionsSection));
+  browseToggle.addEventListener("click", () => {
+    browseToggle.classList.toggle("open");
+    browseBody.style.display = browseToggle.classList.contains("open") ? "block" : "none";
+  });
 
   /** Collapse sessions, expand options — called after loading a file. */
   function showOptionsPanel() {
@@ -649,7 +667,9 @@ body {
   // --- Sessions panel ---
   async function loadSessions() {
     try {
-      const groups = await apiJson("GET", "/api/sessions");
+      const data = await apiJson("GET", "/api/sessions");
+      const groups = data.groups || data;
+      if (data.homedir) browsePathInput.value = data.homedir;
       renderSessions(groups);
     } catch (e) {
       sessionsTree.innerHTML = `<div class="empty-state" style="color:var(--red)">Failed to load sessions: ${esc(e.message)}</div>`;
@@ -717,9 +737,8 @@ body {
 
   function renderBrowseResults(data) {
     let html = "";
-    const parentPath = data.path.replace(/\/[^/]+\/?$/, "") || "/";
-    if (data.path !== "/") {
-      html += `<div class="browse-item" data-browse="${esc(parentPath)}"><span class="icon">..</span> <span style="color:var(--text-dim)">(parent)</span></div>`;
+    if (data.parent) {
+      html += `<div class="browse-item" data-browse="${esc(data.parent)}"><span class="icon">..</span> <span style="color:var(--text-dim)">(parent)</span></div>`;
     }
     for (const dir of data.dirs) {
       html += `<div class="browse-item" data-browse="${esc(dir.path)}"><span class="icon" style="color:var(--blue)">&#128193;</span> ${esc(dir.name)}</div>`;
