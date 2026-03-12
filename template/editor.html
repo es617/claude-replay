@@ -408,6 +408,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   overflow: hidden;
 }
 
+.turns-toolbar {
+  display: none;
+  padding: 6px 12px;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+.turns-toolbar.visible { display: flex; }
+.btn-small { padding: 2px 8px; font-size: 11px; }
+
 .turns-list {
   flex: 1;
   overflow-y: auto;
@@ -472,6 +483,61 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   font-size: 11px;
   color: var(--text-dim);
   margin-top: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.turn-blocks-summary:hover { color: var(--text); }
+.turn-blocks-summary .arrow {
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.15s;
+  margin-right: 2px;
+}
+.turn-blocks-summary.open .arrow { transform: rotate(90deg); }
+
+.turn-blocks-detail {
+  display: none;
+  margin-top: 6px;
+}
+.turn-blocks-detail.open { display: block; }
+
+.block-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.block-item-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  color: var(--text-dim);
+}
+.block-item-header.block-text { background: var(--bg-surface); }
+.block-item-header.block-thinking { background: var(--thinking-bg); color: var(--cyan); }
+.block-item-header.block-tool { background: var(--tool-bg); color: var(--orange); }
+.block-item-body {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text);
+}
+.block-tool-name { color: var(--accent); font-weight: 600; }
+.block-tool-section {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 6px;
+  margin-bottom: 2px;
 }
 
 .turn-bookmark-row {
@@ -665,6 +731,10 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
   <!-- Editor panel -->
   <div class="editor-panel">
+    <div class="turns-toolbar" id="turnsToolbar">
+      <button class="btn btn-small" id="selectAllBtn" title="Include all turns in the replay">Include All</button>
+      <button class="btn btn-small" id="selectNoneBtn" title="Exclude all turns from the replay">Exclude All</button>
+    </div>
     <div class="turns-list" id="turnsList">
       <div class="empty-state">Select a session to begin editing</div>
     </div>
@@ -750,6 +820,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const browseBody        = $("browseBody");
   const browsePathInput   = $("browsePathInput");
   const browseList        = $("browseList");
+  const turnsToolbar      = $("turnsToolbar");
+  const selectAllBtn      = $("selectAllBtn");
+  const selectNoneBtn     = $("selectNoneBtn");
   const turnsList         = $("turnsList");
   const previewIframe     = $("previewIframe");
   const refreshIndicator  = $("refreshIndicator");
@@ -909,6 +982,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
       updateEditState(data.hasEdits || false);
       showOptionsPanel();
+      turnsToolbar.classList.add("visible");
       renderTurns();
       schedulePreview();
     } catch (e) {
@@ -943,7 +1017,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         </div>
         <div class="turn-card-body">
           <textarea class="turn-textarea" data-action="edit" data-index="${turn.index}" rows="${rows}">${esc(userText)}</textarea>
-          <div class="turn-blocks-summary">${esc(turn.blockSummary)}</div>
+          <div class="turn-blocks-summary" data-action="expand" data-index="${turn.index}"><span class="arrow">&#9654;</span> ${esc(turn.blockSummary)}</div>
+          <div class="turn-blocks-detail" id="blocks-${turn.index}">${renderBlocks(turn.blocks)}</div>
           <div class="turn-bookmark-row">
             <label><input type="checkbox" ${bkChecked} data-action="bookmark" data-index="${turn.index}"> Bookmark</label>
             <input type="text" class="bookmark-label-input" data-action="bookmark-label" data-index="${turn.index}" placeholder="Chapter label..." value="${esc(bkLabel)}" ${bkChecked ? "" : "disabled"}>
@@ -954,6 +1029,41 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     turnsList.innerHTML = html;
     turnsList.addEventListener("change", handleTurnEvent);
     turnsList.addEventListener("input", handleTurnInput);
+    turnsList.addEventListener("click", handleTurnClick);
+  }
+
+  function renderBlocks(blocks) {
+    if (!blocks || blocks.length === 0) return `<div class="block-item"><div class="block-item-body">No blocks</div></div>`;
+    let html = "";
+    for (const b of blocks) {
+      if (b.kind === "tool_use") {
+        html += `<div class="block-item">
+          <div class="block-item-header block-tool">Tool Call</div>
+          <div class="block-item-body"><span class="block-tool-name">${esc(b.name)}</span>
+<div class="block-tool-section">Input</div>${esc(b.input)}
+<div class="block-tool-section">Result</div>${esc(b.result)}</div>
+        </div>`;
+      } else {
+        const label = b.kind === "thinking" ? "Thinking" : "Text";
+        const headerClass = b.kind === "thinking" ? "block-thinking" : "block-text";
+        html += `<div class="block-item">
+          <div class="block-item-header ${headerClass}">${label}</div>
+          <div class="block-item-body">${esc(b.text)}</div>
+        </div>`;
+      }
+    }
+    return html;
+  }
+
+  function handleTurnClick(e) {
+    const summary = e.target.closest("[data-action='expand']");
+    if (!summary) return;
+    const index = summary.dataset.index;
+    const detail = document.getElementById("blocks-" + index);
+    if (detail) {
+      summary.classList.toggle("open");
+      detail.classList.toggle("open");
+    }
   }
 
   function handleTurnEvent(e) {
@@ -1171,6 +1281,20 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   // Toolbar actions
   resetBtn.addEventListener("click", doReset);
   exportBtn.addEventListener("click", doExport);
+
+  // Select all / none
+  selectAllBtn.addEventListener("click", () => {
+    excludedTurns.clear();
+    turnsList.querySelectorAll("[data-action='toggle']").forEach((cb) => { cb.checked = true; });
+    turnsList.querySelectorAll(".turn-card").forEach((card) => card.classList.remove("excluded"));
+    schedulePreview();
+  });
+  selectNoneBtn.addEventListener("click", () => {
+    currentTurns.forEach((t) => excludedTurns.add(t.index));
+    turnsList.querySelectorAll("[data-action='toggle']").forEach((cb) => { cb.checked = false; });
+    turnsList.querySelectorAll(".turn-card").forEach((card) => card.classList.add("excluded"));
+    schedulePreview();
+  });
 
   // Dark/light mode
   themeModeBtn.addEventListener("click", () => {

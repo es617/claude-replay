@@ -70,12 +70,30 @@ function summarizeBlocks(blocks) {
   return parts.join(", ") || "empty";
 }
 
+/** Map a block to a lightweight shape for the client. */
+function summarizeBlock(b) {
+  if (b.kind === "tool_use" && b.tool_call) {
+    return {
+      kind: b.kind,
+      name: b.tool_call.name,
+      input: truncate(JSON.stringify(b.tool_call.input), 200),
+      result: truncate(b.tool_call.result || "", 500),
+    };
+  }
+  return { kind: b.kind, text: truncate(b.text || "", 1000) };
+}
+
+function truncate(s, max) {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
 /** Map full turns to the lightweight shape sent to the client. */
 function summarizeTurns(turns) {
   return turns.map((t) => ({
     index: t.index,
     user_text: t.user_text,
     blockSummary: summarizeBlocks(t.blocks),
+    blocks: t.blocks.map(summarizeBlock),
     timestamp: t.timestamp,
     system_events: t.system_events || [],
   }));

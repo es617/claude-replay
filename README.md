@@ -95,7 +95,7 @@ claude-replay editor --port 8080
 
 The editor provides:
 - **Session browser** — auto-discovers sessions from `~/.claude/projects/` and `~/.cursor/projects/`, plus a folder navigator for JSONL files stored elsewhere
-- **Turn editor** — include/exclude turns, edit user text, add bookmarks
+- **Turn editor** — include/exclude turns, edit user prompts, expand assistant blocks (read-only), add bookmarks
 - **Options panel** — theme, speed, thinking/tool call toggles, redaction rules, labels
 - **Live preview** — updates as you edit, renders the same output as the CLI
 - **Export** — download the final HTML replay
