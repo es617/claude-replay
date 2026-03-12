@@ -54,43 +54,38 @@ npm install -g claude-replay
 Or run directly with npx (zero install):
 
 ```bash
-npx claude-replay session.jsonl -o replay.html
+npx claude-replay
 ```
 
 ## Quick start
 
-### Claude Code
-
 ```bash
-# Find your session transcripts
-ls ~/.claude/projects/*/
+# Launch the web editor (default)
+claude-replay
 
-# Generate a replay
+# Or generate a replay from the CLI
 claude-replay ~/.claude/projects/-Users-me-myproject/session-id.jsonl -o replay.html
-
-# Open it
-open replay.html
 ```
+
+Running `claude-replay` with no arguments opens a browser-based editor that auto-discovers your Claude Code and Cursor sessions. From there you can browse, edit, preview, and export replays visually.
+
+For scripting or automation, pass a JSONL file directly to generate HTML from the command line.
 
 ### Cursor
 
-```bash
-# Find your agent transcripts
-ls ~/.cursor/projects/*/agent-transcripts/*/
+Cursor transcripts are also supported — the format is auto-detected. Cursor transcripts don't include timestamps, so playback uses paced timing by default (see [Timing modes](#timing-modes)).
 
-# Generate a replay
+```bash
 claude-replay ~/.cursor/projects/*/agent-transcripts/<id>/<id>.jsonl -o replay.html
 ```
 
-The format is auto-detected. Cursor transcripts don't include timestamps, so playback uses paced timing by default (see [Timing modes](#timing-modes)).
-
 ## Web Editor
 
-Launch a browser-based editor for browsing sessions, editing turns, and previewing replays — no CLI flags to remember:
+The default experience. Launch it by running `claude-replay` with no arguments:
 
 ```bash
-claude-replay editor
-claude-replay editor --port 8080
+claude-replay
+claude-replay --port 8080
 ```
 
 The editor provides:
@@ -105,16 +100,16 @@ The editor runs a local server on `127.0.0.1` (localhost only, not exposed to th
 ## Usage
 
 ```
-claude-replay <input.jsonl> [options]
+claude-replay [--port N]                   Launch the web editor (default)
+claude-replay <input.jsonl> [options]      Generate replay from CLI
 claude-replay extract <replay.html> [-o output.json]
-claude-replay editor [--port N]
 ```
 
 ### Commands
 
 #### `editor`
 
-Launch the web-based replay editor. See [Web Editor](#web-editor) above.
+Alias for the default behavior — launches the web-based replay editor. See [Web Editor](#web-editor) above.
 
 #### `extract`
 

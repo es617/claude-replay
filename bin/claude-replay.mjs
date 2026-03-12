@@ -52,24 +52,26 @@ try {
 
 const { values, positionals } = parsed;
 
-// --- Editor subcommand ---
-if (positionals[0] === "editor") {
-  const { startEditor } = await import("../src/editor-server.mjs");
-  const port = values.port ? parseInt(values.port) : 7331;
-  await startEditor(port);
-  // startEditor returns a promise that never resolves — server stays running
+// --- Editor (default when no args, or explicit "editor" subcommand) ---
+if (positionals.length === 0 || positionals[0] === "editor") {
+  if (positionals[0] === "editor" || !values.help) {
+    const { startEditor } = await import("../src/editor-server.mjs");
+    const port = values.port ? parseInt(values.port) : 7331;
+    await startEditor(port);
+    // startEditor returns a promise that never resolves — server stays running
+  }
 }
 
 if (values.help) {
-  console.log(`Usage: claude-replay <input.jsonl> [options]
+  console.log(`Usage: claude-replay [--port N]         Launch the web editor (default)
+       claude-replay <input.jsonl> [options]  Generate replay from CLI
        claude-replay extract <replay.html> [-o output.json]
-       claude-replay editor [--port N]
 
 Convert Claude Code session transcripts into embeddable HTML replays.
 
 Commands:
+  (no args)             Launch web-based editor UI (default)
   extract               Extract embedded turn data from a generated replay HTML
-  editor                Launch web-based editor UI (default port: 7331)
 
 Options:
   --port N                Port for the editor server (default: 7331)
@@ -139,10 +141,6 @@ if (positionals[0] === "extract") {
 }
 
 const inputFile = positionals[0];
-if (!inputFile) {
-  console.error("Error: input file is required. Usage: claude-replay <input.jsonl> [options]");
-  process.exit(1);
-}
 
 if (!existsSync(inputFile)) {
   console.error(`Error: file not found: ${inputFile}`);
