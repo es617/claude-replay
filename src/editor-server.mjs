@@ -259,10 +259,12 @@ async function handleApi(req, res, pathname) {
       turns = filterTurns(turns, { excludeTurns: options.excludeTurns });
     }
 
-    // Apply paced timing if no timestamps
     const previewTurns = JSON.parse(JSON.stringify(turns));
+    const timing = options.timing || "auto";
     const hasTimestamps = previewTurns.some((t) => t.timestamp);
-    if (!hasTimestamps) applyPacedTiming(previewTurns);
+    if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
+      applyPacedTiming(previewTurns);
+    }
 
     const theme = getThemeSafe(options.theme || "tokyo-night");
     const bookmarks = (options.bookmarks || []).sort((a, b) => a.turn - b.turn);
@@ -300,8 +302,11 @@ async function handleApi(req, res, pathname) {
     }
 
     const exportTurns = JSON.parse(JSON.stringify(turns));
+    const timing = options.timing || "auto";
     const hasTimestamps = exportTurns.some((t) => t.timestamp);
-    if (!hasTimestamps) applyPacedTiming(exportTurns);
+    if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
+      applyPacedTiming(exportTurns);
+    }
 
     const theme = getThemeSafe(options.theme || "tokyo-night");
     const bookmarks = (options.bookmarks || []).sort((a, b) => a.turn - b.turn);
@@ -319,8 +324,8 @@ async function handleApi(req, res, pathname) {
       description: options.description || "",
       ogImage: options.ogImage || "",
       bookmarks,
-      minified: true,
-      compress: true,
+      minified: options.minified !== false,
+      compress: options.compress !== false,
     });
 
     const filename = (options.title || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".html";

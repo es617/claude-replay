@@ -612,6 +612,22 @@ body {
           <label for="optOgImage" title="Image URL shown in link previews (Open Graph)">OG Image URL</label>
           <input type="text" id="optOgImage" placeholder="https://..." title="Image URL shown in link previews (Open Graph)">
         </div>
+        <div class="opt-row">
+          <label for="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">Timing</label>
+          <select id="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">
+            <option value="auto" selected>Auto</option>
+            <option value="real">Real</option>
+            <option value="paced">Paced</option>
+          </select>
+        </div>
+        <div class="opt-row">
+          <input type="checkbox" id="optMinify" checked title="Minify the output HTML for smaller file size">
+          <label for="optMinify" title="Minify the output HTML for smaller file size">Minify</label>
+        </div>
+        <div class="opt-row">
+          <input type="checkbox" id="optCompress" checked title="Compress embedded data (smaller file, requires modern browser)">
+          <label for="optCompress" title="Compress embedded data (smaller file, requires modern browser)">Compress</label>
+        </div>
       </div>
     </div>
   </div>
@@ -671,6 +687,9 @@ body {
   const optAssistantLabel = document.getElementById("optAssistantLabel");
   const optDescription = document.getElementById("optDescription");
   const optOgImage = document.getElementById("optOgImage");
+  const optTiming = document.getElementById("optTiming");
+  const optMinify = document.getElementById("optMinify");
+  const optCompress = document.getElementById("optCompress");
 
   // --- Sidebar section toggling ---
   function toggleSidebarSection(toggle, section) {
@@ -964,7 +983,7 @@ body {
   }
 
   // Option change listeners
-  [optTheme, optSpeed, optThinking, optToolCalls, optRedact, optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
+  [optTheme, optSpeed, optThinking, optToolCalls, optRedact, optTiming, optMinify, optCompress, optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
     el.addEventListener("change", () => schedulePreview());
   });
   [optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
@@ -1020,6 +1039,9 @@ body {
       title: titleInput.value || "Replay",
       description: optDescription.value || "",
       ogImage: optOgImage.value || "",
+      timing: optTiming.value,
+      minified: optMinify.checked,
+      compress: optCompress.checked,
       excludeTurns: Array.from(excludedTurns),
       bookmarks: Array.from(bookmarks.entries()).map(([turn, label]) => ({ turn, label })),
     };
