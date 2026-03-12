@@ -393,6 +393,14 @@ export function startEditor(port) {
   });
 
   return new Promise((_resolve) => {
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        console.error(`Error: port ${port} is already in use. Stop the other process or use --port to pick a different port.`);
+      } else {
+        console.error(`Error: ${err.message}`);
+      }
+      process.exit(1);
+    });
     server.listen(port, "127.0.0.1", () => {
       const url = `http://127.0.0.1:${port}`;
       console.log(`claude-replay editor running at ${url}`);

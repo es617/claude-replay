@@ -92,7 +92,7 @@ body {
 .sidebar {
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -122,10 +122,11 @@ body {
 .sidebar-section {
   display: none;
   overflow-y: auto;
+  min-height: 0;
 }
 .sidebar-section.open {
   display: block;
-  max-height: calc(100vh - 160px);
+  flex: 1;
 }
 
 /* Sessions content */
@@ -508,10 +509,10 @@ body {
     </div>
 
     <!-- Options section -->
-    <div class="sidebar-section-toggle" id="optionsToggle">
+    <div class="sidebar-section-toggle open" id="optionsToggle">
       <span class="arrow">&#9654;</span> Options
     </div>
-    <div class="sidebar-section" id="optionsSection">
+    <div class="sidebar-section open" id="optionsSection">
       <div class="options-content">
         <div class="opt-row">
           <label for="optTheme" title="Color theme for the replay player">Theme</label>
@@ -627,10 +628,8 @@ body {
     browseBody.style.display = browseToggle.classList.contains("open") ? "block" : "none";
   });
 
-  /** Collapse sessions, expand options — called after loading a file. */
+  /** Ensure options panel is visible — called after loading a file. */
   function showOptionsPanel() {
-    sessionsToggle.classList.remove("open");
-    sessionsSection.classList.remove("open");
     optionsToggle.classList.add("open");
     optionsSection.classList.add("open");
   }
