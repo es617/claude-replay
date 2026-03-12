@@ -141,6 +141,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 .btn-primary:hover { background: var(--accent-dim); color: var(--text-bright); }
 .btn-warn { background: var(--orange); color: var(--bg); font-weight: 600; }
 .btn-warn:hover { background: #e0874e; color: var(--text-bright); }
+.theme-mode-btn { display: flex; align-items: center; padding: 4px 8px; }
 
 /* Left sidebar */
 .sidebar {
@@ -621,6 +622,78 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   padding: 20px;
 }
 
+/* Help modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title { font-weight: 700; font-size: 14px; color: var(--accent); }
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text-bright); }
+.modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.modal-body h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-bright);
+  margin: 16px 0 6px;
+}
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body ul { padding-left: 18px; margin: 4px 0; }
+.modal-body li { margin-bottom: 4px; }
+.modal-body code {
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.modal-body a { color: var(--blue); text-decoration: none; }
+.modal-body a:hover { text-decoration: underline; }
+.modal-footer-link {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -636,7 +709,11 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     <input type="text" class="topbar-title-input" id="titleInput" placeholder="Session title..." disabled>
     <button class="btn" id="resetBtn" disabled>Reset Edits</button>
     <button class="btn btn-primary" id="exportBtn" disabled>Export HTML</button>
-    <button class="btn theme-mode-btn" id="themeModeBtn" title="Toggle dark/light mode">&#9790;</button>
+    <button class="btn theme-mode-btn" id="themeModeBtn" title="Toggle dark/light mode">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="btn" id="helpBtn" title="Help">?</button>
   </div>
 
   <!-- Left sidebar: Sessions + Options -->
@@ -753,6 +830,48 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 </div>
 <button class="sidebar-edge-toggle" id="sidebarToggleBtn" title="Toggle sidebar">&#8249;</button>
 
+<!-- Help modal -->
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">claude-replay editor</span>
+      <button class="modal-close" id="helpModalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <h3>Getting Started</h3>
+      <p>Select a session from the <b>Sessions</b> panel or use <b>Open Folder</b> to browse for JSONL transcript files.</p>
+
+      <h3>Editing</h3>
+      <ul>
+        <li><b>User prompts</b> are editable — changes appear live in the preview</li>
+        <li><b>Assistant blocks</b> can be expanded (click the summary line) but are read-only</li>
+        <li>Use <b>checkboxes</b> to include or exclude individual turns</li>
+        <li>Use <b>Include All / Exclude All</b> for bulk selection</li>
+        <li>Add <b>bookmarks</b> to create chapter markers in the replay</li>
+      </ul>
+
+      <h3>Options</h3>
+      <ul>
+        <li><b>Theme</b> — color scheme for the exported replay</li>
+        <li><b>Speed</b> — initial playback speed</li>
+        <li><b>Show Thinking / Tool Calls</b> — toggle block visibility</li>
+        <li><b>Auto-redact</b> — automatically hide API keys and secrets</li>
+        <li><b>Custom redact</b> — replace specific text (usernames, paths, etc.)</li>
+        <li><b>Timing</b> — auto, real (original timestamps), or paced (synthetic)</li>
+        <li><b>Minify / Compress</b> — optimize the exported HTML file size</li>
+      </ul>
+
+      <h3>Preview &amp; Export</h3>
+      <p>The preview updates live as you edit. Click <b>Export HTML</b> to download the final replay as a self-contained HTML file.</p>
+
+      <h3>Privacy</h3>
+      <p>The editor runs locally on <code>127.0.0.1</code>. Your session data never leaves your machine. Original JSONL files are never modified.</p>
+
+      <p class="modal-footer-link"><a href="https://github.com/anthropics/claude-replay" target="_blank" rel="noopener">GitHub</a> &middot; <a href="https://github.com/anthropics/claude-replay/issues" target="_blank" rel="noopener">Report an issue</a></p>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
   // =========================================================================
@@ -811,6 +930,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const resetBtn          = $("resetBtn");
   const exportBtn         = $("exportBtn");
   const themeModeBtn      = $("themeModeBtn");
+  const helpBtn           = $("helpBtn");
+  const helpModal         = $("helpModal");
+  const helpModalClose    = $("helpModalClose");
   const sessionsToggle    = $("sessionsToggle");
   const sessionsSection   = $("sessionsSection");
   const optionsToggle     = $("optionsToggle");
@@ -1300,7 +1422,18 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   themeModeBtn.addEventListener("click", () => {
     const isLight = document.documentElement.classList.toggle("light");
     document.documentElement.classList.toggle("dark", !isLight);
-    themeModeBtn.innerHTML = isLight ? "&#9728;" : "&#9790;";
+    themeModeBtn.querySelector(".icon-moon").style.display = isLight ? "none" : "block";
+    themeModeBtn.querySelector(".icon-sun").style.display = isLight ? "block" : "none";
+  });
+
+  // Help modal
+  helpBtn.addEventListener("click", () => helpModal.classList.add("open"));
+  helpModalClose.addEventListener("click", () => helpModal.classList.remove("open"));
+  helpModal.addEventListener("click", (e) => {
+    if (e.target === helpModal) helpModal.classList.remove("open");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && helpModal.classList.contains("open")) helpModal.classList.remove("open");
   });
 
   // Resize handle
