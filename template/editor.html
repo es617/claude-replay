@@ -59,14 +59,14 @@ body {
   grid-template-rows: auto 1fr;
   height: 100vh;
 }
-.app.sidebar-collapsed {
-  grid-template-columns: 32px 1fr 45%;
+body.sidebar-collapsed .app {
+  grid-template-columns: 16px 1fr 45%;
 }
-.app.sidebar-collapsed .sidebar {
+body.sidebar-collapsed .app .sidebar {
   overflow: hidden;
 }
-.app.sidebar-collapsed .sidebar-section-toggle,
-.app.sidebar-collapsed .sidebar-section {
+body.sidebar-collapsed .app .sidebar-section-toggle,
+body.sidebar-collapsed .app .sidebar-section {
   display: none;
 }
 
@@ -102,29 +102,29 @@ body {
 
 .topbar-title-input:focus { outline: 1px solid var(--accent); }
 
-.sidebar-collapse-bar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 6px 6px 2px;
-  flex-shrink: 0;
-}
-.app.sidebar-collapsed .sidebar-collapse-bar {
-  justify-content: center;
-  padding: 6px 0 2px;
-}
-.sidebar-toggle-btn {
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  padding: 4px;
+.sidebar-edge-toggle {
+  position: fixed;
+  left: 260px;
+  top: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  width: 16px;
+  height: 36px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 0;
+  line-height: 1;
+  transition: left 0.15s;
 }
-.sidebar-toggle-btn:hover { color: var(--text-bright); background: var(--bg-hover); }
-.sidebar-toggle-btn line { opacity: 1; transition: opacity 0.15s; }
-.app.sidebar-collapsed .sidebar-toggle-btn line { opacity: 0.3; }
+.sidebar-edge-toggle:hover { color: var(--text-bright); background: var(--bg-hover); }
+body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
 .btn {
   background: var(--bg-hover);
@@ -144,6 +144,7 @@ body {
 
 /* Left sidebar */
 .sidebar {
+  position: relative;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
   overflow: hidden;
@@ -555,14 +556,6 @@ body {
 
   <!-- Left sidebar: Sessions + Options -->
   <div class="sidebar">
-    <div class="sidebar-collapse-bar">
-      <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle sidebar">
-        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <rect x="2" y="2" width="14" height="14" rx="2"/>
-          <line x1="7" y1="2" x2="7" y2="16"/>
-        </svg>
-      </button>
-    </div>
     <!-- Sessions section -->
     <div class="sidebar-section-toggle open" id="sessionsToggle">
       <span class="arrow">&#9654;</span> Sessions
@@ -667,6 +660,7 @@ body {
     <iframe class="preview-iframe" id="previewIframe"></iframe>
   </div>
 </div>
+<button class="sidebar-edge-toggle" id="sidebarToggleBtn" title="Toggle sidebar">&#8249;</button>
 
 <script>
 (function() {
@@ -678,7 +672,6 @@ body {
   let previewBlobUrl = null;
 
   // --- DOM refs ---
-  const appEl = document.querySelector(".app");
   const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
   const titleInput = document.getElementById("titleInput");
   const resetBtn = document.getElementById("resetBtn");
@@ -716,7 +709,10 @@ body {
     section.classList.toggle("open");
   }
 
-  sidebarToggleBtn.addEventListener("click", () => appEl.classList.toggle("sidebar-collapsed"));
+  sidebarToggleBtn.addEventListener("click", () => {
+    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+    sidebarToggleBtn.innerHTML = collapsed ? "&#8250;" : "&#8249;";
+  });
   sessionsToggle.addEventListener("click", () => toggleSidebarSection(sessionsToggle, sessionsSection));
   optionsToggle.addEventListener("click", () => toggleSidebarSection(optionsToggle, optionsSection));
   browseToggle.addEventListener("click", () => {
