@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claude-replay editor</title>
+<style>
+:root {
+  --bg: #1a1b26;
+  --bg-surface: #24253a;
+  --bg-hover: #2f3147;
+  --text: #c0caf5;
+  --text-dim: #565f89;
+  --text-bright: #e0e6ff;
+  --accent: #bb9af7;
+  --accent-dim: #7957a8;
+  --green: #9ece6a;
+  --blue: #7aa2f7;
+  --orange: #ff9e64;
+  --red: #f7768e;
+  --cyan: #7dcfff;
+  --border: #3b3d57;
+  --tool-bg: #1e1f33;
+  --thinking-bg: #1c1d2e;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Three-panel grid layout */
+.app {
+  display: grid;
+  grid-template-columns: 260px 1fr 45%;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+/* Top bar */
+.topbar {
+  grid-column: 1 / -1;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.topbar h1 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.topbar-title-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.topbar-title-input:focus { outline: 1px solid var(--accent); }
+
+.btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--accent-dim); color: var(--text-bright); }
+.btn-primary { background: var(--accent); color: var(--bg); font-weight: 600; }
+.btn-primary:hover { background: var(--accent-dim); color: var(--text-bright); }
+
+/* Left sidebar */
+.sidebar {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar section toggle (shared by Sessions and Options) */
+.sidebar-section-toggle {
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  color: var(--text-bright);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sidebar-section-toggle:hover { background: var(--border); }
+.sidebar-section-toggle .arrow { font-size: 9px; transition: transform 0.15s; color: var(--text-dim); }
+.sidebar-section-toggle.open .arrow { transform: rotate(90deg); }
+
+.sidebar-section {
+  display: none;
+  overflow-y: auto;
+}
+.sidebar-section.open {
+  display: block;
+  max-height: calc(100vh - 160px);
+}
+
+/* Sessions content */
+.sessions-content { padding: 4px 0; }
+
+.session-group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  padding: 8px 12px 4px;
+  font-weight: 600;
+}
+
+.session-project { padding: 0; }
+
+.session-project-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 4px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.session-project-name:hover { background: var(--bg-hover); }
+
+.session-project-name .arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+  color: var(--text-dim);
+}
+
+.session-project-name.open .arrow { transform: rotate(90deg); }
+
+.session-list { display: none; }
+.session-list.open { display: block; }
+
+.session-item {
+  font-size: 11px;
+  padding: 3px 12px 3px 24px;
+  cursor: pointer;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-item:hover { background: var(--bg-hover); color: var(--text); }
+.session-item.active { background: var(--accent-dim); color: var(--text-bright); }
+
+.session-item .badge {
+  font-size: 9px;
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+/* Browse folder UI */
+.browse-section {
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+.browse-header {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+.browse-item {
+  font-size: 11px;
+  padding: 3px 12px;
+  cursor: pointer;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.browse-item:hover { background: var(--bg-hover); color: var(--text); }
+.browse-item .icon { font-size: 12px; flex-shrink: 0; }
+
+.browse-path-input {
+  width: calc(100% - 24px);
+  margin: 4px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 3px 6px;
+  font-size: 11px;
+}
+.browse-path-input:focus { outline: 1px solid var(--accent); }
+
+/* Options content */
+.options-content {
+  padding: 10px 12px;
+}
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.opt-row label {
+  min-width: 100px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.opt-row select,
+.opt-row input[type="text"],
+.opt-row input[type="number"],
+.opt-row textarea {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 3px 6px;
+  font-size: 11px;
+  min-width: 0;
+}
+
+.opt-row input:focus,
+.opt-row select:focus,
+.opt-row textarea:focus { outline: 1px solid var(--accent); }
+
+.opt-row input[type="checkbox"] { accent-color: var(--accent); }
+
+.redact-rules { margin-top: 4px; }
+
+.redact-rule {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.redact-rule input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 2px 4px;
+  font-size: 11px;
+}
+
+.redact-rule input:focus { outline: 1px solid var(--accent); }
+
+.redact-rule .remove-rule {
+  background: none;
+  border: none;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+}
+
+.add-rule-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-dim);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.add-rule-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+/* Turns editor panel (center) */
+.editor-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.turns-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.turn-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.turn-card.excluded { opacity: 0.4; }
+
+.turn-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.turn-card-header input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.turn-card-header .turn-label {
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.turn-card-header .turn-summary {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.turn-card-body { padding: 8px 10px; }
+
+.turn-textarea {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  resize: vertical;
+  min-height: 40px;
+  line-height: 1.4;
+}
+
+.turn-textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+.turn-blocks-summary {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.turn-bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.turn-bookmark-row label {
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bookmark-label-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.bookmark-label-input:focus { outline: 1px solid var(--accent); }
+
+/* Preview panel (right) */
+.preview-panel {
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.preview-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-header .refresh-indicator {
+  color: var(--orange);
+  font-size: 11px;
+  display: none;
+}
+
+.preview-header .refresh-indicator.active { display: inline; }
+
+.preview-iframe {
+  flex: 1;
+  border: none;
+  width: 100%;
+  background: var(--bg);
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Top bar -->
+  <div class="topbar">
+    <h1>claude-replay</h1>
+    <input type="text" class="topbar-title-input" id="titleInput" placeholder="Session title..." disabled>
+    <button class="btn" id="resetBtn" disabled>Reset Edits</button>
+    <button class="btn btn-primary" id="exportBtn" disabled>Export HTML</button>
+  </div>
+
+  <!-- Left sidebar: Sessions + Options -->
+  <div class="sidebar">
+    <!-- Sessions section -->
+    <div class="sidebar-section-toggle open" id="sessionsToggle">
+      <span class="arrow">&#9654;</span> Sessions
+    </div>
+    <div class="sidebar-section open" id="sessionsSection">
+      <div class="sessions-content">
+        <div id="sessionsTree"></div>
+        <div class="browse-section" id="browseSection">
+          <div class="browse-header">Open Folder</div>
+          <input type="text" class="browse-path-input" id="browsePathInput" placeholder="Enter path and press Enter...">
+          <div id="browseList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options section -->
+    <div class="sidebar-section-toggle" id="optionsToggle">
+      <span class="arrow">&#9654;</span> Options
+    </div>
+    <div class="sidebar-section" id="optionsSection">
+      <div class="options-content">
+        <div class="opt-row">
+          <label for="optTheme" title="Color theme for the replay player">Theme</label>
+          <select id="optTheme" title="Color theme for the replay player"></select>
+        </div>
+        <div class="opt-row">
+          <label for="optSpeed" title="Initial playback speed (0.1 - 10x)">Speed</label>
+          <input type="number" id="optSpeed" value="1" min="0.1" max="10" step="0.1" title="Initial playback speed (0.1 - 10x)">
+        </div>
+        <div class="opt-row">
+          <label title="Show Claude's internal reasoning traces">Show Thinking</label>
+          <input type="checkbox" id="optThinking" checked title="Show Claude's internal reasoning traces">
+        </div>
+        <div class="opt-row">
+          <label title="Show tool call blocks (file reads, edits, commands)">Show Tool Calls</label>
+          <input type="checkbox" id="optToolCalls" checked title="Show tool call blocks (file reads, edits, commands)">
+        </div>
+        <div class="opt-row">
+          <label title="Automatically detect and redact API keys, tokens, and secrets">Auto-redact</label>
+          <input type="checkbox" id="optRedact" checked title="Automatically detect and redact API keys, tokens, and secrets">
+        </div>
+        <div class="opt-row">
+          <label title="Replace specific text in the output (e.g. usernames, paths)">Custom redact</label>
+          <div style="flex:1">
+            <div class="redact-rules" id="redactRules"></div>
+            <button class="add-rule-btn" id="addRuleBtn">+ Add rule</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <label for="optUserLabel" title="Display name for user messages">User label</label>
+          <input type="text" id="optUserLabel" value="User" title="Display name for user messages">
+        </div>
+        <div class="opt-row">
+          <label for="optAssistantLabel" title="Display name for assistant messages (auto-detected if empty)">Asst. label</label>
+          <input type="text" id="optAssistantLabel" placeholder="auto" title="Display name for assistant messages (auto-detected if empty)">
+        </div>
+        <div class="opt-row">
+          <label for="optDescription" title="Meta description for link previews when sharing">Description</label>
+          <textarea id="optDescription" rows="2" style="resize:vertical" title="Meta description for link previews when sharing"></textarea>
+        </div>
+        <div class="opt-row">
+          <label for="optOgImage" title="Image URL shown in link previews (Open Graph)">OG Image URL</label>
+          <input type="text" id="optOgImage" placeholder="https://..." title="Image URL shown in link previews (Open Graph)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor panel -->
+  <div class="editor-panel">
+    <div class="turns-list" id="turnsList">
+      <div class="empty-state">Select a session to begin editing</div>
+    </div>
+  </div>
+
+  <!-- Preview panel -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <span>Preview</span>
+      <span class="refresh-indicator" id="refreshIndicator">Refreshing...</span>
+    </div>
+    <iframe class="preview-iframe" id="previewIframe"></iframe>
+  </div>
+</div>
+
+<script>
+(function() {
+  // --- State ---
+  let currentSessionId = null;
+  let currentTurns = [];
+  let excludedTurns = new Set();
+  let bookmarks = new Map();
+  let previewBlobUrl = null;
+
+  // --- DOM refs ---
+  const titleInput = document.getElementById("titleInput");
+  const resetBtn = document.getElementById("resetBtn");
+  const exportBtn = document.getElementById("exportBtn");
+  const sessionsToggle = document.getElementById("sessionsToggle");
+  const sessionsSection = document.getElementById("sessionsSection");
+  const optionsToggle = document.getElementById("optionsToggle");
+  const optionsSection = document.getElementById("optionsSection");
+  const sessionsTree = document.getElementById("sessionsTree");
+  const browsePathInput = document.getElementById("browsePathInput");
+  const browseList = document.getElementById("browseList");
+  const turnsList = document.getElementById("turnsList");
+  const previewIframe = document.getElementById("previewIframe");
+  const refreshIndicator = document.getElementById("refreshIndicator");
+  const optTheme = document.getElementById("optTheme");
+  const optSpeed = document.getElementById("optSpeed");
+  const optThinking = document.getElementById("optThinking");
+  const optToolCalls = document.getElementById("optToolCalls");
+  const optRedact = document.getElementById("optRedact");
+  const redactRulesContainer = document.getElementById("redactRules");
+  const addRuleBtn = document.getElementById("addRuleBtn");
+  const optUserLabel = document.getElementById("optUserLabel");
+  const optAssistantLabel = document.getElementById("optAssistantLabel");
+  const optDescription = document.getElementById("optDescription");
+  const optOgImage = document.getElementById("optOgImage");
+
+  // --- Sidebar section toggling ---
+  function toggleSidebarSection(toggle, section) {
+    toggle.classList.toggle("open");
+    section.classList.toggle("open");
+  }
+
+  sessionsToggle.addEventListener("click", () => toggleSidebarSection(sessionsToggle, sessionsSection));
+  optionsToggle.addEventListener("click", () => toggleSidebarSection(optionsToggle, optionsSection));
+
+  /** Collapse sessions, expand options — called after loading a file. */
+  function showOptionsPanel() {
+    sessionsToggle.classList.remove("open");
+    sessionsSection.classList.remove("open");
+    optionsToggle.classList.add("open");
+    optionsSection.classList.add("open");
+  }
+
+  // --- API helpers ---
+  async function api(method, path, body) {
+    const opts = { method, headers: {} };
+    if (body !== undefined) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    const res = await fetch(path, opts);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return res;
+  }
+
+  async function apiJson(method, path, body) {
+    const res = await api(method, path, body);
+    return res.json();
+  }
+
+  // --- Debounce ---
+  function debounce(fn, ms) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  // --- Sessions panel ---
+  async function loadSessions() {
+    try {
+      const groups = await apiJson("GET", "/api/sessions");
+      renderSessions(groups);
+    } catch (e) {
+      sessionsTree.innerHTML = `<div class="empty-state" style="color:var(--red)">Failed to load sessions: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderSessions(groups) {
+    if (groups.length === 0) {
+      sessionsTree.innerHTML = `<div class="empty-state" style="padding:12px;font-size:11px">No sessions found in default locations.</div>`;
+      return;
+    }
+    let html = "";
+    for (const group of groups) {
+      html += `<div class="session-group-label">${esc(group.name)}</div>`;
+      for (const proj of group.projects) {
+        const projId = `proj-${esc(group.name)}-${esc(proj.dirName)}`;
+        html += `<div class="session-project">`;
+        html += `<div class="session-project-name" data-target="${projId}" title="${esc(proj.dirName.replace(/^-+/, ''))}"><span class="arrow">&#9654;</span> ${esc(proj.name)}</div>`;
+        html += `<div class="session-list" id="${projId}">`;
+        for (const sess of proj.sessions) {
+          const dateStr = sess.date ? new Date(sess.date).toLocaleDateString() : "";
+          html += `<div class="session-item" data-path="${esc(sess.path)}">${esc(sess.file.replace(".jsonl", ""))} <span class="badge">${dateStr}</span></div>`;
+        }
+        html += `</div></div>`;
+      }
+    }
+    sessionsTree.innerHTML = html;
+
+    sessionsTree.querySelectorAll(".session-project-name").forEach((el) => {
+      el.addEventListener("click", () => {
+        el.classList.toggle("open");
+        const list = document.getElementById(el.dataset.target);
+        if (list) list.classList.toggle("open");
+      });
+    });
+
+    sessionsTree.querySelectorAll(".session-item").forEach((el) => {
+      el.addEventListener("click", () => loadSession(el.dataset.path, el));
+    });
+  }
+
+  // --- Folder browser ---
+  browsePathInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const path = browsePathInput.value.trim();
+      if (path) browseTo(path);
+    }
+  });
+
+  async function browseTo(dirPath) {
+    try {
+      const data = await apiJson("POST", "/api/browse", { path: dirPath });
+      browsePathInput.value = data.path;
+      renderBrowseResults(data);
+    } catch (e) {
+      browseList.innerHTML = `<div class="browse-item" style="color:var(--red)">${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderBrowseResults(data) {
+    let html = "";
+    const parentPath = data.path.replace(/\/[^/]+\/?$/, "") || "/";
+    if (data.path !== "/") {
+      html += `<div class="browse-item" data-browse="${esc(parentPath)}"><span class="icon">..</span> <span style="color:var(--text-dim)">(parent)</span></div>`;
+    }
+    for (const dir of data.dirs) {
+      html += `<div class="browse-item" data-browse="${esc(dir.path)}"><span class="icon" style="color:var(--blue)">&#128193;</span> ${esc(dir.name)}</div>`;
+    }
+    for (const file of data.files) {
+      const dateStr = file.date ? new Date(file.date).toLocaleDateString() : "";
+      html += `<div class="browse-item" data-path="${esc(file.path)}"><span class="icon" style="color:var(--green)">&#128196;</span> ${esc(file.name)} <span class="badge" style="margin-left:auto;font-size:9px;color:var(--text-dim)">${dateStr}</span></div>`;
+    }
+    if (data.dirs.length === 0 && data.files.length === 0) {
+      html += `<div class="browse-item" style="color:var(--text-dim)">No folders or .jsonl files</div>`;
+    }
+    browseList.innerHTML = html;
+
+    browseList.querySelectorAll("[data-browse]").forEach((el) => {
+      el.addEventListener("click", () => browseTo(el.dataset.browse));
+    });
+
+    browseList.querySelectorAll("[data-path]").forEach((el) => {
+      el.addEventListener("click", () => {
+        document.querySelectorAll(".session-item.active").forEach((s) => s.classList.remove("active"));
+        el.style.background = "var(--accent-dim)";
+        el.style.color = "var(--text-bright)";
+        loadSession(el.dataset.path, null);
+      });
+    });
+  }
+
+  // --- Load session ---
+  async function loadSession(path, itemEl) {
+    document.querySelectorAll(".session-item.active").forEach((el) => el.classList.remove("active"));
+    if (itemEl) itemEl.classList.add("active");
+
+    try {
+      const data = await apiJson("POST", "/api/load", { path });
+      currentSessionId = data.sessionId;
+      currentTurns = data.turns;
+      excludedTurns = new Set();
+      bookmarks = new Map();
+
+      const parts = path.split("/");
+      const filename = parts[parts.length - 1].replace(".jsonl", "");
+      titleInput.value = "Replay \u2014 " + filename;
+      titleInput.disabled = false;
+      resetBtn.disabled = false;
+      exportBtn.disabled = false;
+
+      // Switch sidebar: collapse sessions, show options
+      showOptionsPanel();
+
+      renderTurns();
+      schedulePreview();
+    } catch (e) {
+      alert("Failed to load session: " + e.message);
+    }
+  }
+
+  // --- Render turn cards ---
+  function renderTurns() {
+    if (currentTurns.length === 0) {
+      turnsList.innerHTML = `<div class="empty-state">No turns in this session</div>`;
+      return;
+    }
+
+    let html = "";
+    for (const turn of currentTurns) {
+      const excluded = excludedTurns.has(turn.index);
+      const checked = excluded ? "" : "checked";
+      const bookmarkChecked = bookmarks.has(turn.index) ? "checked" : "";
+      const bookmarkLabel = bookmarks.get(turn.index) || "";
+      const userText = turn.user_text || "";
+      const rows = Math.max(2, Math.min(8, userText.split("\n").length));
+
+      html += `<div class="turn-card ${excluded ? "excluded" : ""}" data-index="${turn.index}">
+        <div class="turn-card-header">
+          <input type="checkbox" ${checked} data-action="toggle" data-index="${turn.index}">
+          <span class="turn-label">Turn ${turn.index}</span>
+          <span class="turn-summary">${esc(turn.blockSummary)}</span>
+        </div>
+        <div class="turn-card-body">
+          <textarea class="turn-textarea" data-action="edit" data-index="${turn.index}" rows="${rows}">${esc(userText)}</textarea>
+          <div class="turn-blocks-summary">${esc(turn.blockSummary)}</div>
+          <div class="turn-bookmark-row">
+            <label><input type="checkbox" ${bookmarkChecked} data-action="bookmark" data-index="${turn.index}"> Bookmark</label>
+            <input type="text" class="bookmark-label-input" data-action="bookmark-label" data-index="${turn.index}" placeholder="Chapter label..." value="${esc(bookmarkLabel)}" ${bookmarkChecked ? "" : "disabled"}>
+          </div>
+        </div>
+      </div>`;
+    }
+    turnsList.innerHTML = html;
+
+    turnsList.addEventListener("change", handleTurnEvent);
+    turnsList.addEventListener("input", handleTurnInput);
+  }
+
+  function handleTurnEvent(e) {
+    const target = e.target;
+    const action = target.dataset.action;
+    const index = parseInt(target.dataset.index);
+
+    if (action === "toggle") {
+      if (target.checked) {
+        excludedTurns.delete(index);
+      } else {
+        excludedTurns.add(index);
+      }
+      const card = target.closest(".turn-card");
+      card.classList.toggle("excluded", !target.checked);
+      schedulePreview();
+    }
+
+    if (action === "bookmark") {
+      const labelInput = turnsList.querySelector(`input[data-action="bookmark-label"][data-index="${index}"]`);
+      if (target.checked) {
+        bookmarks.set(index, labelInput.value || `Turn ${index}`);
+        labelInput.disabled = false;
+      } else {
+        bookmarks.delete(index);
+        labelInput.disabled = true;
+      }
+      schedulePreview();
+    }
+
+    if (action === "bookmark-label") {
+      if (bookmarks.has(index)) {
+        bookmarks.set(index, target.value || `Turn ${index}`);
+        schedulePreview();
+      }
+    }
+  }
+
+  const debouncedEdit = debounce((index, text) => {
+    apiJson("POST", "/api/edit", { sessionId: currentSessionId, turnIndex: index, user_text: text })
+      .then(() => schedulePreview())
+      .catch((e) => console.error("Edit failed:", e));
+  }, 300);
+
+  function handleTurnInput(e) {
+    const target = e.target;
+    if (target.dataset.action === "edit") {
+      const index = parseInt(target.dataset.index);
+      debouncedEdit(index, target.value);
+    }
+    if (target.dataset.action === "bookmark-label") {
+      const index = parseInt(target.dataset.index);
+      if (bookmarks.has(index)) {
+        bookmarks.set(index, target.value || `Turn ${index}`);
+        debouncedPreview();
+      }
+    }
+  }
+
+  // --- Load themes into select ---
+  async function loadThemes() {
+    try {
+      const themes = await apiJson("GET", "/api/themes");
+      optTheme.innerHTML = themes.map((t) => `<option value="${esc(t)}" ${t === "tokyo-night" ? "selected" : ""}>${esc(t)}</option>`).join("");
+    } catch { /* ignore */ }
+  }
+
+  // Option change listeners
+  [optTheme, optSpeed, optThinking, optToolCalls, optRedact, optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
+    el.addEventListener("change", () => schedulePreview());
+  });
+  [optUserLabel, optAssistantLabel, optDescription, optOgImage].forEach((el) => {
+    el.addEventListener("input", debounce(() => schedulePreview(), 300));
+  });
+
+  // Redact rules
+  addRuleBtn.addEventListener("click", () => {
+    addRedactRule("", "[REDACTED]");
+    schedulePreview();
+  });
+
+  function addRedactRule(search, replacement) {
+    const row = document.createElement("div");
+    row.className = "redact-rule";
+    row.innerHTML = `<input type="text" placeholder="Search text" value="${esc(search)}">
+      <span style="color:var(--text-dim)">&rarr;</span>
+      <input type="text" placeholder="Replacement" value="${esc(replacement)}">
+      <button class="remove-rule">&times;</button>`;
+    redactRulesContainer.appendChild(row);
+
+    row.querySelector(".remove-rule").addEventListener("click", () => {
+      row.remove();
+      schedulePreview();
+    });
+    row.querySelectorAll("input").forEach((inp) => {
+      inp.addEventListener("input", debounce(() => schedulePreview(), 300));
+    });
+  }
+
+  function getRedactRules() {
+    const rules = [];
+    redactRulesContainer.querySelectorAll(".redact-rule").forEach((row) => {
+      const inputs = row.querySelectorAll("input");
+      const search = inputs[0].value;
+      const replacement = inputs[1].value;
+      if (search) rules.push({ search, replacement });
+    });
+    return rules;
+  }
+
+  // --- Preview ---
+  function gatherOptions() {
+    return {
+      theme: optTheme.value,
+      speed: parseFloat(optSpeed.value) || 1,
+      showThinking: optThinking.checked,
+      showToolCalls: optToolCalls.checked,
+      redactSecrets: optRedact.checked,
+      redactRules: getRedactRules(),
+      userLabel: optUserLabel.value || "User",
+      assistantLabel: optAssistantLabel.value || "",
+      title: titleInput.value || "Replay",
+      description: optDescription.value || "",
+      ogImage: optOgImage.value || "",
+      excludeTurns: Array.from(excludedTurns),
+      bookmarks: Array.from(bookmarks.entries()).map(([turn, label]) => ({ turn, label })),
+    };
+  }
+
+  const debouncedPreview = debounce(() => refreshPreview(), 150);
+
+  function schedulePreview() {
+    if (!currentSessionId) return;
+    debouncedPreview();
+  }
+
+  async function refreshPreview() {
+    if (!currentSessionId) return;
+    refreshIndicator.classList.add("active");
+
+    try {
+      const data = await apiJson("POST", "/api/preview", {
+        sessionId: currentSessionId,
+        options: gatherOptions(),
+      });
+
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+      previewBlobUrl = URL.createObjectURL(new Blob([data.html], { type: "text/html" }));
+      previewIframe.src = previewBlobUrl;
+    } catch (e) {
+      console.error("Preview failed:", e);
+    } finally {
+      refreshIndicator.classList.remove("active");
+    }
+  }
+
+  titleInput.addEventListener("input", debounce(() => schedulePreview(), 300));
+
+  // --- Reset ---
+  resetBtn.addEventListener("click", async () => {
+    if (!currentSessionId) return;
+    try {
+      const data = await apiJson("POST", "/api/reset", { sessionId: currentSessionId });
+      currentTurns = data.turns;
+      excludedTurns = new Set();
+      bookmarks = new Map();
+      renderTurns();
+      schedulePreview();
+    } catch (e) {
+      alert("Reset failed: " + e.message);
+    }
+  });
+
+  // --- Export ---
+  exportBtn.addEventListener("click", async () => {
+    if (!currentSessionId) return;
+    try {
+      const res = await api("POST", "/api/export", {
+        sessionId: currentSessionId,
+        options: gatherOptions(),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (titleInput.value || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Export failed: " + e.message);
+    }
+  });
+
+  // --- Init ---
+  loadSessions();
+  loadThemes();
+})();
+</script>
+</body>
+</html>

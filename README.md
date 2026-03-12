@@ -33,6 +33,7 @@ Claude Code and Cursor store conversation transcripts as JSONL files on disk. **
 - Multiple color themes
 - Terminal-style bottom-to-top scroll
 - Embeddable via iframe
+- Web-based editor UI for visual session editing and preview
 
 ## Use cases
 
@@ -83,14 +84,37 @@ claude-replay ~/.cursor/projects/*/agent-transcripts/<id>/<id>.jsonl -o replay.h
 
 The format is auto-detected. Cursor transcripts don't include timestamps, so playback uses paced timing by default (see [Timing modes](#timing-modes)).
 
+## Web Editor
+
+Launch a browser-based editor for browsing sessions, editing turns, and previewing replays — no CLI flags to remember:
+
+```bash
+claude-replay editor
+claude-replay editor --port 8080
+```
+
+The editor provides:
+- **Session browser** — auto-discovers sessions from `~/.claude/projects/` and `~/.cursor/projects/`, plus a folder navigator for JSONL files stored elsewhere
+- **Turn editor** — include/exclude turns, edit user text, add bookmarks
+- **Options panel** — theme, speed, thinking/tool call toggles, redaction rules, labels
+- **Live preview** — updates as you edit, renders the same output as the CLI
+- **Export** — download the final HTML replay
+
+The editor runs a local server on `127.0.0.1` (localhost only, not exposed to the network). It never modifies your original JSONL files — all edits are held in memory and only affect the exported output.
+
 ## Usage
 
 ```
 claude-replay <input.jsonl> [options]
 claude-replay extract <replay.html> [-o output.json]
+claude-replay editor [--port N]
 ```
 
 ### Commands
+
+#### `editor`
+
+Launch the web-based replay editor. See [Web Editor](#web-editor) above.
 
 #### `extract`
 
@@ -131,6 +155,7 @@ Note: the extracted data is the *parsed* representation (system tags stripped, s
 | `--no-compress` | Embed raw JSON instead of compressed data (for older browsers) |
 | `--open` | Open the generated HTML in the default browser (requires `-o`) |
 | `--list-themes` | List available built-in themes and exit |
+| `--port N` | Port for the editor server (default: 7331) |
 
 ### Examples
 

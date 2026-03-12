@@ -14,6 +14,7 @@ import { getTheme, loadThemeFile, listThemes } from "../src/themes.mjs";
 import { extractData } from "../src/extract.mjs";
 
 const options = {
+  port: { type: "string" },
   output: { type: "string", short: "o" },
   turns: { type: "string" },
   "exclude-turns": { type: "string" },
@@ -51,16 +52,27 @@ try {
 
 const { values, positionals } = parsed;
 
+// --- Editor subcommand ---
+if (positionals[0] === "editor") {
+  const { startEditor } = await import("../src/editor-server.mjs");
+  const port = values.port ? parseInt(values.port) : 7331;
+  await startEditor(port);
+  // startEditor returns a promise that never resolves — server stays running
+}
+
 if (values.help) {
   console.log(`Usage: claude-replay <input.jsonl> [options]
        claude-replay extract <replay.html> [-o output.json]
+       claude-replay editor [--port N]
 
 Convert Claude Code session transcripts into embeddable HTML replays.
 
 Commands:
   extract               Extract embedded turn data from a generated replay HTML
+  editor                Launch web-based editor UI (default port: 7331)
 
 Options:
+  --port N                Port for the editor server (default: 7331)
   -o, --output FILE       Output HTML file (default: stdout)
   --turns N-M             Only include turns N through M
   --exclude-turns N,N,... Exclude specific turns by index
