@@ -1226,10 +1226,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       schedulePreview();
     }
 
-    if (action === "bookmark-label" && bookmarks.has(index)) {
-      bookmarks.set(index, e.target.value || `Turn ${index}`);
-      schedulePreview();
-    }
+    // bookmark-label is handled by handleTurnInput (input event) with debounce
   }
 
   const debouncedEdit = debounce((sessionId, index, text) => {

@@ -2478,7 +2478,17 @@ body.in-iframe .bar-title:hover {
     if (target > 0) {
       stopPlay();
       hideSplash();
-      showUpTo(target);
+      showUpTo(target, { skipScroll: true });
+      // Scroll to TOP of the target turn (showUpTo scrolls to bottom)
+      const el = turnElements()[target - 1];
+      if (el) {
+        scrollProtectUntil = Date.now() + 2000;
+        requestAnimationFrame(() => {
+          const barH = getControlsHeight();
+          const targetY = el.getBoundingClientRect().top + window.scrollY - barH - 12;
+          smoothScrollTo(Math.max(0, targetY), 400);
+        });
+      }
     }
   });
 
