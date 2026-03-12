@@ -2469,6 +2469,18 @@ body.in-iframe .bar-title:hover {
   // else: splash is visible, currentTurn = 0, progress at 0%
   updateProgress();
 
+  // React to hash changes (e.g. from parent editor iframe control)
+  window.addEventListener("hashchange", () => {
+    const m = location.hash.match(/turn=(\d+)/);
+    if (!m) return;
+    const target = Math.min(parseInt(m[1], 10), TURNS.length);
+    if (target > 0) {
+      stopPlay();
+      hideSplash();
+      showUpTo(target);
+    }
+  });
+
   $("#splash-play").addEventListener("click", () => startPlay());
   document.body.dataset.ready = "1";
 })();

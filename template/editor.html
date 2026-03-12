@@ -1180,12 +1180,22 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
   function handleTurnClick(e) {
     const summary = e.target.closest("[data-action='expand']");
-    if (!summary) return;
-    const index = summary.dataset.index;
-    const detail = document.getElementById("blocks-" + index);
-    if (detail) {
-      summary.classList.toggle("open");
-      detail.classList.toggle("open");
+    if (summary) {
+      const index = summary.dataset.index;
+      const detail = document.getElementById("blocks-" + index);
+      if (detail) {
+        summary.classList.toggle("open");
+        detail.classList.toggle("open");
+      }
+      return;
+    }
+    // Click on turn card header → jump preview to that turn
+    const header = e.target.closest(".turn-card-header");
+    if (header && !e.target.closest("input")) {
+      const index = parseInt(header.dataset.index || header.closest(".turn-card").dataset.index);
+      if (index && previewIframe.contentWindow) {
+        try { previewIframe.contentWindow.location.hash = "#turn=" + index; } catch {}
+      }
     }
   }
 
