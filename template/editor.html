@@ -307,6 +307,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 .empty-state-error { color: var(--red); }
 .empty-state-hint { padding: 12px; font-size: 11px; }
 
+.sessions-search {
+  width: calc(100% - 24px);
+  margin: 4px 12px 2px;
+  padding: 4px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 12px;
+}
+.sessions-search:focus { outline: 1px solid var(--accent); }
 .browse-path-input {
   width: calc(100% - 24px);
   margin: 4px 12px;
@@ -725,6 +736,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     </div>
     <div class="sidebar-section open" id="sessionsSection">
       <div class="sessions-content">
+        <input type="text" class="sessions-search" id="sessionsSearch" placeholder="Filter sessions...">
         <div id="sessionsTree"></div>
         <div class="browse-section">
           <div class="browse-header browse-toggle" id="browseToggle">
@@ -939,6 +951,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const optionsToggle     = $("optionsToggle");
   const optionsSection    = $("optionsSection");
   const sessionsTree      = $("sessionsTree");
+  const sessionsSearch    = $("sessionsSearch");
   const browseToggle      = $("browseToggle");
   const browseBody        = $("browseBody");
   const browsePathInput   = $("browsePathInput");
@@ -1031,6 +1044,40 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       el.addEventListener("click", () => loadSession(el.dataset.path, el));
     });
   }
+
+  // =========================================================================
+  // Session search/filter
+  // =========================================================================
+
+  sessionsSearch.addEventListener("input", () => {
+    const q = sessionsSearch.value.toLowerCase().trim();
+    sessionsTree.querySelectorAll(".session-project").forEach((proj) => {
+      const projName = proj.querySelector(".session-project-name").textContent.toLowerCase();
+      const items = proj.querySelectorAll(".session-item");
+      let anyVisible = false;
+      items.forEach((item) => {
+        const match = !q || item.textContent.toLowerCase().includes(q) || projName.includes(q);
+        item.style.display = match ? "" : "none";
+        if (match) anyVisible = true;
+      });
+      proj.style.display = anyVisible ? "" : "none";
+      // Auto-expand matching projects when searching
+      if (anyVisible && q) {
+        proj.querySelector(".session-project-name").classList.add("open");
+        proj.querySelector(".session-list").classList.add("open");
+      }
+    });
+    // Hide group labels if all their projects are hidden
+    sessionsTree.querySelectorAll(".session-group-label").forEach((label) => {
+      let next = label.nextElementSibling;
+      let anyGroupVisible = false;
+      while (next && !next.classList.contains("session-group-label")) {
+        if (next.style.display !== "none") anyGroupVisible = true;
+        next = next.nextElementSibling;
+      }
+      label.style.display = anyGroupVisible ? "" : "none";
+    });
+  });
 
   // =========================================================================
   // Folder browser

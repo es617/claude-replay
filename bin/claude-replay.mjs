@@ -65,9 +65,14 @@ if (positionals.length === 0 || positionals[0] === "editor") {
 if (values.help) {
   console.log(`Usage: claude-replay [--port N]         Launch the web editor (default)
        claude-replay <input.jsonl> [options]  Generate replay from CLI
+       claude-replay <session-id> [options]   Find session by ID and generate
        claude-replay extract <replay.html> [-o output.json]
 
 Convert Claude Code session transcripts into embeddable HTML replays.
+
+If <input> does not end in .jsonl and is not an existing file, it is treated
+as a session ID. claude-replay searches ~/.claude/projects/ and
+~/.cursor/projects/ for a matching session file.
 
 Commands:
   (no args)             Launch web-based editor UI (default)
@@ -140,11 +145,31 @@ if (positionals[0] === "extract") {
   process.exit(0);
 }
 
-const inputFile = positionals[0];
+let inputFile = positionals[0];
 
 if (!existsSync(inputFile)) {
-  console.error(`Error: file not found: ${inputFile}`);
-  process.exit(1);
+  // Treat as session ID if it doesn't look like a file path
+  if (!inputFile.endsWith(".jsonl")) {
+    const { resolveSessionId } = await import("../src/resolve-session.mjs");
+    const matches = resolveSessionId(inputFile);
+    if (matches.length === 0) {
+      console.error(`Error: no session found matching "${inputFile}"`);
+      console.error("Searched ~/.claude/projects/ and ~/.cursor/projects/");
+      process.exit(1);
+    } else if (matches.length === 1) {
+      inputFile = matches[0].path;
+      console.error(`Found: ${matches[0].group} / ${matches[0].project} → ${inputFile}`);
+    } else {
+      console.error(`Multiple sessions match "${inputFile}":`);
+      for (let i = 0; i < matches.length; i++) {
+        console.error(`  ${i + 1}) ${matches[i].group} / ${matches[i].project} — ${matches[i].path}`);
+      }
+      process.exit(1);
+    }
+  } else {
+    console.error(`Error: file not found: ${inputFile}`);
+    process.exit(1);
+  }
 }
 
 // Resolve theme

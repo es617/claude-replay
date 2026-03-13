@@ -63,13 +63,16 @@ npx claude-replay
 # Launch the web editor (default)
 claude-replay
 
-# Or generate a replay from the CLI
+# Generate a replay by session ID (auto-finds the file)
+claude-replay abc123def456 -o replay.html
+
+# Or pass the full path
 claude-replay ~/.claude/projects/-Users-me-myproject/session-id.jsonl -o replay.html
 ```
 
 Running `claude-replay` with no arguments opens a browser-based editor that auto-discovers your Claude Code and Cursor sessions. From there you can browse, edit, preview, and export replays visually.
 
-For scripting or automation, pass a JSONL file directly to generate HTML from the command line.
+For CLI usage, you can pass just a session ID — claude-replay will search `~/.claude/projects/` and `~/.cursor/projects/` to find the matching file. Or pass the full path to a JSONL file directly.
 
 ### Cursor
 
@@ -104,8 +107,11 @@ The editor runs a local server on `127.0.0.1` (localhost only, not exposed to th
 ```
 claude-replay [--port N]                   Launch the web editor (default)
 claude-replay <input.jsonl> [options]      Generate replay from CLI
+claude-replay <session-id> [options]       Find session by ID and generate
 claude-replay extract <replay.html> [-o output.json]
 ```
+
+If the input does not end in `.jsonl` and is not an existing file path, it is treated as a session ID. claude-replay searches `~/.claude/projects/` and `~/.cursor/projects/` for a matching session file. You can find your current session ID in Claude Code by running `/status`.
 
 ### Commands
 

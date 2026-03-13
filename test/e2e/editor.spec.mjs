@@ -58,6 +58,7 @@ async function loadFixture(page) {
 test("editor page loads with sessions panel", async ({ page }) => {
   await gotoEditor(page);
   await expect(page.locator("#sessionsSection")).toBeVisible();
+  await expect(page.locator("#sessionsSearch")).toBeVisible();
   await expect(page.locator("#titleInput")).toBeVisible();
   await expect(page.locator("#exportBtn")).toBeVisible();
 });
