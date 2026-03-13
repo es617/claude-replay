@@ -358,6 +358,9 @@ export function applyPacedTiming(turns) {
       block.timestamp = new Date(cursor).toISOString();
       const len = (block.text || "").length;
       cursor += Math.min(Math.max(len * 30, 1000), 10000);
+      if (block.tool_call) {
+        block.tool_call.resultTimestamp = new Date(cursor).toISOString();
+      }
     }
   }
 }

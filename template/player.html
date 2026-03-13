@@ -1034,7 +1034,7 @@ body.in-iframe .bar-title:hover {
     }
     return latest;
   });
-  const sessionTotalMs = sessionStart && turnEndTimes.length
+  const sessionTotalMs = sessionStart != null && turnEndTimes.length
     ? turnEndTimes[turnEndTimes.length - 1] - sessionStart
     : 0;
 
@@ -2060,7 +2060,7 @@ body.in-iframe .bar-title:hover {
 
   /** Update timer based on fraction of blocks revealed in current turn. */
   function syncTimerToBlock() {
-    if (!sessionStart || currentTurn <= 0) { displayedTimeMs = 0; updateTimerDisplay(); return; }
+    if (sessionStart == null || currentTurn <= 0) { displayedTimeMs = 0; updateTimerDisplay(); return; }
     const idx = currentTurn - 1;
     const turnEl = turnElements()[idx];
     if (!turnEl) return;
