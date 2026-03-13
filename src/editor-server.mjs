@@ -139,6 +139,14 @@ function prepareTurns(session, options) {
 
 /** Build render options from client options + session metadata. */
 function buildRenderOpts(options, session, overrides = {}) {
+  const defaultAssistantLabel = session.format === "codex"
+    ? "Codex"
+    : session.format === "cursor"
+      ? "Assistant"
+      : session.format === "github-chat"
+        ? "Copilot"
+        : "Claude";
+
   return {
     speed: parseFloat(options.speed) || 1.0,
     showThinking: options.showThinking !== false,
@@ -147,7 +155,7 @@ function buildRenderOpts(options, session, overrides = {}) {
     redactSecrets: options.redactSecrets !== false,
     redactRules: options.redactRules || [],
     userLabel: options.userLabel || "User",
-    assistantLabel: options.assistantLabel || (session.format === "codex" ? "Codex" : session.format === "cursor" ? "Assistant" : "Claude"),
+    assistantLabel: options.assistantLabel || defaultAssistantLabel,
     title: options.title || "Replay",
     description: options.description || "",
     ogImage: options.ogImage || "",
@@ -192,6 +200,95 @@ function browseDirectory(dirPath) {
 function discoverSessions() {
   const home = homedir();
   const groups = [];
+
+  const getVsCodeWorkspaceStorageRoots = () => {
+    const roots = [];
+    const appData = process.env.APPDATA;
+
+    if (appData) {
+      roots.push(join(appData, "Code", "User", "workspaceStorage"));
+      roots.push(join(appData, "Code - Insiders", "User", "workspaceStorage"));
+    }
+
+    roots.push(join(home, "AppData", "Roaming", "Code", "User", "workspaceStorage"));
+    roots.push(join(home, "AppData", "Roaming", "Code - Insiders", "User", "workspaceStorage"));
+    roots.push(join(home, "Library", "Application Support", "Code", "User", "workspaceStorage"));
+    roots.push(join(home, "Library", "Application Support", "Code - Insiders", "User", "workspaceStorage"));
+    roots.push(join(home, ".config", "Code", "User", "workspaceStorage"));
+    roots.push(join(home, ".config", "Code - Insiders", "User", "workspaceStorage"));
+
+    return [...new Set(roots)];
+  };
+
+  const walkJsonlFiles = (dirPath) => {
+    const results = [];
+    let names = [];
+    try {
+      names = readdirSync(dirPath);
+    } catch {
+      return results;
+    }
+
+    for (const name of names) {
+      const fullPath = join(dirPath, name);
+      let stat;
+      try {
+        stat = statSync(fullPath);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) {
+        results.push(...walkJsonlFiles(fullPath));
+      } else if (name.endsWith(".jsonl")) {
+        results.push({ file: name, path: fullPath, date: stat.mtime.toISOString() });
+      }
+    }
+
+    return results;
+  };
+
+  const walkVsCodeChatSessions = (workspaceStorageRoot) => {
+    const results = [];
+    let buckets = [];
+    try {
+      buckets = readdirSync(workspaceStorageRoot);
+    } catch {
+      return results;
+    }
+
+    for (const bucket of buckets) {
+      const bucketPath = join(workspaceStorageRoot, bucket);
+      let bucketStat;
+      try {
+        bucketStat = statSync(bucketPath);
+      } catch {
+        continue;
+      }
+      if (!bucketStat.isDirectory()) continue;
+
+      const chatSessionsDir = join(bucketPath, "chatSessions");
+      let sessionFiles = [];
+      try {
+        sessionFiles = readdirSync(chatSessionsDir);
+      } catch {
+        continue;
+      }
+
+      for (const name of sessionFiles) {
+        if (!name.endsWith(".jsonl")) continue;
+        const fullPath = join(chatSessionsDir, name);
+        try {
+          const fileStat = statSync(fullPath);
+          if (!fileStat.isFile()) continue;
+          results.push({ file: name, path: fullPath, date: fileStat.mtime.toISOString() });
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    return results;
+  };
 
   // Claude Code: ~/.claude/projects/<project>/*.jsonl
   const claudeBase = join(home, ".claude", "projects");
@@ -287,6 +384,41 @@ function discoverSessions() {
     }
     if (codexGroup.projects.length > 0) groups.push(codexGroup);
   } catch { /* directory doesn't exist */ }
+
+  // VS GitHub Chat legacy path: ~/.vs-github-chat/sessions/**/*.jsonl
+  const githubChatBase = join(home, ".vs-github-chat", "sessions");
+  try {
+    const sessions = walkJsonlFiles(githubChatBase)
+      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.file.localeCompare(b.file));
+    if (sessions.length > 0) {
+      groups.push({
+        name: "VS GitHub Chat",
+        projects: [{
+          name: "Local sessions",
+          dirName: "local-sessions",
+          sessions,
+        }],
+      });
+    }
+  } catch { /* directory doesn't exist */ }
+
+  // VS Code Copilot chat storage: workspaceStorage/*/chatSessions/*.jsonl
+  const vscodeRoots = getVsCodeWorkspaceStorageRoots();
+  const vscodeSessions = [];
+  for (const root of vscodeRoots) {
+    vscodeSessions.push(...walkVsCodeChatSessions(root));
+  }
+  if (vscodeSessions.length > 0) {
+    vscodeSessions.sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.file.localeCompare(b.file));
+    groups.push({
+      name: "VS GitHub Copilot Chat (VS Code)",
+      projects: [{
+        name: "workspaceStorage",
+        dirName: "workspaceStorage",
+        sessions: vscodeSessions,
+      }],
+    });
+  }
 
   return groups;
 }

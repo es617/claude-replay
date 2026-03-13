@@ -1,0 +1,5 @@
+{"type":"user","content":"Open the README"}
+{"type":"assistant","content":[{"type":"text","text":"I’ll open the README now."}]}
+{"type":"tool_use","id":"tool-2","name":"Read","input":{"file_path":"README.md"}}
+{"type":"tool_result","tool_use_id":"tool-2","content":[{"type":"text","text":"# claude-replay"}]}
+{"type":"assistant","content":[{"type":"text","text":"Done."}]}

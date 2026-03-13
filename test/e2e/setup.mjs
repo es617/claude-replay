@@ -5,10 +5,11 @@
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { parseTranscript } from "../../src/parser.mjs";
 import { render } from "../../src/renderer.mjs";
 
-const FIXTURE = new URL("./fixture.jsonl", import.meta.url).pathname;
+const FIXTURE = fileURLToPath(new URL("./fixture.jsonl", import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), "claude-replay-e2e-"));
 const cache = {};
 

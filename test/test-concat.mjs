@@ -4,8 +4,9 @@ import { writeFileSync, mkdtempSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const CLI = new URL("../bin/claude-replay.mjs", import.meta.url).pathname;
+const CLI = fileURLToPath(new URL("../bin/claude-replay.mjs", import.meta.url));
 
 /** Write a minimal Claude Code session JSONL with the given turns. */
 function writeSession(turns) {

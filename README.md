@@ -4,6 +4,7 @@
 ![Claude Code](https://img.shields.io/badge/Claude_Code-replay-blue)
 ![Cursor](https://img.shields.io/badge/Cursor-replay-purple)
 ![Codex CLI](https://img.shields.io/badge/Codex_CLI-replay-green)
+![VS GitHub Chat](https://img.shields.io/badge/VS_GitHub_Chat-replay-007acc)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
@@ -12,19 +13,20 @@
 
 AI coding sessions are great for development, but hard to share. Screen recordings are bulky and transcripts are hard to navigate.
 
-**claude-replay** turns Claude Code, Cursor, and Codex CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
+**claude-replay** turns Claude Code, Cursor, Codex CLI, and VS GitHub Chat session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
 
 ![Demo](https://raw.githubusercontent.com/es617/claude-replay/main/docs/demo.gif)
 
 **[Try the live demo](https://es617.github.io/claude-replay/demo-redaction.html)**
 
-Claude Code, Cursor, and Codex CLI store conversation transcripts as JSONL files on disk. **claude-replay** auto-detects the format and converts them into visual replays suitable for blog posts, demos, and documentation.
+Claude Code, Cursor, Codex CLI, and VS GitHub Chat store conversation transcripts as JSONL files on disk. **claude-replay** auto-detects the format and converts them into visual replays suitable for blog posts, demos, and documentation.
 
 | Source | Transcript location |
 |---|---|
 | Claude Code | `~/.claude/projects/<project>/` |
 | Cursor | `~/.cursor/projects/<project>/agent-transcripts/<id>/` |
 | Codex CLI | `~/.codex/sessions/<date>/` |
+| VS GitHub Chat | `~/.vs-github-chat/sessions/` (legacy) or VS Code `workspaceStorage/*/chatSessions/` |
 
 ## Features
 
@@ -76,9 +78,9 @@ claude-replay ~/.claude/projects/-Users-me-myproject/session-id.jsonl -o replay.
 claude-replay session1-id session2-id -o combined.html
 ```
 
-Running `claude-replay` with no arguments opens a browser-based editor that auto-discovers your Claude Code and Cursor sessions. From there you can browse, edit, preview, and export replays visually.
+Running `claude-replay` with no arguments opens a browser-based editor that auto-discovers your Claude Code, Cursor, Codex CLI, and VS GitHub Chat sessions. From there you can browse, edit, preview, and export replays visually.
 
-For CLI usage, you can pass just a session ID — claude-replay will search `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/` to find the matching file. Or pass the full path to a JSONL file directly.
+For CLI usage, you can pass just a session ID — claude-replay will search `~/.claude/projects/`, `~/.cursor/projects/`, `~/.codex/sessions/`, `~/.vs-github-chat/sessions/`, and VS Code `workspaceStorage/*/chatSessions/` to find the matching file. Or pass the full path to a JSONL file directly.
 
 ### Cursor
 
@@ -96,6 +98,21 @@ Codex CLI (OpenAI) transcripts are also supported — the format is auto-detecte
 claude-replay ~/.codex/sessions/2026/03/12/rollout-<id>.jsonl -o replay.html
 ```
 
+### VS GitHub Chat
+
+VS GitHub Chat transcripts are also supported — the format is auto-detected. Assistant messages render with the default label `Copilot`, and sessions without timestamps fall back to paced timing automatically.
+
+Supported storage locations include:
+- Legacy: `~/.vs-github-chat/sessions/`
+- VS Code local storage:
+  - Windows: `%APPDATA%\\Code\\User\\workspaceStorage\\*\\chatSessions\\*.jsonl`
+  - macOS: `~/Library/Application Support/Code/User/workspaceStorage/*/chatSessions/*.jsonl`
+  - Linux: `~/.config/Code/User/workspaceStorage/*/chatSessions/*.jsonl`
+
+```bash
+claude-replay ~/.vs-github-chat/sessions/<session-id>.jsonl --theme vscode -o replay.html
+```
+
 ## Web Editor
 
 The default experience. Launch it by running `claude-replay` with no arguments:
@@ -108,7 +125,7 @@ claude-replay --port 8080
 ![Editor](https://raw.githubusercontent.com/es617/claude-replay/main/docs/editor-demo.gif)
 
 The editor provides:
-- **Session browser** — auto-discovers sessions from `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/`, plus a folder navigator for JSONL files stored elsewhere
+- **Session browser** — auto-discovers sessions from `~/.claude/projects/`, `~/.cursor/projects/`, `~/.codex/sessions/`, `~/.vs-github-chat/sessions/`, and VS Code `workspaceStorage/*/chatSessions/`, plus a folder navigator for JSONL files stored elsewhere
 - **Turn editor** — include/exclude turns, edit user prompts, expand assistant blocks (read-only), add bookmarks
 - **Options panel** — theme, speed, thinking/tool call toggles, redaction rules, labels
 - **Live preview** — updates as you edit, renders the same output as the CLI
@@ -124,7 +141,7 @@ claude-replay <input> [input2...] [options]     Generate replay from CLI
 claude-replay extract <replay.html> [-o output.json]
 ```
 
-Each `<input>` can be a `.jsonl` file path or a session ID. If it does not end in `.jsonl` and is not an existing file path, it is treated as a session ID. claude-replay searches `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/` for a matching session file. You can find your current session ID in Claude Code by running `/status`.
+Each `<input>` can be a `.jsonl` file path or a session ID. If it does not end in `.jsonl` and is not an existing file path, it is treated as a session ID. claude-replay searches `~/.claude/projects/`, `~/.cursor/projects/`, `~/.codex/sessions/`, `~/.vs-github-chat/sessions/`, and VS Code `workspaceStorage/*/chatSessions/` for a matching session file. You can find your current session ID in Claude Code by running `/status`.
 
 Multiple inputs are concatenated into a single replay (up to 20). When all sessions have timestamps, turns are sorted chronologically; otherwise command-line order is used. This is useful when accepting a plan creates a new session — chain the sessions to get the full story in one replay.
 
@@ -244,7 +261,7 @@ The generated HTML file is a fully self-contained interactive player:
 claude-replay --list-themes
 ```
 
-Available themes: `tokyo-night` (default), `monokai`, `solarized-dark`, `github-light`, `dracula`, `bubbles`.
+Available themes: `tokyo-night` (default), `monokai`, `solarized-dark`, `github-light`, `dracula`, `bubbles`, `vscode`.
 
 ### Custom themes
 
@@ -381,6 +398,16 @@ One JSON object per line with a top-level `role` field. No timestamps. Thinking 
 ### Codex CLI
 
 Event-based JSONL with typed events (`session_meta`, `response_item`, `event_msg`, etc.). Includes timestamps. Tool calls (`exec_command`, `apply_patch`) are mapped to Claude Code equivalents for consistent rendering. Codex's encrypted reasoning blocks are skipped; commentary messages are shown as thinking blocks. The format is auto-detected — no flags needed.
+
+### VS GitHub Chat
+
+Supports both:
+- Typed-event JSONL (`user`, `assistant`, `tool_use`, `tool_result`, optional `meta`)
+- VS Code Copilot patch-log JSONL (`kind: 0/1/2`) from `workspaceStorage/*/chatSessions/*.jsonl`
+
+For typed events, a new replay turn starts on each `user` event. Assistant text/thinking blocks and tool calls are attached until the next user event; `tool_result` blocks are matched back to earlier `tool_use` entries by `tool_use_id`.
+
+For VS Code patch logs, claude-replay reconstructs final session state and extracts turns from `requests[]` (user `message`, assistant `response` items, and serialized tool invocations).
 
 ## Requirements
 

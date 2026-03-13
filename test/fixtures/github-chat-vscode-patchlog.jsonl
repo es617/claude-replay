@@ -1,0 +1,3 @@
+{"kind":0,"v":{"version":3,"sessionId":"s-1","requests":[]}}
+{"kind":2,"k":["requests"],"v":[{"requestId":"r-1","timestamp":1773407433034,"message":{"text":"Check README"},"response":[{"value":"I will inspect the README."}]}]}
+{"kind":2,"k":["requests",0,"response"],"v":[{"kind":"thinking","value":"Need to inspect files first."},{"kind":"toolInvocationSerialized","toolId":"copilot_readFile","toolCallId":"call-1","invocationMessage":{"value":"Reading README.md"},"pastTenseMessage":{"value":"Read README.md"},"isComplete":true},{"value":"Done."}]}

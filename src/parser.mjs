@@ -1,5 +1,5 @@
 /**
- * Parse Claude Code, Cursor, and Codex CLI JSONL transcripts into structured turns.
+ * Parse Claude Code, Cursor, Codex CLI, and GitHub Chat JSONL transcripts into structured turns.
  */
 
 import { readFileSync } from "node:fs";
@@ -62,7 +62,7 @@ function isToolResultOnly(content) {
 /**
  * Detect transcript format by peeking at the first entry.
  * @param {string} filePath
- * @returns {"claude-code"|"cursor"|"codex"|"unknown"}
+ * @returns {"claude-code"|"cursor"|"codex"|"github-chat"|"unknown"}
  */
 export function detectFormat(filePath) {
   const text = readFileSync(filePath, "utf-8");
@@ -72,11 +72,349 @@ export function detectFormat(filePath) {
     try {
       const obj = JSON.parse(trimmed);
       if (obj.type === "session_meta") return "codex";
+      if (isGitHubChatPatchEvent(obj)) return "github-chat";
+      if (isGitHubChatEvent(obj)) return "github-chat";
       if (obj.type === "user" || obj.type === "assistant") return "claude-code";
       if (obj.role === "user" || obj.role === "assistant") return "cursor";
     } catch { continue; }
   }
   return "unknown";
+}
+
+function isGitHubChatPatchEvent(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  if (obj.kind === 0) return !!obj.v && typeof obj.v === "object";
+  if ((obj.kind === 1 || obj.kind === 2) && Array.isArray(obj.k)) return true;
+  return false;
+}
+
+function isGitHubChatEvent(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+
+  if (obj.type === "tool_use") {
+    return typeof obj.id === "string" && typeof obj.name === "string" && obj.input && typeof obj.input === "object";
+  }
+
+  if (obj.type === "tool_result") {
+    return typeof obj.tool_use_id === "string" && "content" in obj;
+  }
+
+  if (obj.type === "assistant") {
+    return Array.isArray(obj.content)
+      && obj.content.every((part) => part && typeof part === "object" && !Array.isArray(part)
+        && ((part.type === "text" && typeof part.text === "string")
+          || (part.type === "thinking" && typeof part.thinking === "string")));
+  }
+
+  if (obj.type === "user") {
+    return typeof obj.content === "string"
+      || (Array.isArray(obj.content)
+        && obj.content.every((part) => part && typeof part === "object" && !Array.isArray(part) && typeof part.text === "string"));
+  }
+
+  if (obj.type === "meta") return true;
+
+  return false;
+}
+
+function extractGitHubChatText(content) {
+  if (typeof content === "string") return cleanSystemTags(content);
+  if (!Array.isArray(content)) return "";
+  return cleanSystemTags(content.map((part) => part?.text ?? "").filter(Boolean).join("\n"));
+}
+
+function extractGitHubChatResultText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return String(content ?? "");
+  return content
+    .filter((part) => part?.type === "text")
+    .map((part) => part.text ?? "")
+    .join("\n");
+}
+
+function finalizeGitHubChatTurns(turns) {
+  const filtered = turns.filter((t) => {
+    if (t.user_text) return true;
+    return t.blocks.some((b) => {
+      if (b.kind === "tool_use") return true;
+      return !!(b.text && b.text.trim());
+    });
+  });
+  for (let i = 0; i < filtered.length; i++) {
+    filtered[i].index = i + 1;
+  }
+  return filtered;
+}
+
+function parseGitHubChatTranscript(filePath) {
+  const text = readFileSync(filePath, "utf-8");
+  const events = [];
+
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const obj = JSON.parse(trimmed);
+      if (!isGitHubChatEvent(obj) && !isGitHubChatPatchEvent(obj)) continue;
+      events.push(obj);
+    } catch {
+      continue;
+    }
+  }
+
+  if (events.some(isGitHubChatPatchEvent)) {
+    return parseGitHubChatPatchLogEvents(events);
+  }
+
+  const turns = [];
+  let currentTurn = null;
+  let pendingToolCalls = new Map();
+
+  const ensureTurn = (timestamp = "") => {
+    if (currentTurn) return currentTurn;
+    currentTurn = {
+      index: turns.length + 1,
+      user_text: "",
+      blocks: [],
+      timestamp: timestamp || "",
+    };
+    turns.push(currentTurn);
+    return currentTurn;
+  };
+
+  for (const evt of events) {
+    const ts = evt.timestamp ?? "";
+
+    if (evt.type === "meta") continue;
+
+    if (evt.type === "user") {
+      const userText = extractGitHubChatText(evt.content);
+      if (currentTurn && !currentTurn.user_text && currentTurn.blocks.length === 0) {
+        currentTurn.user_text = userText;
+        currentTurn.timestamp = currentTurn.timestamp || ts;
+      } else {
+        currentTurn = {
+          index: turns.length + 1,
+          user_text: userText,
+          blocks: [],
+          timestamp: ts || "",
+        };
+        turns.push(currentTurn);
+      }
+      pendingToolCalls = new Map();
+      continue;
+    }
+
+    if (evt.type === "assistant") {
+      const turn = ensureTurn(ts);
+      if (!turn.timestamp) turn.timestamp = ts;
+      const content = Array.isArray(evt.content) ? evt.content : [];
+      for (const block of content) {
+        if (block.type === "text") {
+          const text = (block.text ?? "").trim();
+          if (!text) continue;
+          turn.blocks.push({ kind: "text", text, tool_call: null, timestamp: ts || null });
+        } else if (block.type === "thinking") {
+          const thinking = (block.thinking ?? "").trim();
+          if (!thinking) continue;
+          turn.blocks.push({ kind: "thinking", text: thinking, tool_call: null, timestamp: ts || null });
+        }
+      }
+      continue;
+    }
+
+    if (evt.type === "tool_use") {
+      const turn = ensureTurn(ts);
+      if (!turn.timestamp) turn.timestamp = ts;
+      const toolCall = {
+        tool_use_id: evt.id ?? "",
+        name: evt.name ?? "",
+        input: evt.input ?? {},
+        result: null,
+        resultTimestamp: null,
+        is_error: false,
+      };
+      turn.blocks.push({ kind: "tool_use", text: "", tool_call: toolCall, timestamp: ts || null });
+      pendingToolCalls.set(toolCall.tool_use_id, toolCall);
+      continue;
+    }
+
+    if (evt.type === "tool_result") {
+      const toolCall = pendingToolCalls.get(evt.tool_use_id ?? "");
+      if (!toolCall) continue;
+      toolCall.result = extractGitHubChatResultText(evt.content);
+      toolCall.resultTimestamp = ts || null;
+      toolCall.is_error = !!evt.is_error;
+      pendingToolCalls.delete(evt.tool_use_id ?? "");
+    }
+  }
+
+  return finalizeGitHubChatTurns(turns);
+}
+
+function getAtPath(root, path) {
+  let cur = root;
+  for (const key of path) {
+    if (cur == null) return undefined;
+    cur = cur[key];
+  }
+  return cur;
+}
+
+function setAtPath(root, path, value) {
+  if (!Array.isArray(path) || path.length === 0) return;
+  let cur = root;
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    const nextKey = path[i + 1];
+    if (cur[key] == null || typeof cur[key] !== "object") {
+      cur[key] = typeof nextKey === "number" ? [] : {};
+    }
+    cur = cur[key];
+  }
+  cur[path[path.length - 1]] = value;
+}
+
+function appendAtPath(root, path, values) {
+  if (!Array.isArray(path) || path.length === 0) return;
+  let target = getAtPath(root, path);
+  if (!Array.isArray(target)) {
+    setAtPath(root, path, []);
+    target = getAtPath(root, path);
+  }
+  if (!Array.isArray(target)) return;
+  if (Array.isArray(values)) target.push(...values);
+  else target.push(values);
+}
+
+function normalizeTimestamp(value) {
+  if (typeof value === "number") {
+    return new Date(value).toISOString();
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isNaN(parsed)) return value;
+    return new Date(parsed).toISOString();
+  }
+  return "";
+}
+
+function extractCopilotTextMessage(maybeMessage) {
+  if (typeof maybeMessage === "string") return cleanSystemTags(maybeMessage);
+  if (!maybeMessage || typeof maybeMessage !== "object") return "";
+  if (typeof maybeMessage.text === "string") return cleanSystemTags(maybeMessage.text);
+  if (Array.isArray(maybeMessage.parts)) {
+    const text = maybeMessage.parts
+      .map((part) => part?.text ?? "")
+      .filter(Boolean)
+      .join("\n");
+    return cleanSystemTags(text);
+  }
+  return "";
+}
+
+function extractCopilotItemText(item) {
+  if (!item || typeof item !== "object") return "";
+  if (typeof item.value === "string") return item.value.trim();
+  if (item.value && typeof item.value === "object" && typeof item.value.value === "string") {
+    return item.value.value.trim();
+  }
+  return "";
+}
+
+function extractCopilotToolMessage(messageObj) {
+  if (!messageObj) return "";
+  if (typeof messageObj === "string") return messageObj;
+  if (typeof messageObj.value === "string") return messageObj.value;
+  return "";
+}
+
+function mapCopilotToolName(toolId = "", invocationText = "") {
+  const id = String(toolId || "").toLowerCase();
+  const inv = String(invocationText || "").toLowerCase();
+
+  if (id.includes("readfile") || inv.startsWith("reading ")) return "Read";
+  if (id.includes("createfile") || inv.startsWith("creating ")) return "Write";
+  if (id.includes("applypatch") || inv.includes("generating patch") || inv.includes("apply patch")) return "Edit";
+  if (id.includes("run_in_terminal") || id.includes("terminal") || inv.includes("running command")) return "Bash";
+  if (id.includes("findfiles") || id.includes("findtextinfiles") || inv.includes("searching for")) return "Grep";
+
+  if (toolId) return toolId;
+  return "Tool";
+}
+
+function parseGitHubChatPatchLogEvents(events) {
+  let state = {};
+
+  for (const evt of events) {
+    if (!isGitHubChatPatchEvent(evt)) continue;
+    if (evt.kind === 0) {
+      state = evt.v && typeof evt.v === "object" ? evt.v : {};
+      continue;
+    }
+    if (evt.kind === 1) {
+      setAtPath(state, evt.k, evt.v);
+      continue;
+    }
+    if (evt.kind === 2) {
+      appendAtPath(state, evt.k, evt.v);
+    }
+  }
+
+  const requests = Array.isArray(state.requests) ? state.requests : [];
+  const turns = [];
+
+  for (const req of requests) {
+    const userText = extractCopilotTextMessage(req?.message);
+    const timestamp = normalizeTimestamp(req?.timestamp);
+    const blocks = [];
+    const responseItems = Array.isArray(req?.response) ? req.response : [];
+
+    for (const item of responseItems) {
+      const kind = item?.kind ?? "";
+
+      if (kind === "thinking") {
+        const thinking = extractCopilotItemText(item);
+        if (thinking) {
+          blocks.push({ kind: "thinking", text: thinking, tool_call: null, timestamp: timestamp || null });
+        }
+        continue;
+      }
+
+      if (kind === "toolInvocationSerialized") {
+        const invocation = extractCopilotToolMessage(item?.invocationMessage);
+        const past = extractCopilotToolMessage(item?.pastTenseMessage);
+        const toolName = mapCopilotToolName(item?.toolId, invocation);
+        const toolCall = {
+          tool_use_id: String(item?.toolCallId ?? ""),
+          name: toolName,
+          input: {
+            tool_id: item?.toolId ?? "",
+            invocation: invocation,
+          },
+          result: past || null,
+          resultTimestamp: past ? (timestamp || null) : null,
+          is_error: false,
+        };
+        blocks.push({ kind: "tool_use", text: "", tool_call: toolCall, timestamp: timestamp || null });
+        continue;
+      }
+
+      const text = extractCopilotItemText(item);
+      if (text) {
+        blocks.push({ kind: "text", text, tool_call: null, timestamp: timestamp || null });
+      }
+    }
+
+    turns.push({
+      index: turns.length + 1,
+      user_text: userText,
+      blocks,
+      timestamp,
+    });
+  }
+
+  return finalizeGitHubChatTurns(turns);
 }
 
 /**
@@ -526,6 +864,7 @@ function parseCodexTranscript(filePath) {
 export function parseTranscript(filePath) {
   const format = detectFormat(filePath);
   if (format === "codex") return parseCodexTranscript(filePath);
+  if (format === "github-chat") return parseGitHubChatTranscript(filePath);
   const { entries, format: fmt } = parseJsonl(filePath);
   const turns = [];
   let i = 0;

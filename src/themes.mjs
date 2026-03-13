@@ -85,6 +85,107 @@ const BUILTIN_THEMES = {
     "tool-bg": "#f6f8fa",
     "thinking-bg": "#f0f3f6",
   },
+  "vscode": {
+    "bg": "#1e1e1e",
+    "bg-surface": "#252526",
+    "bg-hover": "#2a2d2e",
+    "text": "#d4d4d4",
+    "text-dim": "#858585",
+    "text-bright": "#ffffff",
+    "accent": "#007acc",
+    "accent-dim": "#094771",
+    "green": "#6a9955",
+    "blue": "#569cd6",
+    "orange": "#ce9178",
+    "red": "#f44747",
+    "cyan": "#4ec9b0",
+    "border": "#3c3c3c",
+    "tool-bg": "#252526",
+    "thinking-bg": "#1f1f1f",
+    "extraCss": `
+      body {
+        font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+      }
+      code, pre, .diff-view {
+        font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+      }
+      .role-section {
+        border-radius: 6px;
+      }
+      .role-section.role-user {
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+      }
+      .role-section.role-assistant {
+        background: color-mix(in srgb, var(--bg) 85%, var(--bg-surface) 15%);
+        border: 1px solid #2d2d2d;
+        border-left: 3px solid var(--cyan);
+      }
+      .turn-header {
+        background: #2d2d2d;
+      }
+      .assistant-text {
+        line-height: 1.7;
+      }
+      .tool-block, .tool-group-header {
+        border-radius: 4px;
+      }
+    `,
+  },
+  "copilot": {
+    "bg": "#0d1117",
+    "bg-surface": "#161b22",
+    "bg-hover": "#1f2630",
+    "text": "#d7deea",
+    "text-dim": "#9aa6b8",
+    "text-bright": "#f4f7ff",
+    "accent": "#6cb6ff",
+    "accent-dim": "#27496d",
+    "green": "#6ccf8a",
+    "blue": "#6cb6ff",
+    "orange": "#ffc26f",
+    "red": "#ff8f8f",
+    "cyan": "#8ab4ff",
+    "border": "#2f3947",
+    "tool-bg": "#11161d",
+    "thinking-bg": "#131923",
+    "extraCss": `
+      body {
+        font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+      }
+      code, pre, .diff-view {
+        font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+      }
+      .role-section {
+        border-radius: 8px;
+      }
+      .role-section.role-user {
+        background: color-mix(in srgb, #1f4f80 58%, var(--bg) 42%);
+        border: 1px solid color-mix(in srgb, #6cb6ff 28%, var(--border) 72%);
+        border-left: 3px solid var(--accent);
+      }
+      .role-section.role-assistant {
+        background: color-mix(in srgb, var(--bg) 84%, var(--bg-surface) 16%);
+        border: 1px solid color-mix(in srgb, #8ab4ff 18%, var(--border) 82%);
+        border-left: 3px solid var(--cyan);
+      }
+      .turn-header {
+        background: #1b2230;
+      }
+      .assistant-text {
+        line-height: 1.72;
+      }
+      .assistant-text pre, .user-text pre, .thinking-body pre {
+        background: #0f141b;
+      }
+      .tool-block, .tool-group-header {
+        background: #121923;
+        border-radius: 6px;
+      }
+    `,
+  },
   "dracula": {
     "bg": "#282a36",
     "bg-surface": "#2d2f3d",

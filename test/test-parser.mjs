@@ -1,11 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "../src/parser.mjs";
 
-const FIXTURE = new URL("./fixture.jsonl", import.meta.url).pathname;
-const CURSOR_FIXTURE = new URL("./fixture-cursor.jsonl", import.meta.url).pathname;
-const CODEX_FIXTURE = new URL("./fixture-codex.jsonl", import.meta.url).pathname;
-const PACED_FIXTURE = new URL("./fixture-paced.jsonl", import.meta.url).pathname;
+const FIXTURE = fileURLToPath(new URL("./fixture.jsonl", import.meta.url));
+const CURSOR_FIXTURE = fileURLToPath(new URL("./fixture-cursor.jsonl", import.meta.url));
+const CODEX_FIXTURE = fileURLToPath(new URL("./fixture-codex.jsonl", import.meta.url));
+const PACED_FIXTURE = fileURLToPath(new URL("./fixture-paced.jsonl", import.meta.url));
+const GITHUB_CHAT_BASIC_FIXTURE = fileURLToPath(new URL("./fixtures/github-chat-basic.jsonl", import.meta.url));
+const GITHUB_CHAT_TOOL_FIXTURE = fileURLToPath(new URL("./fixtures/github-chat-tool-calls.jsonl", import.meta.url));
+const GITHUB_CHAT_NO_TS_FIXTURE = fileURLToPath(new URL("./fixtures/github-chat-no-timestamps.jsonl", import.meta.url));
+const GITHUB_CHAT_VSCODE_PATCHLOG_FIXTURE = fileURLToPath(new URL("./fixtures/github-chat-vscode-patchlog.jsonl", import.meta.url));
 
 describe("parseTranscript", () => {
   // Fixture produces 3 turns (orphan assistant after tool result merges into previous):
@@ -223,6 +228,78 @@ describe("Codex format", () => {
   it("preserves timestamps on turns", () => {
     const turns = parseTranscript(CODEX_FIXTURE);
     assert.ok(turns[0].timestamp.startsWith("2026-03-13"));
+  });
+});
+
+describe("GitHub Chat format", () => {
+  it("detects github-chat format", () => {
+    assert.equal(detectFormat(GITHUB_CHAT_BASIC_FIXTURE), "github-chat");
+  });
+
+  it("parses github-chat turns and filters empty ones", () => {
+    const turns = parseTranscript(GITHUB_CHAT_BASIC_FIXTURE);
+    assert.equal(turns.length, 1);
+    assert.equal(turns[0].index, 1);
+    assert.equal(turns[0].user_text, "Create a dark mode toggle");
+  });
+
+  it("extracts thinking and text assistant blocks", () => {
+    const turns = parseTranscript(GITHUB_CHAT_BASIC_FIXTURE);
+    assert.equal(turns[0].blocks[0].kind, "thinking");
+    assert.match(turns[0].blocks[0].text, /inspect current theme variables/);
+    assert.equal(turns[0].blocks[1].kind, "text");
+    assert.equal(turns[0].blocks[2].kind, "text");
+  });
+
+  it("pairs tool calls with results and ignores malformed/orphan lines", () => {
+    const turns = parseTranscript(GITHUB_CHAT_TOOL_FIXTURE);
+    assert.equal(turns.length, 1);
+    const toolBlock = turns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(toolBlock);
+    assert.equal(toolBlock.tool_call.name, "Bash");
+    assert.equal(toolBlock.tool_call.input.command, "ls src");
+    assert.equal(toolBlock.tool_call.result, "parser.mjs\nrenderer.mjs");
+    assert.equal(toolBlock.tool_call.resultTimestamp, "2026-03-13T11:00:04.000Z");
+  });
+
+  it("supports content arrays for user and tool_result blocks", () => {
+    const turns = parseTranscript(GITHUB_CHAT_TOOL_FIXTURE);
+    assert.equal(turns[0].user_text, "List the source files");
+
+    const noTsTurns = parseTranscript(GITHUB_CHAT_NO_TS_FIXTURE);
+    const toolBlock = noTsTurns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.equal(toolBlock.tool_call.name, "Read");
+    assert.equal(toolBlock.tool_call.result, "# claude-replay");
+  });
+
+  it("leaves timestamps empty when the transcript does not include them", () => {
+    const turns = parseTranscript(GITHUB_CHAT_NO_TS_FIXTURE);
+    assert.equal(turns[0].timestamp, "");
+    assert.equal(turns[0].blocks[0].timestamp, null);
+  });
+
+  it("works with paced timing fallback", () => {
+    const turns = parseTranscript(GITHUB_CHAT_NO_TS_FIXTURE);
+    applyPacedTiming(turns);
+    assert.ok(turns[0].timestamp);
+    assert.ok(turns[0].blocks[0].timestamp);
+    const toolBlock = turns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(toolBlock.tool_call.resultTimestamp);
+  });
+
+  it("parses VS Code patch-log sessions (kind 0/1/2)", () => {
+    assert.equal(detectFormat(GITHUB_CHAT_VSCODE_PATCHLOG_FIXTURE), "github-chat");
+
+    const turns = parseTranscript(GITHUB_CHAT_VSCODE_PATCHLOG_FIXTURE);
+    assert.equal(turns.length, 1);
+    assert.equal(turns[0].user_text, "Check README");
+
+    const kinds = turns[0].blocks.map((b) => b.kind);
+    assert.deepEqual(kinds, ["text", "thinking", "tool_use", "text"]);
+
+    const tool = turns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.equal(tool.tool_call.name, "Read");
+    assert.equal(tool.tool_call.result, "Read README.md");
   });
 });
 

@@ -74,11 +74,11 @@ if (values.help) {
        claude-replay <input> [input2...] [options]  Generate replay from CLI
        claude-replay extract <replay.html> [-o output.json]
 
-Convert Claude Code session transcripts into embeddable HTML replays.
+Convert Claude Code, Cursor, Codex CLI, and VS GitHub Chat transcripts into embeddable HTML replays.
 
 <input> can be a .jsonl file path or a session ID. If it does not end in
 .jsonl and is not an existing file, it is treated as a session ID and
-searched in ~/.claude/projects/ and ~/.cursor/projects/.
+searched in ~/.claude/projects/, ~/.cursor/projects/, ~/.codex/sessions/, ~/.vs-github-chat/sessions/, and VS Code workspaceStorage/*/chatSessions/.
 
 Multiple inputs are concatenated into a single replay (up to 20). Sessions
 with timestamps are sorted chronologically; otherwise command-line order is
@@ -172,7 +172,7 @@ for (const arg of positionals) {
     const matches = resolveSessionId(arg);
     if (matches.length === 0) {
       console.error(`Error: no session found matching "${arg}"`);
-      console.error("Searched ~/.claude/projects/, ~/.cursor/projects/, and ~/.codex/sessions/");
+      console.error("Searched ~/.claude/projects/, ~/.cursor/projects/, ~/.codex/sessions/, ~/.vs-github-chat/sessions/, and VS Code workspaceStorage/*/chatSessions/");
       process.exit(1);
     } else if (matches.length === 1) {
       inputFiles.push(matches[0].path);
@@ -371,7 +371,7 @@ const html = render(turns, {
   redactSecrets: !values["no-auto-redact"],
   redactRules,
   userLabel: values["user-label"],
-  assistantLabel: values["assistant-label"] || (format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : "Claude"),
+  assistantLabel: values["assistant-label"] || (format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : format === "github-chat" ? "Copilot" : "Claude"),
   title,
   description: values.description,
   ogImage: values["og-image"],

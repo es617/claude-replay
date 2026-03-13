@@ -29,6 +29,47 @@ body {
   touch-action: manipulation;
 }
 
+/* Runtime theme modes */
+body.theme-mode-dark {
+  color-scheme: dark;
+}
+body.theme-mode-light {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-surface: #f5f7fb;
+  --bg-hover: #ebeff6;
+  --border: #d5dbea;
+  --text: #1f2533;
+  --text-dim: #5d667a;
+  --text-bright: #0f1624;
+  --accent: #0969da;
+  --accent-dim: rgba(9, 105, 218, 0.18);
+  --green: #1a7f37;
+  --red: #cf222e;
+  --blue: #0969da;
+  --cyan: #0f7a8f;
+  --orange: #9a6700;
+  --tool-bg: #eef3fb;
+}
+body.theme-mode-copilot {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --bg-surface: #161b22;
+  --bg-hover: #1f2630;
+  --border: #2f3947;
+  --text: #d7deea;
+  --text-dim: #9aa6b8;
+  --text-bright: #f4f7ff;
+  --accent: #6cb6ff;
+  --accent-dim: rgba(108, 182, 255, 0.2);
+  --green: #6ccf8a;
+  --red: #ff8f8f;
+  --blue: #6cb6ff;
+  --cyan: #8ab4ff;
+  --orange: #ffc26f;
+  --tool-bg: #161b22;
+}
+
 .container {
   max-width: 960px;
   margin: 0 auto;
@@ -355,6 +396,60 @@ body.in-iframe .bar-title:hover {
   margin: 6px 0;
   padding-left: 4px;
   line-height: 1.6;
+}
+
+/* VSCode/Copilot visual mode (toggle) */
+body.vscode-chat-ui {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+body.vscode-chat-ui code,
+body.vscode-chat-ui pre,
+body.vscode-chat-ui .diff-view {
+  font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+}
+body.vscode-chat-ui .turn-header {
+  background: color-mix(in srgb, var(--bg-surface) 80%, #2d2d2d 20%);
+}
+body.vscode-chat-ui .role-section {
+  border-radius: 8px;
+}
+body.vscode-chat-ui .role-section.role-user {
+  background: color-mix(in srgb, var(--bg-surface) 90%, var(--bg) 10%);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+}
+body.vscode-chat-ui .role-section.role-assistant {
+  background: color-mix(in srgb, var(--bg) 85%, var(--bg-surface) 15%);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, #2d2d2d 25%);
+  border-left: 3px solid var(--cyan);
+}
+body.vscode-chat-ui .assistant-text {
+  line-height: 1.72;
+}
+body.vscode-chat-ui .tool-block,
+body.vscode-chat-ui .tool-group-header {
+  border-radius: 4px;
+}
+body.theme-mode-copilot.vscode-chat-ui .role-section.role-user {
+  background: color-mix(in srgb, #1f4f80 58%, var(--bg) 42%);
+  border-left-color: #6cb6ff;
+  border-color: color-mix(in srgb, #6cb6ff 28%, var(--border) 72%);
+}
+body.theme-mode-copilot.vscode-chat-ui .role-section.role-assistant {
+  border-left-color: #8ab4ff;
+  border-color: color-mix(in srgb, #8ab4ff 18%, var(--border) 82%);
+}
+body.theme-mode-copilot .turn-header {
+  background: #1b2230;
+}
+body.theme-mode-copilot .assistant-text pre,
+body.theme-mode-copilot .user-text pre,
+body.theme-mode-copilot .thinking-body pre {
+  background: #0f141b;
+}
+body.theme-mode-copilot .tool-block,
+body.theme-mode-copilot .tool-group-header {
+  background: #121923;
 }
 .assistant-text p { margin: 0.4em 0; }
 .assistant-text pre {
@@ -934,6 +1029,8 @@ body.in-iframe .bar-title:hover {
         <div class="chapter-menu" id="chapter-menu"></div>
       </div>
       <div class="controls-secondary">
+        <button id="ui-btn" title="Toggle UI mode">UI: Terminal</button>
+        <button id="theme-btn" title="Cycle theme mode">Theme: Dark</button>
         <div class="speed-wrap" id="speed-wrap">
           <button id="speed-btn" title="Speed">/*INITIAL_SPEED*/x</button>
           <div class="speed-popover" id="speed-popover"></div>
@@ -949,6 +1046,15 @@ body.in-iframe .bar-title:hover {
       <div class="more-wrap" id="more-wrap">
         <button id="more-btn" title="More">&#x22EE;</button>
         <div class="more-popover" id="more-popover">
+          <div class="more-row">
+            <span class="more-row-label">UI</span>
+            <button id="ui-btn2" title="Toggle UI mode">Terminal</button>
+          </div>
+          <div class="more-row">
+            <span class="more-row-label">Theme</span>
+            <button id="theme-btn2" title="Cycle theme mode">Dark</button>
+          </div>
+          <hr class="more-divider">
           <div class="more-row">
             <span class="more-row-label">Speed</span>
             <button id="speed-btn2" title="Cycle speed">/*INITIAL_SPEED*/x</button>
@@ -1067,6 +1173,10 @@ body.in-iframe .bar-title:hover {
   const progressText = $("#progress-text");
   const progressBar = $("#progress-bar");
   const progressTooltip = $("#progress-tooltip");
+  const uiBtn = $("#ui-btn");
+  const uiBtn2 = $("#ui-btn2");
+  const themeBtn = $("#theme-btn");
+  const themeBtn2 = $("#theme-btn2");
   const speedBtn = $("#speed-btn");
   const speedBtn2 = $("#speed-btn2");
   const speedWrap = $("#speed-wrap");
@@ -1101,6 +1211,77 @@ body.in-iframe .bar-title:hover {
   let scrollTick = false;
   let timerInterval = null;
   let displayedTimeMs = 0;  // session elapsed time shown in timer
+  let uiMode = "terminal";
+  let themeMode = "dark";
+
+  // ═══════════════════════════════════════════
+  // § UI MODE (Terminal / VSCode)
+  // ═══════════════════════════════════════════
+
+  function applyUiMode(mode, { persist = true } = {}) {
+    uiMode = mode === "vscode" ? "vscode" : "terminal";
+    document.body.classList.toggle("vscode-chat-ui", uiMode === "vscode");
+
+    if (uiBtn) uiBtn.textContent = `UI: ${uiMode === "vscode" ? "VSCode" : "Terminal"}`;
+    if (uiBtn2) uiBtn2.textContent = uiMode === "vscode" ? "VSCode" : "Terminal";
+
+    if (persist) {
+      try { localStorage.setItem("cr-ui-mode", uiMode); } catch {}
+    }
+  }
+
+  function toggleUiMode() {
+    applyUiMode(uiMode === "vscode" ? "terminal" : "vscode");
+  }
+
+  // ═══════════════════════════════════════════
+  // § THEME MODE (Dark / Light / Copilot)
+  // ═══════════════════════════════════════════
+
+  const THEME_MODES = ["dark", "light", "copilot"];
+
+  function applyThemeMode(mode, { persist = true } = {}) {
+    themeMode = THEME_MODES.includes(mode) ? mode : "dark";
+
+    document.body.classList.remove("theme-mode-dark", "theme-mode-light", "theme-mode-copilot");
+    document.body.classList.add(`theme-mode-${themeMode}`);
+
+    if (themeMode === "copilot" && uiMode !== "vscode") {
+      applyUiMode("vscode", { persist: false });
+    }
+
+    const label = themeMode === "copilot" ? "Copilot" : (themeMode === "light" ? "Light" : "Dark");
+    if (themeBtn) themeBtn.textContent = `Theme: ${label}`;
+    if (themeBtn2) themeBtn2.textContent = label;
+
+    if (persist) {
+      try { localStorage.setItem("cr-theme-mode", themeMode); } catch {}
+    }
+  }
+
+  function detectInitialThemeMode() {
+    const bg = getComputedStyle(document.body).getPropertyValue("--bg").trim().toLowerCase();
+    if (!bg) return "dark";
+    if (bg.startsWith("#")) {
+      const hex = bg.slice(1);
+      const norm = hex.length === 3
+        ? hex.split("").map((c) => c + c).join("")
+        : hex;
+      if (/^[0-9a-f]{6}$/i.test(norm)) {
+        const r = parseInt(norm.slice(0, 2), 16);
+        const g = parseInt(norm.slice(2, 4), 16);
+        const b = parseInt(norm.slice(4, 6), 16);
+        const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        return luminance > 0.6 ? "light" : "dark";
+      }
+    }
+    return "dark";
+  }
+
+  function toggleThemeMode() {
+    const idx = THEME_MODES.indexOf(themeMode);
+    applyThemeMode(THEME_MODES[(idx + 1) % THEME_MODES.length]);
+  }
 
   // ═══════════════════════════════════════════
   // § UTILITIES
@@ -1116,57 +1297,93 @@ body.in-iframe .bar-title:hover {
     if (!text) return "";
     // Extract fenced code blocks first so markdown inside them is untouched
     const codeBlocks = [];
-    let src = text.replace(/```([^\n]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    let src = String(text).replace(/\r\n?/g, "\n").replace(/```([^\n]*)\n([\s\S]*?)```/g, (_, lang, code) => {
       const idx = codeBlocks.length;
       codeBlocks.push(`<pre><code${lang ? ` class="language-${escapeHtml(lang)}"` : ""}>${escapeHtml(code.replace(/\n$/, ""))}</code></pre>`);
       return `\x00CB${idx}\x00`;
     });
     // Process line by line
     const lines = src.split("\n");
-    let out = "";
+    const out = [];
     let inList = null; // "ul" | "ol" | null
+    let listItems = [];
+    let paragraphLines = [];
+
+    function flushParagraph() {
+      if (paragraphLines.length === 0) return;
+      out.push(`<p>${inlineMarkdown(escapeHtml(paragraphLines.join(" ").trim()))}</p>`);
+      paragraphLines = [];
+    }
+
+    function flushList() {
+      if (!inList || listItems.length === 0) {
+        inList = null;
+        listItems = [];
+        return;
+      }
+      out.push(`<${inList}>${listItems.map((item) => `<li>${item}</li>`).join("")}</${inList}>`);
+      inList = null;
+      listItems = [];
+    }
+
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
+      const trimmed = line.trim();
       // Code block placeholder — emit directly
       const cbMatch = line.match(/^\x00CB(\d+)\x00$/);
       if (cbMatch) {
-        if (inList) { out += `</${inList}>`; inList = null; }
-        out += codeBlocks[parseInt(cbMatch[1])];
+        flushParagraph();
+        flushList();
+        out.push(codeBlocks[parseInt(cbMatch[1])]);
+        continue;
+      }
+      // Ignore orphan code fence markers left after extraction (common around tool summaries)
+      if (/^```+\s*$/.test(trimmed)) {
+        flushParagraph();
         continue;
       }
       // Horizontal rule
-      if (/^---+$/.test(line.trim())) {
-        if (inList) { out += `</${inList}>`; inList = null; }
-        out += "<hr>";
+      if (/^---+$/.test(trimmed)) {
+        flushParagraph();
+        flushList();
+        out.push("<hr>");
         continue;
       }
       // Headers (# through ####)
       const hMatch = line.match(/^(#{1,4})\s+(.+)$/);
       if (hMatch) {
-        if (inList) { out += `</${inList}>`; inList = null; }
+        flushParagraph();
+        flushList();
         const level = Math.min(hMatch[1].length + 2, 6); // #→h3, ##→h4, ###→h5, ####→h6
-        out += `<h${level}>${inlineMarkdown(escapeHtml(hMatch[2]))}</h${level}>`;
+        out.push(`<h${level}>${inlineMarkdown(escapeHtml(hMatch[2]))}</h${level}>`);
         continue;
       }
       // Unordered list
       const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/);
       if (ulMatch) {
-        if (inList !== "ul") { if (inList) out += `</${inList}>`; out += "<ul>"; inList = "ul"; }
-        out += `<li>${inlineMarkdown(escapeHtml(ulMatch[2]))}</li>`;
+        flushParagraph();
+        if (inList !== "ul") {
+          flushList();
+          inList = "ul";
+        }
+        listItems.push(inlineMarkdown(escapeHtml(ulMatch[2].trim())));
         continue;
       }
       // Ordered list
       const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
       if (olMatch) {
-        if (inList !== "ol") { if (inList) out += `</${inList}>`; out += "<ol>"; inList = "ol"; }
-        out += `<li>${inlineMarkdown(escapeHtml(olMatch[2]))}</li>`;
+        flushParagraph();
+        if (inList !== "ol") {
+          flushList();
+          inList = "ol";
+        }
+        listItems.push(inlineMarkdown(escapeHtml(olMatch[2].trim())));
         continue;
       }
-      // Close any open list
-      if (inList && line.trim() === "") { out += `</${inList}>`; inList = null; }
       // Table: detect header row followed by separator row
-      if (line.trim().startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1].trim())) {
-        if (inList) { out += `</${inList}>`; inList = null; }
+      if (trimmed.startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1].trim())) {
+        flushParagraph();
+        flushList();
         const parseRow = (r) => r.replace(/^\||\|$/g, "").split("|").map(c => inlineMarkdown(escapeHtml(c.trim())));
         const headers = parseRow(line);
         i++; // skip separator row
@@ -1175,22 +1392,30 @@ body.in-iframe .bar-title:hover {
           i++;
           rows.push(parseRow(lines[i]));
         }
-        out += "<table><thead><tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr></thead>";
+        let tableHtml = "<table><thead><tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr></thead>";
         if (rows.length) {
-          out += "<tbody>" + rows.map(r => "<tr>" + r.map(c => `<td>${c}</td>`).join("") + "</tr>").join("") + "</tbody>";
+          tableHtml += "<tbody>" + rows.map(r => "<tr>" + r.map(c => `<td>${c}</td>`).join("") + "</tr>").join("") + "</tbody>";
         }
-        out += "</table>";
+        tableHtml += "</table>";
+        out.push(tableHtml);
         continue;
       }
-      // Regular text — wrap non-empty lines in <p>, blank lines as breaks
-      if (line.trim() === "") {
-        if (out.length > 0) out += "\n";
+      // List continuation line — keep wrapped file references and descriptions inside the same bullet
+      if (inList && trimmed !== "" && listItems.length > 0) {
+        listItems[listItems.length - 1] += `<br>${inlineMarkdown(escapeHtml(trimmed))}`;
+        continue;
+      }
+      // Regular text — join contiguous non-empty lines into a paragraph
+      if (trimmed === "") {
+        flushParagraph();
+        flushList();
       } else {
-        out += `<p>${inlineMarkdown(escapeHtml(line))}</p>`;
+        paragraphLines.push(trimmed);
       }
     }
-    if (inList) out += `</${inList}>`;
-    return out;
+    flushParagraph();
+    flushList();
+    return out.join("\n");
   }
 
   function inlineMarkdown(html) {
@@ -2212,6 +2437,11 @@ body.in-iframe .bar-title:hover {
     setSpeed(SPEED_STEPS[(idx + 1) % SPEED_STEPS.length]);
   });
 
+  if (uiBtn) uiBtn.addEventListener("click", () => toggleUiMode());
+  if (uiBtn2) uiBtn2.addEventListener("click", () => toggleUiMode());
+  if (themeBtn) themeBtn.addEventListener("click", () => toggleThemeMode());
+  if (themeBtn2) themeBtn2.addEventListener("click", () => toggleThemeMode());
+
   function syncCheckbox(primary, secondary) {
     secondary.addEventListener("change", () => {
       primary.checked = secondary.checked;
@@ -2456,6 +2686,21 @@ body.in-iframe .bar-title:hover {
   transcript.textContent = "";
   transcript.style.opacity = "";
   renderAllTurns();
+  try {
+    const savedUi = localStorage.getItem("cr-ui-mode");
+    applyUiMode(savedUi === "vscode" ? "vscode" : "terminal", { persist: false });
+  } catch {
+    applyUiMode("terminal", { persist: false });
+  }
+  try {
+    const savedTheme = localStorage.getItem("cr-theme-mode");
+    const initialTheme = savedTheme && THEME_MODES.includes(savedTheme)
+      ? savedTheme
+      : detectInitialThemeMode();
+    applyThemeMode(initialTheme, { persist: false });
+  } catch {
+    applyThemeMode("dark", { persist: false });
+  }
   applyVisibility();
   const hashMatch = location.hash.match(/turn=(\d+)/);
   if (hashMatch) {

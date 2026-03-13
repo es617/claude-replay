@@ -20,7 +20,25 @@ describe("getTheme", () => {
 describe("listThemes", () => {
   it("returns sorted theme names", () => {
     const names = listThemes();
-    assert.deepEqual(names, ["bubbles", "dracula", "github-light", "monokai", "solarized-dark", "tokyo-night"]);
+    assert.deepEqual(names, ["bubbles", "copilot", "dracula", "github-light", "monokai", "solarized-dark", "tokyo-night", "vscode"]);
+  });
+});
+
+describe("copilot theme", () => {
+  it("matches the Copilot-inspired palette", () => {
+    const theme = getTheme("copilot");
+    assert.equal(theme.bg, "#0d1117");
+    assert.equal(theme.accent, "#6cb6ff");
+    assert.equal(theme["tool-bg"], "#11161d");
+  });
+});
+
+describe("vscode theme", () => {
+  it("matches the VS Code-inspired palette", () => {
+    const theme = getTheme("vscode");
+    assert.equal(theme.bg, "#1e1e1e");
+    assert.equal(theme.accent, "#007acc");
+    assert.equal(theme["tool-bg"], "#252526");
   });
 });
 

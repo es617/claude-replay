@@ -42,6 +42,24 @@
   --tool-bg: #f5f5f7;
   --thinking-bg: #f0f0f3;
 }
+:root.copilot {
+  --bg: #0d1117;
+  --bg-surface: #161b22;
+  --bg-hover: #1f2630;
+  --text: #d7deea;
+  --text-dim: #9aa6b8;
+  --text-bright: #f4f7ff;
+  --accent: #6cb6ff;
+  --accent-dim: #27496d;
+  --green: #6ccf8a;
+  --blue: #6cb6ff;
+  --orange: #ffc26f;
+  --red: #ff8f8f;
+  --cyan: #8ab4ff;
+  --border: #2f3947;
+  --tool-bg: #11161d;
+  --thinking-bg: #131923;
+}
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -143,6 +161,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 .btn-warn { background: var(--orange); color: var(--bg); font-weight: 600; }
 .btn-warn:hover { background: #e0874e; color: var(--text-bright); }
 .theme-mode-btn { display: flex; align-items: center; padding: 4px 8px; }
+.theme-mode-btn .theme-label {
+  font-size: 11px;
+  margin-left: 6px;
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 
 /* Left sidebar */
 .sidebar {
@@ -724,6 +749,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     <button class="btn theme-mode-btn" id="themeModeBtn" title="Toggle dark/light mode">
       <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="icon-copilot" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="4" y="6" width="16" height="12" rx="4"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 16c1.2 1 2.5 1.5 4 1.5s2.8-.5 4-1.5"/></svg>
+      <span class="theme-label" id="themeModeLabel">Dark</span>
     </button>
     <button class="btn" id="helpBtn" title="Help">?</button>
   </div>
@@ -930,6 +957,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   let bookmarks = new Map();
   let previewBlobUrl = null;
   let dragging = false;
+  let themeModeManual = false;
 
   // =========================================================================
   // DOM refs
@@ -943,6 +971,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const resetBtn          = $("resetBtn");
   const exportBtn         = $("exportBtn");
   const themeModeBtn      = $("themeModeBtn");
+  const themeModeLabel    = $("themeModeLabel");
   const helpBtn           = $("helpBtn");
   const helpModal         = $("helpModal");
   const helpModalClose    = $("helpModalClose");
@@ -1481,12 +1510,55 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     schedulePreview();
   });
 
-  // Dark/light mode
+  // Dark/light/copilot mode
+  const EDITOR_THEME_MODES = ["dark", "light", "copilot"];
+
+  function applyThemeMode(mode) {
+    const normalized = EDITOR_THEME_MODES.includes(mode) ? mode : "dark";
+    document.documentElement.classList.toggle("light", normalized === "light");
+    document.documentElement.classList.toggle("dark", normalized === "dark");
+    document.documentElement.classList.toggle("copilot", normalized === "copilot");
+
+    const moon = themeModeBtn.querySelector(".icon-moon");
+    const sun = themeModeBtn.querySelector(".icon-sun");
+    const copilot = themeModeBtn.querySelector(".icon-copilot");
+    if (moon) moon.style.display = normalized === "dark" ? "block" : "none";
+    if (sun) sun.style.display = normalized === "light" ? "block" : "none";
+    if (copilot) copilot.style.display = normalized === "copilot" ? "block" : "none";
+    if (themeModeLabel) themeModeLabel.textContent = normalized === "copilot" ? "Copilot" : (normalized === "light" ? "Light" : "Dark");
+
+    try { localStorage.setItem("cr-editor-theme-mode", normalized); } catch {}
+  }
+
+  const prefersDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  let initialEditorTheme = prefersDark && !prefersDark.matches ? "light" : "dark";
+  try {
+    const savedEditorTheme = localStorage.getItem("cr-editor-theme-mode");
+    if (savedEditorTheme && EDITOR_THEME_MODES.includes(savedEditorTheme)) {
+      initialEditorTheme = savedEditorTheme;
+      themeModeManual = true;
+    }
+  } catch { /* ignore */ }
+  applyThemeMode(initialEditorTheme);
+
+  if (prefersDark) {
+    const syncThemeMode = (event) => {
+      if (!themeModeManual) applyThemeMode(event.matches ? "dark" : "light");
+    };
+    if (typeof prefersDark.addEventListener === "function") {
+      prefersDark.addEventListener("change", syncThemeMode);
+    } else if (typeof prefersDark.addListener === "function") {
+      prefersDark.addListener(syncThemeMode);
+    }
+  }
+
   themeModeBtn.addEventListener("click", () => {
-    const isLight = document.documentElement.classList.toggle("light");
-    document.documentElement.classList.toggle("dark", !isLight);
-    themeModeBtn.querySelector(".icon-moon").style.display = isLight ? "none" : "block";
-    themeModeBtn.querySelector(".icon-sun").style.display = isLight ? "block" : "none";
+    themeModeManual = true;
+    const currentMode = document.documentElement.classList.contains("copilot")
+      ? "copilot"
+      : (document.documentElement.classList.contains("light") ? "light" : "dark");
+    const idx = EDITOR_THEME_MODES.indexOf(currentMode);
+    applyThemeMode(EDITOR_THEME_MODES[(idx + 1) % EDITOR_THEME_MODES.length]);
   });
 
   // Help modal

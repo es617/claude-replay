@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { resolveSessionId } from "../src/resolve-session.mjs";
 
@@ -28,6 +28,24 @@ function createFakeHome(sessions = {}) {
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, "transcript.jsonl"), "{}");
       }
+    }
+  }
+
+  // Create VS GitHub Chat sessions
+  if (sessions.githubChat) {
+    for (const relativePath of sessions.githubChat) {
+      const filePath = join(home, ".vs-github-chat", "sessions", relativePath);
+      mkdirSync(dirname(filePath), { recursive: true });
+      writeFileSync(filePath, "{}");
+    }
+  }
+
+  // Create VS Code Copilot chat sessions in workspaceStorage
+  if (sessions.vscodeChat) {
+    for (const relativePath of sessions.vscodeChat) {
+      const filePath = join(home, "AppData", "Roaming", "Code", "User", "workspaceStorage", relativePath);
+      mkdirSync(dirname(filePath), { recursive: true });
+      writeFileSync(filePath, "{}");
     }
   }
 
@@ -98,5 +116,27 @@ describe("resolveSessionId", () => {
     });
     const matches = resolveSessionId("abc123.jsonl", { home });
     assert.equal(matches.length, 1);
+  });
+
+  it("finds a VS GitHub Chat session recursively by filename", () => {
+    const home = createFakeHome({
+      githubChat: ["2026/03/13/copilot-session-1.jsonl"],
+    });
+    const matches = resolveSessionId("copilot-session-1", { home });
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].group, "VS GitHub Chat");
+    assert.equal(matches[0].project, "local-sessions");
+    assert.ok(matches[0].path.endsWith("copilot-session-1.jsonl"));
+  });
+
+  it("finds a VS Code Copilot workspaceStorage session by filename", () => {
+    const home = createFakeHome({
+      vscodeChat: ["bucket-1/chatSessions/copilot-session-2.jsonl"],
+    });
+    const matches = resolveSessionId("copilot-session-2", { home });
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].group, "VS GitHub Copilot Chat (VS Code)");
+    assert.equal(matches[0].project, "workspaceStorage");
+    assert.ok(matches[0].path.endsWith("copilot-session-2.jsonl"));
   });
 });
