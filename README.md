@@ -2,6 +2,8 @@
 
 ![npm](https://img.shields.io/npm/v/claude-replay)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-replay-blue)
+![Cursor](https://img.shields.io/badge/Cursor-replay-purple)
+![Codex CLI](https://img.shields.io/badge/Codex_CLI-replay-green)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
@@ -10,7 +12,7 @@
 
 AI coding sessions are great for development, but hard to share. Screen recordings are bulky and transcripts are hard to navigate.
 
-**claude-replay** turns Claude Code session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation. Also supports Cursor and Codex CLI transcripts.
+**claude-replay** turns Claude Code, Cursor, and Codex CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
 
 ![Demo](https://raw.githubusercontent.com/es617/claude-replay/main/docs/demo.gif)
 
