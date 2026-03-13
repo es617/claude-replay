@@ -6,6 +6,9 @@ const FIXTURE = new URL("./fixture.jsonl", import.meta.url).pathname;
 const CURSOR_FIXTURE = new URL("./fixture-cursor.jsonl", import.meta.url).pathname;
 const CODEX_FIXTURE = new URL("./fixture-codex.jsonl", import.meta.url).pathname;
 const PACED_FIXTURE = new URL("./fixture-paced.jsonl", import.meta.url).pathname;
+const SYSTEM_TAGS_FIXTURE = new URL("./fixture-system-tags.jsonl", import.meta.url).pathname;
+const CODEX_PATCH_FIXTURE = new URL("./fixture-codex-patch.jsonl", import.meta.url).pathname;
+const CODEX_EDGES_FIXTURE = new URL("./fixture-codex-edges.jsonl", import.meta.url).pathname;
 
 describe("parseTranscript", () => {
   // Fixture produces 3 turns (orphan assistant after tool result merges into previous):
@@ -252,5 +255,124 @@ describe("applyPacedTiming", () => {
     applyPacedTiming(turns);
     // Should overwrite real timestamps
     assert.notEqual(turns[0].timestamp, origTs);
+  });
+});
+
+describe("cleanSystemTags", () => {
+  it("strips multiple system-reminder blocks from user text", () => {
+    const turns = parseTranscript(SYSTEM_TAGS_FIXTURE);
+    assert.equal(turns[0].user_text, "Before reminder\nAfter reminder");
+  });
+
+  it("strips ide_opened_file tags", () => {
+    const turns = parseTranscript(SYSTEM_TAGS_FIXTURE);
+    assert.equal(turns[1].user_text, "Check this\nPlease review");
+  });
+
+  it("extracts command-name and keeps non-empty command-args", () => {
+    const turns = parseTranscript(SYSTEM_TAGS_FIXTURE);
+    assert.match(turns[2].user_text, /review/);
+    assert.match(turns[2].user_text, /src\/main\.ts/);
+  });
+
+  it("removes empty command-args tags", () => {
+    const turns = parseTranscript(SYSTEM_TAGS_FIXTURE);
+    // Turn 4 (mixed tags) has empty command-args — should not appear
+    assert.ok(!turns[4].user_text.includes("command-args"));
+  });
+
+  it("strips local-command-caveat and local-command-stdout", () => {
+    const turns = parseTranscript(SYSTEM_TAGS_FIXTURE);
+    assert.equal(turns[3].user_text, "Run this");
+  });
+
+  it("handles mixed tags in one message", () => {
+    const turns = parseTranscript(SYSTEM_TAGS_FIXTURE);
+    const text = turns[4].user_text;
+    // Should not contain any tag artifacts
+    assert.ok(!text.includes("<system-reminder>"));
+    assert.ok(!text.includes("<ide_opened_file>"));
+    assert.ok(!text.includes("<local-command-caveat>"));
+    assert.ok(!text.includes("<local-command-stdout>"));
+    // Should contain the extracted command name and actual user text
+    assert.match(text, /deploy/);
+    assert.match(text, /Actual user message/);
+  });
+});
+
+describe("parseCodexPatch", () => {
+  it("handles patch with context lines", () => {
+    const turns = parseTranscript(CODEX_PATCH_FIXTURE);
+    const edit = turns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.equal(edit.tool_call.name, "Edit");
+    assert.equal(edit.tool_call.input.file_path, "/src/app.js");
+    // Context lines appear in both old and new strings
+    assert.match(edit.tool_call.input.old_string, /const x = 1;/);
+    assert.match(edit.tool_call.input.old_string, /const y = 2;/);
+    assert.match(edit.tool_call.input.old_string, /const z = 4;/);
+    assert.match(edit.tool_call.input.new_string, /const x = 1;/);
+    assert.match(edit.tool_call.input.new_string, /const y = 3;/);
+    assert.match(edit.tool_call.input.new_string, /const z = 4;/);
+  });
+
+  it("handles empty patch (just Begin/End markers)", () => {
+    const turns = parseTranscript(CODEX_PATCH_FIXTURE);
+    const tool = turns[1].blocks.find((b) => b.kind === "tool_use");
+    // Empty patch produces Edit with empty file_path and empty strings
+    assert.equal(tool.tool_call.input.file_path, "");
+    assert.equal(tool.tool_call.input.old_string, "");
+    assert.equal(tool.tool_call.input.new_string, "");
+  });
+
+  it("handles multiple files via separate tool calls in one turn", () => {
+    const turns = parseTranscript(CODEX_PATCH_FIXTURE);
+    const toolBlocks = turns[2].blocks.filter((b) => b.kind === "tool_use");
+    assert.equal(toolBlocks.length, 2);
+    // First is a Write (Add File)
+    assert.equal(toolBlocks[0].tool_call.name, "Write");
+    assert.equal(toolBlocks[0].tool_call.input.file_path, "/src/new.js");
+    // Second is an Edit (Update File)
+    assert.equal(toolBlocks[1].tool_call.name, "Edit");
+    assert.equal(toolBlocks[1].tool_call.input.file_path, "/src/old.js");
+  });
+});
+
+describe("Codex edge cases", () => {
+  it("handles session that ends without task_complete (truncated)", () => {
+    const turns = parseTranscript(CODEX_EDGES_FIXTURE);
+    // Last turn has no task_complete — should still be captured
+    const truncated = turns.find((t) => t.user_text === "truncated session");
+    assert.ok(truncated, "truncated turn should be captured");
+    assert.ok(truncated.blocks.length > 0);
+  });
+
+  it("handles tool call with no result (pending)", () => {
+    const turns = parseTranscript(CODEX_EDGES_FIXTURE);
+    const pendingTurn = turns.find((t) => t.user_text === "pending tool call");
+    assert.ok(pendingTurn, "should find the pending tool call turn");
+    const toolBlock = pendingTurn.blocks.find((b) => b.kind === "tool_use");
+    assert.ok(toolBlock, "should have a tool_use block");
+    assert.equal(toolBlock.tool_call.name, "Bash");
+    assert.equal(toolBlock.tool_call.result, null);
+  });
+
+  it("uses full text when 'My request for Codex:' marker is absent", () => {
+    const turns = parseTranscript(CODEX_EDGES_FIXTURE);
+    const noMarker = turns.find((t) => t.user_text === "Just do something without the marker");
+    assert.ok(noMarker, "should find turn with full text as user_text");
+  });
+
+  it("captures multiple commentary blocks in one turn as thinking", () => {
+    const turns = parseTranscript(CODEX_EDGES_FIXTURE);
+    const multiTurn = turns.find((t) => t.user_text === "multiple commentary blocks");
+    assert.ok(multiTurn, "should find the multi-commentary turn");
+    const thinking = multiTurn.blocks.filter((b) => b.kind === "thinking");
+    assert.equal(thinking.length, 3);
+    assert.equal(thinking[0].text, "First thought.");
+    assert.equal(thinking[1].text, "Second thought.");
+    assert.equal(thinking[2].text, "Third thought.");
+    const text = multiTurn.blocks.filter((b) => b.kind === "text");
+    assert.equal(text.length, 1);
+    assert.equal(text[0].text, "Final answer here.");
   });
 });

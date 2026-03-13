@@ -1,0 +1,10 @@
+{"type":"user","message":{"role":"user","content":"Before reminder\n<system-reminder>You are helpful</system-reminder>\n<system-reminder>Second block\nwith multiple lines</system-reminder>\nAfter reminder"},"timestamp":"2025-06-01T10:00:00Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Got it."}]},"timestamp":"2025-06-01T10:00:01Z"}
+{"type":"user","message":{"role":"user","content":"Check this\n<ide_opened_file>\npath: /src/main.ts\ncontent: console.log('hello')\n</ide_opened_file>\nPlease review"},"timestamp":"2025-06-01T10:01:00Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Looks good."}]},"timestamp":"2025-06-01T10:01:01Z"}
+{"type":"user","message":{"role":"user","content":"<command-name>review</command-name>\n<command-args>src/main.ts</command-args>\nExtra context"},"timestamp":"2025-06-01T10:02:00Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Reviewing now."}]},"timestamp":"2025-06-01T10:02:01Z"}
+{"type":"user","message":{"role":"user","content":"<local-command-caveat>Some internal caveat text</local-command-caveat>\nRun this\n<local-command-stdout>stdout output here</local-command-stdout>"},"timestamp":"2025-06-01T10:03:00Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done."}]},"timestamp":"2025-06-01T10:03:01Z"}
+{"type":"user","message":{"role":"user","content":"<system-reminder>context info</system-reminder>\n<ide_opened_file>\npath: /foo.ts\n</ide_opened_file>\n<command-name>deploy</command-name>\n<command-args></command-args>\n<local-command-caveat>caveat</local-command-caveat>\nActual user message\n<local-command-stdout>output</local-command-stdout>"},"timestamp":"2025-06-01T10:04:00Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Deployed."}]},"timestamp":"2025-06-01T10:04:01Z"}
