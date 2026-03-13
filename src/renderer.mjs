@@ -168,8 +168,9 @@ export function render(turns, opts = {}) {
   const embedData = (json) => compress
     ? compressForEmbed(json)
     : escapeJsonForScript(json);
-  html = html.replace("/*BOOKMARKS_DATA*/", embedData(JSON.stringify(bookmarks)));
-  html = html.replace("/*TURNS_DATA*/", embedData(JSON.stringify(turnsToJsonData(turns, { redact, redactRules: opts.redactRules }))));
+  // Use function replacements to avoid $-pattern interpretation in replacement strings
+  html = html.replace("/*BOOKMARKS_DATA*/", () => embedData(JSON.stringify(bookmarks)));
+  html = html.replace("/*TURNS_DATA*/", () => embedData(JSON.stringify(turnsToJsonData(turns, { redact, redactRules: opts.redactRules }))));
 
   return html;
 }

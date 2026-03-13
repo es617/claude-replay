@@ -153,7 +153,6 @@ function buildRenderOpts(options, session, overrides = {}) {
     ogImage: options.ogImage || "",
     bookmarks: (options.bookmarks || []).sort((a, b) => a.turn - b.turn),
     minified: false,
-    compress: false,
     ...overrides,
   };
 }
