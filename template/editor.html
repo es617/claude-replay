@@ -429,7 +429,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   background: var(--bg-surface);
   flex-shrink: 0;
 }
-.turns-toolbar.visible { display: flex; }
+.turns-toolbar.visible { display: flex; flex-wrap: wrap; }
 .btn-small { padding: 2px 8px; font-size: 11px; }
 
 .turns-list {
@@ -1226,6 +1226,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         bookmarks.set(bm.turn, bm.label);
       }
 
+
+
       const parts = path.split("/");
       const filename = parts[parts.length - 1].replace(/\.(jsonl|html)$/, "");
       titleInput.value = "Replay \u2014 " + filename;
@@ -1608,6 +1610,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       excludedTurns = new Set(data.excludedTurns || []);
       bookmarks = new Map();
       for (const bm of data.bookmarks || []) bookmarks.set(bm.turn, bm.label);
+
       const filename = file.name.replace(/\.html$/, "");
       titleInput.value = "Replay \u2014 " + filename;
       titleInput.disabled = false;
@@ -1669,6 +1672,12 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && helpModal.classList.contains("open")) helpModal.classList.remove("open");
     if (e.key === "Escape" && confirmModal.classList.contains("open")) confirmCancel.click();
+    // Ctrl/Cmd+F: expand all turns and blocks so browser find can search everything
+    if (e.key === "f" && (e.ctrlKey || e.metaKey) && currentSessionId) {
+      turnsList.querySelectorAll("[data-action='expand']").forEach((s) => s.classList.add("open"));
+      turnsList.querySelectorAll(".turn-blocks-detail").forEach((d) => d.classList.add("open"));
+      turnsList.querySelectorAll(".block-item-header").forEach((h) => h.classList.add("open"));
+    }
   });
 
   // Resize handle
