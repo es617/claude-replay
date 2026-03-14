@@ -1262,7 +1262,12 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
     if (action === "toggle") {
       e.target.checked ? excludedTurns.delete(index) : excludedTurns.add(index);
-      e.target.closest(".turn-card").classList.toggle("excluded", !e.target.checked);
+      const card = e.target.closest(".turn-card");
+      card.classList.toggle("excluded", !e.target.checked);
+      if (!e.target.checked) {
+        card.querySelector("[data-action='expand']")?.classList.remove("open");
+        card.querySelector(".turn-blocks-detail")?.classList.remove("open");
+      }
       schedulePreview();
     }
 
@@ -1483,6 +1488,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     currentTurns.forEach((t) => excludedTurns.add(t.index));
     turnsList.querySelectorAll("[data-action='toggle']").forEach((cb) => { cb.checked = false; });
     turnsList.querySelectorAll(".turn-card").forEach((card) => card.classList.add("excluded"));
+    turnsList.querySelectorAll("[data-action='expand']").forEach((s) => s.classList.remove("open"));
+    turnsList.querySelectorAll(".turn-blocks-detail").forEach((d) => d.classList.remove("open"));
     schedulePreview();
   });
 
