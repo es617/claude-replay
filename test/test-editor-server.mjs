@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
+import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
+import { render } from "../src/renderer.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PATH = resolve(__dirname, "e2e", "fixture.jsonl");
@@ -181,6 +182,34 @@ describe("editor-server API", () => {
     assert.match(html, /<!DOCTYPE html>/);
   });
 
+  it("POST /api/export-data returns JSON with turns and bookmarks", async () => {
+    const loadRes = await fetch(`${baseUrl}/api/load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: FIXTURE_PATH }),
+    });
+    const loadData = await loadRes.json();
+    const sid = loadData.sessionId;
+
+    const res = await fetch(`${baseUrl}/api/export-data`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sid,
+        options: { title: "test-data", bookmarks: [{ turn: 1, label: "Ch1" }] },
+      }),
+    });
+    assert.equal(res.status, 200);
+    const disposition = res.headers.get("content-disposition");
+    assert.match(disposition, /test-data\.json/);
+    const data = JSON.parse(await res.text());
+    assert.ok(Array.isArray(data.turns));
+    assert.ok(data.turns.length > 0);
+    assert.equal(data.turns[0].user_text, loadData.turns[0].user_text);
+    assert.ok(Array.isArray(data.bookmarks));
+    assert.equal(data.bookmarks[0].label, "Ch1");
+  });
+
   it("POST /api/browse with valid directory returns dirs and files", async () => {
     const res = await fetch(`${baseUrl}/api/browse`, {
       method: "POST",
@@ -281,5 +310,94 @@ describe("editor-server API", () => {
       headers: { "Origin": baseUrl },
     });
     assert.equal(res.status, 200);
+  });
+
+  // ── Import HTML ──────────────────────────────────────────
+
+  it("POST /api/import extracts turns from valid HTML replay", async () => {
+    const sampleTurns = [
+      { index: 1, user_text: "Hello", blocks: [{ kind: "text", text: "Hi!", tool_call: null }], timestamp: "2025-06-01T10:00:00Z" },
+      { index: 2, user_text: "Bye", blocks: [{ kind: "text", text: "Goodbye!", tool_call: null }], timestamp: "2025-06-01T10:01:00Z" },
+    ];
+    const sampleBookmarks = [{ turn: 1, label: "Start" }];
+    const html = render(sampleTurns, { minified: false, redactSecrets: false, bookmarks: sampleBookmarks });
+
+    const res = await fetch(`${baseUrl}/api/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html, filename: "test-import.html" }),
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(data.sessionId);
+    assert.equal(data.format, "extracted");
+    assert.equal(data.turns.length, 2);
+    assert.equal(data.turns[0].user_text, "Hello");
+    assert.equal(data.bookmarks.length, 1);
+    assert.equal(data.bookmarks[0].label, "Start");
+  });
+
+  it("POST /api/import rejects non-replay HTML", async () => {
+    const res = await fetch(`${baseUrl}/api/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<html><body>Not a replay</body></html>", filename: "bad.html" }),
+    });
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.match(data.error, /Not a valid claude-replay/);
+  });
+
+  it("POST /api/import rejects missing html field", async () => {
+    const res = await fetch(`${baseUrl}/api/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: "test.html" }),
+    });
+    assert.equal(res.status, 400);
+  });
+
+  it("POST /api/load supports .html replay files", async () => {
+    // Generate a replay HTML file in a temp location under $HOME
+    const sampleTurns = [
+      { index: 1, user_text: "Test", blocks: [{ kind: "text", text: "Reply", tool_call: null }] },
+    ];
+    const html = render(sampleTurns, { minified: false, redactSecrets: false });
+    const tmpHtml = join(homedir(), `.claude-replay-test-${process.pid}.html`);
+    writeFileSync(tmpHtml, html);
+
+    try {
+      const res = await fetch(`${baseUrl}/api/load`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: tmpHtml }),
+      });
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.ok(data.sessionId);
+      assert.equal(data.format, "extracted");
+      assert.equal(data.turns.length, 1);
+      assert.equal(data.turns[0].user_text, "Test");
+    } finally {
+      if (existsSync(tmpHtml)) unlinkSync(tmpHtml);
+    }
+  });
+
+  it("POST /api/load rejects invalid .html files", async () => {
+    const tmpHtml = join(homedir(), `.claude-replay-test-bad-${process.pid}.html`);
+    writeFileSync(tmpHtml, "<html><body>Not a replay</body></html>");
+
+    try {
+      const res = await fetch(`${baseUrl}/api/load`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: tmpHtml }),
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.match(data.error, /Not a valid claude-replay/);
+    } finally {
+      if (existsSync(tmpHtml)) unlinkSync(tmpHtml);
+    }
   });
 });

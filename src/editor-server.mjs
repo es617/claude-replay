@@ -9,6 +9,7 @@ import { homedir } from "node:os";
 import { execFile } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "./parser.mjs";
 import { render } from "./renderer.mjs";
+import { extractData } from "./extract.mjs";
 import { getTheme, listThemes } from "./themes.mjs";
 
 const EDITOR_HTML_PATH = new URL("../template/editor.html", import.meta.url);
@@ -223,7 +224,7 @@ function browseDirectory(dirPath) {
       const stat = statSync(fullPath);
       if (stat.isDirectory()) {
         dirs.push({ name, path: fullPath });
-      } else if (name.endsWith(".jsonl")) {
+      } else if (name.endsWith(".jsonl") || name.endsWith(".html")) {
         files.push({ name, path: fullPath, date: stat.mtime.toISOString() });
       }
     } catch { /* skip inaccessible entries */ }
@@ -398,28 +399,75 @@ async function handleApi(req, res, pathname) {
             format: s.format,
             hasEdits,
             turns: summarizeTurns(s.workingTurns),
+            bookmarks: s.extractedBookmarks || [],
           });
         }
       }
       // New session
-      const format = detectFormat(filePath);
-      const turns = parseTranscript(filePath);
+      let format, turns, bookmarks;
+      if (filePath.endsWith(".html")) {
+        const html = readFileSync(filePath, "utf-8");
+        let data;
+        try {
+          data = extractData(html);
+        } catch {
+          return error(res, "Not a valid claude-replay HTML file", 400);
+        }
+        turns = data.turns;
+        bookmarks = data.bookmarks;
+        format = "extracted";
+      } else {
+        format = detectFormat(filePath);
+        turns = parseTranscript(filePath);
+      }
       const id = "s" + (++sessionCounter);
       sessions.set(id, {
         originalTurns: JSON.parse(JSON.stringify(turns)),
         workingTurns: turns,
         sourcePath: filePath,
         format,
+        extractedBookmarks: bookmarks || [],
       });
       return json(res, {
         sessionId: id,
         format,
         hasEdits: false,
         turns: summarizeTurns(turns),
+        bookmarks: bookmarks || [],
       });
     } catch (e) {
       return error(res, `Failed to parse: ${e.message}`, 500);
     }
+  }
+
+  // POST /api/import — import an HTML replay by content (for file upload)
+  if (pathname === "/api/import" && req.method === "POST") {
+    const body = await readBody(req);
+    const { html: htmlContent, filename } = body;
+    if (!htmlContent) return error(res, "Missing 'html' field");
+    let data;
+    try {
+      data = extractData(htmlContent);
+    } catch {
+      return error(res, "Not a valid claude-replay HTML file", 400);
+    }
+    const id = "s" + (++sessionCounter);
+    const turns = data.turns;
+    sessions.set(id, {
+      originalTurns: JSON.parse(JSON.stringify(turns)),
+      workingTurns: turns,
+      sourcePath: filename || "imported.html",
+      format: "extracted",
+      extractedBookmarks: data.bookmarks || [],
+    });
+    return json(res, {
+      sessionId: id,
+      format: "extracted",
+      hasEdits: false,
+      turns: summarizeTurns(turns),
+      bookmarks: data.bookmarks || [],
+      filename: filename || "imported.html",
+    });
   }
 
   // POST /api/edit — update a turn's user text
@@ -433,6 +481,25 @@ async function handleApi(req, res, pathname) {
     turn.user_text = user_text;
     const hasEdits = JSON.stringify(session.workingTurns) !== JSON.stringify(session.originalTurns);
     return json(res, { ok: true, hasEdits });
+  }
+
+  // POST /api/export-data — export turns and bookmarks as JSON
+  if (pathname === "/api/export-data" && req.method === "POST") {
+    const body = await readBody(req);
+    const { sessionId, options = {} } = body;
+    const session = sessions.get(sessionId);
+    if (!session) return error(res, "Unknown session", 404);
+    const turns = prepareTurns(session, options);
+    const excludedSet = new Set(options.excludeTurns || []);
+    const bookmarksArr = remapBookmarks(options.bookmarks || [], session.workingTurns, excludedSet);
+    const data = JSON.stringify({ turns, bookmarks: bookmarksArr }, null, 2);
+    const filename = (options.title || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": Buffer.byteLength(data),
+    });
+    return res.end(data);
   }
 
   // POST /api/preview — render HTML for live preview

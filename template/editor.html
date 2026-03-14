@@ -731,6 +731,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     <h1>claude-replay</h1>
     <input type="text" class="topbar-title-input" id="titleInput" placeholder="Session title..." disabled>
     <button class="btn" id="resetBtn" disabled>Reset Edits</button>
+    <button class="btn" id="importHtmlBtn" title="Import a previously exported HTML replay for re-editing">Import HTML</button>
+    <input type="file" id="importHtmlFile" accept=".html" style="display:none">
+    <button class="btn" id="exportDataBtn" disabled title="Download session data as JSON">Export JSON</button>
     <button class="btn btn-primary" id="exportBtn" disabled>Export HTML</button>
     <button class="btn theme-mode-btn" id="themeModeBtn" title="Toggle dark/light mode">
       <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -955,6 +958,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const titleInput        = $("titleInput");
   const resetBtn          = $("resetBtn");
   const exportBtn         = $("exportBtn");
+  const exportDataBtn     = $("exportDataBtn");
+  const importHtmlBtn     = $("importHtmlBtn");
+  const importHtmlFile    = $("importHtmlFile");
   const themeModeBtn      = $("themeModeBtn");
   const helpBtn           = $("helpBtn");
   const helpModal         = $("helpModal");
@@ -1159,12 +1165,20 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       excludedTurns = new Set();
       bookmarks = new Map();
 
+      // Restore bookmarks from extracted HTML replays
+      if (data.bookmarks && data.bookmarks.length > 0) {
+        for (const bm of data.bookmarks) {
+          bookmarks.set(bm.turn, bm.label);
+        }
+      }
+
       const parts = path.split("/");
-      const filename = parts[parts.length - 1].replace(".jsonl", "");
+      const filename = parts[parts.length - 1].replace(/\.(jsonl|html)$/, "");
       titleInput.value = "Replay \u2014 " + filename;
       titleInput.disabled = false;
       resetBtn.disabled = false;
       exportBtn.disabled = false;
+      exportDataBtn.disabled = false;
 
       updateEditState(data.hasEdits || false);
       showOptionsPanel();
@@ -1446,6 +1460,27 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     }
   }
 
+  async function doExportData() {
+    if (!currentSessionId) return;
+    try {
+      const res = await api("POST", "/api/export-data", {
+        sessionId: currentSessionId,
+        options: gatherOptions(),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (titleInput.value || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Export failed: " + e.message);
+    }
+  }
+
   // =========================================================================
   // Resize handle (editor ↔ preview)
   // =========================================================================
@@ -1496,6 +1531,39 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   // Toolbar actions
   resetBtn.addEventListener("click", doReset);
   exportBtn.addEventListener("click", doExport);
+  exportDataBtn.addEventListener("click", doExportData);
+
+  // Import HTML replay
+  importHtmlBtn.addEventListener("click", () => importHtmlFile.click());
+  importHtmlFile.addEventListener("change", async () => {
+    const file = importHtmlFile.files[0];
+    if (!file) return;
+    importHtmlFile.value = ""; // reset so same file can be re-selected
+    try {
+      const htmlContent = await file.text();
+      const data = await apiJson("POST", "/api/import", { html: htmlContent, filename: file.name });
+      currentSessionId = data.sessionId;
+      currentTurns = data.turns;
+      excludedTurns = new Set();
+      bookmarks = new Map();
+      if (data.bookmarks && data.bookmarks.length > 0) {
+        for (const bm of data.bookmarks) bookmarks.set(bm.turn, bm.label);
+      }
+      const filename = file.name.replace(/\.html$/, "");
+      titleInput.value = "Replay \u2014 " + filename;
+      titleInput.disabled = false;
+      resetBtn.disabled = false;
+      exportBtn.disabled = false;
+      exportDataBtn.disabled = false;
+      updateEditState(false);
+      showOptionsPanel();
+      turnsToolbar.classList.add("visible");
+      renderTurns();
+      schedulePreview();
+    } catch (e) {
+      alert("Import failed: " + e.message);
+    }
+  });
 
   // Select all / none
   selectAllBtn.addEventListener("click", () => {
