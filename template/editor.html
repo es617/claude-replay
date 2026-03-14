@@ -376,6 +376,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   padding: 10px 12px;
 }
 
+.opt-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 12px 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--border);
+}
+.opt-group-label:first-child { margin-top: 0; }
 .opt-row {
   display: flex;
   align-items: center;
@@ -813,21 +824,42 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     </div>
     <div class="sidebar-section open" id="optionsSection">
       <div class="options-content">
-        <div class="opt-row">
-          <label for="optTheme" title="Color theme for the replay player">Theme</label>
-          <select id="optTheme" title="Color theme for the replay player"></select>
-        </div>
+        <div class="opt-group-label">Playback <span style="font-weight:normal;text-transform:none">— viewer can change</span></div>
         <div class="opt-row">
           <label for="optSpeed" title="Initial playback speed (0.1 - 10x)">Speed</label>
           <input type="number" id="optSpeed" value="1" min="0.1" max="10" step="0.1" title="Initial playback speed (0.1 - 10x)">
         </div>
         <div class="opt-row">
-          <label title="Show Claude's internal reasoning traces">Show Thinking</label>
-          <input type="checkbox" id="optThinking" checked title="Show Claude's internal reasoning traces">
+          <label title="Show thinking blocks by default">Show Thinking</label>
+          <input type="checkbox" id="optThinking" checked title="Show thinking blocks by default">
         </div>
         <div class="opt-row">
-          <label title="Show tool call blocks (file reads, edits, commands)">Show Tool Calls</label>
-          <input type="checkbox" id="optToolCalls" checked title="Show tool call blocks (file reads, edits, commands)">
+          <label title="Show tool call blocks by default">Show Tool Calls</label>
+          <input type="checkbox" id="optToolCalls" checked title="Show tool call blocks by default">
+        </div>
+
+        <div class="opt-group-label">Appearance</div>
+        <div class="opt-row">
+          <label for="optTheme" title="Color theme for the replay player">Theme</label>
+          <select id="optTheme" title="Color theme for the replay player"></select>
+        </div>
+        <div class="opt-row">
+          <label for="optTiming" title="Timestamp mode: auto, real, or paced">Timing</label>
+          <select id="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">
+            <option value="auto" selected>Auto</option>
+            <option value="real">Real</option>
+            <option value="paced">Paced</option>
+          </select>
+        </div>
+
+        <div class="opt-group-label">Content</div>
+        <div class="opt-row">
+          <label for="optUserLabel" title="Display name for user messages">User label</label>
+          <input type="text" id="optUserLabel" value="User" title="Display name for user messages">
+        </div>
+        <div class="opt-row">
+          <label for="optAssistantLabel" title="Display name for assistant messages (auto-detected if empty)">Asst. label</label>
+          <input type="text" id="optAssistantLabel" placeholder="auto" title="Display name for assistant messages (auto-detected if empty)">
         </div>
         <div class="opt-row">
           <label title="Automatically detect and redact API keys, tokens, and secrets">Auto-redact</label>
@@ -840,14 +872,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
             <button class="add-rule-btn" id="addRuleBtn">+ Add rule</button>
           </div>
         </div>
-        <div class="opt-row">
-          <label for="optUserLabel" title="Display name for user messages">User label</label>
-          <input type="text" id="optUserLabel" value="User" title="Display name for user messages">
-        </div>
-        <div class="opt-row">
-          <label for="optAssistantLabel" title="Display name for assistant messages (auto-detected if empty)">Asst. label</label>
-          <input type="text" id="optAssistantLabel" placeholder="auto" title="Display name for assistant messages (auto-detected if empty)">
-        </div>
+
+        <div class="opt-group-label">Metadata</div>
         <div class="opt-row">
           <label for="optDescription" title="Meta description for link previews when sharing">Description</label>
           <textarea id="optDescription" rows="2" style="resize:vertical" title="Meta description for link previews when sharing"></textarea>
@@ -856,14 +882,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
           <label for="optOgImage" title="Image URL shown in link previews (Open Graph)">OG Image URL</label>
           <input type="text" id="optOgImage" placeholder="https://..." title="Image URL shown in link previews (Open Graph)">
         </div>
-        <div class="opt-row">
-          <label for="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">Timing</label>
-          <select id="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">
-            <option value="auto" selected>Auto</option>
-            <option value="real">Real</option>
-            <option value="paced">Paced</option>
-          </select>
-        </div>
+
+        <div class="opt-group-label">Output</div>
         <div class="opt-row">
           <input type="checkbox" id="optMinify" checked title="Minify the output HTML for smaller file size">
           <label for="optMinify" title="Minify the output HTML for smaller file size">Minify</label>
