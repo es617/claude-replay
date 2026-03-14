@@ -868,15 +868,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     </div>
     <div class="modal-body">
       <h3>Getting Started</h3>
-      <p>Select a session from the <b>Sessions</b> panel or use <b>Open Folder</b> to browse for JSONL transcript files.</p>
+      <p>Select a session from the <b>Sessions</b> panel, use <b>Open Folder</b> to browse for transcript files, or click <b>Import HTML</b> to re-edit a previously exported replay.</p>
 
       <h3>Editing</h3>
       <ul>
         <li><b>User prompts</b> are editable — changes appear live in the preview</li>
-        <li><b>Assistant blocks</b> can be expanded (click the summary line) but are read-only</li>
+        <li><b>Assistant blocks</b> can be expanded (click the summary line) — tool calls and thinking are collapsed by default, click headers to toggle</li>
         <li>Use <b>checkboxes</b> to include or exclude individual turns</li>
         <li>Use <b>Include All / Exclude All</b> for bulk selection</li>
+        <li>Use <b>Expand All / Collapse All</b> to toggle all block details</li>
         <li>Add <b>bookmarks</b> to create chapter markers in the replay</li>
+        <li>Excluded turns and bookmarks persist when switching between sessions</li>
       </ul>
 
       <h3>Options</h3>
@@ -890,11 +892,24 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         <li><b>Minify / Compress</b> — optimize the exported HTML file size</li>
       </ul>
 
-      <h3>Preview &amp; Export</h3>
-      <p>The preview updates live as you edit. Click <b>Export HTML</b> to download the final replay as a self-contained HTML file.</p>
+      <h3>Import &amp; Export</h3>
+      <ul>
+        <li><b>Import HTML</b> — load a previously exported replay for re-editing</li>
+        <li><b>Export HTML</b> — download the replay as a self-contained HTML file</li>
+        <li><b>Export JSON</b> — download the session data (turns and bookmarks) as JSON</li>
+      </ul>
+      <p>The preview updates live as you edit.</p>
+
+      <h3>Supported Formats</h3>
+      <ul>
+        <li><b>Claude Code</b> — <code>~/.claude/projects/</code></li>
+        <li><b>Cursor</b> — <code>~/.cursor/projects/</code></li>
+        <li><b>Codex CLI</b> — <code>~/.codex/sessions/</code></li>
+        <li><b>HTML replays</b> — previously exported <code>.html</code> files</li>
+      </ul>
 
       <h3>Privacy</h3>
-      <p>The editor runs locally on <code>127.0.0.1</code>. Your session data never leaves your machine. Original JSONL files are never modified.</p>
+      <p>The editor runs locally on <code>127.0.0.1</code>. Your session data never leaves your machine. Original transcript files are never modified.</p>
 
       <p class="modal-footer-link"><a href="https://github.com/anthropics/claude-replay" target="_blank" rel="noopener">GitHub</a> &middot; <a href="https://github.com/anthropics/claude-replay/issues" target="_blank" rel="noopener">Report an issue</a> &middot; <span id="helpVersion"></span></p>
     </div>
