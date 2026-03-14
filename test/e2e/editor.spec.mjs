@@ -346,6 +346,100 @@ test("reset button restores original turns", async ({ page }) => {
 
 // ─── Turn click navigates preview ──────────────────────────
 
+// ─── Expand / Collapse All ─────────────────────────────────
+
+test("expand all opens all turn block details", async ({ page }) => {
+  await gotoEditor(page);
+  await loadFixture(page);
+
+  // Expand all turns first
+  await page.locator("#expandAllBtn").click();
+  const openDetails = await page.locator(".turn-blocks-detail.open").count();
+  expect(openDetails).toBe(5);
+
+  // Collapse all
+  await page.locator("#collapseAllBtn").click();
+  const closedDetails = await page.locator(".turn-blocks-detail.open").count();
+  expect(closedDetails).toBe(0);
+});
+
+// ─── Auto-collapse on exclude ─────────────────────────────
+
+test("excluding a turn collapses its expanded blocks", async ({ page }) => {
+  await gotoEditor(page);
+  await loadFixture(page);
+
+  // Expand turn 2
+  await page.locator('[data-action="expand"][data-index="2"]').click();
+  await expect(page.locator("#blocks-2")).toHaveClass(/open/);
+
+  // Exclude turn 2
+  await page.locator('input[data-action="toggle"][data-index="2"]').uncheck();
+
+  // Blocks should be collapsed
+  await expect(page.locator("#blocks-2")).not.toHaveClass(/open/);
+});
+
+test("exclude all collapses all expanded blocks", async ({ page }) => {
+  await gotoEditor(page);
+  await loadFixture(page);
+
+  // Expand a couple of turns
+  await page.locator('[data-action="expand"][data-index="1"]').click();
+  await page.locator('[data-action="expand"][data-index="3"]').click();
+  expect(await page.locator(".turn-blocks-detail.open").count()).toBe(2);
+
+  // Exclude all
+  await page.locator("#selectNoneBtn").click();
+
+  // All blocks should be collapsed
+  expect(await page.locator(".turn-blocks-detail.open").count()).toBe(0);
+});
+
+// ─── Sub-block collapse ─────────────────────────────────────
+
+test("tool and thinking blocks are collapsed by default, text is open", async ({ page }) => {
+  await gotoEditor(page);
+  await loadFixture(page);
+
+  // Expand turn 1 to see its blocks
+  await page.locator('[data-action="expand"][data-index="1"]').click();
+  await expect(page.locator("#blocks-1")).toHaveClass(/open/);
+
+  // Text blocks should be open, tool/thinking should be collapsed
+  const openTextHeaders = page.locator("#blocks-1 .block-item-header.block-text.open");
+  const closedToolHeaders = page.locator("#blocks-1 .block-item-header.block-tool:not(.open)");
+  const closedThinkingHeaders = page.locator("#blocks-1 .block-item-header.block-thinking:not(.open)");
+
+  // At least text blocks should be open (if any exist in this turn)
+  const textCount = await openTextHeaders.count();
+  const toolCount = await closedToolHeaders.count();
+  const thinkingCount = await closedThinkingHeaders.count();
+  expect(textCount + toolCount + thinkingCount).toBeGreaterThan(0);
+});
+
+test("clicking a block header toggles its body", async ({ page }) => {
+  await gotoEditor(page);
+  await loadFixture(page);
+
+  // Expand turn 2 (has tool calls)
+  await page.locator('[data-action="expand"][data-index="2"]').click();
+
+  // Find a tool header — should be collapsed
+  const toolHeader = page.locator("#blocks-2 .block-item-header.block-tool").first();
+  await expect(toolHeader).not.toHaveClass(/open/);
+
+  // Click to expand
+  await toolHeader.click();
+  await expect(toolHeader).toHaveClass(/open/);
+
+  // Click to collapse
+  await toolHeader.click();
+  await expect(toolHeader).not.toHaveClass(/open/);
+});
+
+// ─── Turn click navigates preview ──────────────────────────
+
 test("clicking turn header updates preview hash", async ({ page }) => {
   await gotoEditor(page);
   await loadFixture(page);

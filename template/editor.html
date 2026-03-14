@@ -528,11 +528,21 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   letter-spacing: 0.04em;
   padding: 3px 8px;
   color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
 }
+.block-item-header .block-chevron {
+  display: inline-block;
+  font-size: 8px;
+  margin-right: 4px;
+  transition: transform 0.15s;
+}
+.block-item-header.open .block-chevron { transform: rotate(90deg); }
 .block-item-header.block-text { background: var(--bg-surface); }
 .block-item-header.block-thinking { background: var(--thinking-bg); color: var(--cyan); }
 .block-item-header.block-tool { background: var(--tool-bg); color: var(--orange); }
 .block-item-body {
+  display: none;
   padding: 6px 8px;
   font-size: 11px;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
@@ -543,6 +553,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   overflow-y: auto;
   color: var(--text);
 }
+.block-item-header.open + .block-item-body { display: block; }
 .block-tool-name { color: var(--accent); font-weight: 600; }
 .block-tool-section {
   font-size: 10px;
@@ -1213,16 +1224,19 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     for (const b of blocks) {
       if (b.kind === "tool_use") {
         html += `<div class="block-item">
-          <div class="block-item-header block-tool">Tool Call</div>
+          <div class="block-item-header block-tool"><span class="block-chevron">&#9654;</span>Tool: ${esc(b.name)}</div>
           <div class="block-item-body"><span class="block-tool-name">${esc(b.name)}</span>
 <div class="block-tool-section">Input</div>${esc(b.input)}
 <div class="block-tool-section">Result</div>${esc(b.result)}</div>
         </div>`;
-      } else {
-        const label = b.kind === "thinking" ? "Thinking" : "Text";
-        const headerClass = b.kind === "thinking" ? "block-thinking" : "block-text";
+      } else if (b.kind === "thinking") {
         html += `<div class="block-item">
-          <div class="block-item-header ${headerClass}">${label}</div>
+          <div class="block-item-header block-thinking"><span class="block-chevron">&#9654;</span>Thinking</div>
+          <div class="block-item-body">${esc(b.text)}</div>
+        </div>`;
+      } else {
+        html += `<div class="block-item">
+          <div class="block-item-header block-text open"><span class="block-chevron">&#9654;</span>Text</div>
           <div class="block-item-body">${esc(b.text)}</div>
         </div>`;
       }
@@ -1231,6 +1245,12 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   }
 
   function handleTurnClick(e) {
+    // Block-level sub-collapse (tool/thinking/text headers)
+    const blockHeader = e.target.closest(".block-item-header");
+    if (blockHeader) {
+      blockHeader.classList.toggle("open");
+      return;
+    }
     const summary = e.target.closest("[data-action='expand']");
     if (summary) {
       const index = summary.dataset.index;
