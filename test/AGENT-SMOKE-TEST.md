@@ -31,7 +31,7 @@ All tests must pass. If browsers aren't installed, run `npx playwright install c
 node bin/claude-replay.mjs test/fixture.jsonl -o /tmp/smoke-claude.html --no-minify
 ```
 
-- Verify exit code 0 and "5 turns" in output
+- Verify exit code 0 and "3 turns" in output
 - Verify the file exists and is valid HTML: `head -1 /tmp/smoke-claude.html` should show `<!DOCTYPE html>`
 
 ## 4. CLI — Cursor format
@@ -71,7 +71,7 @@ node bin/claude-replay.mjs test/fixture.jsonl --turns 1-2 -o /tmp/smoke-turns.ht
 
 # Exclude turns
 node bin/claude-replay.mjs test/fixture.jsonl --exclude-turns 1,3 -o /tmp/smoke-exclude.html --no-minify 2>&1
-# Should say "3 turns"
+# Should say "1 turns"
 
 # Paced timing
 node bin/claude-replay.mjs test/fixture.jsonl --timing paced -o /tmp/smoke-paced.html --no-minify 2>&1
@@ -102,7 +102,7 @@ Verify each command exits with code 0.
 node bin/claude-replay.mjs test/fixture.jsonl test/fixture-cursor.jsonl -o /tmp/smoke-concat.html --no-minify 2>&1
 ```
 
-- Should say "7 turns" (5 + 2)
+- Should say "5 turns" (3 + 2)
 
 ## 9. CLI — extract
 
@@ -111,7 +111,7 @@ node bin/claude-replay.mjs extract /tmp/smoke-claude.html -o /tmp/smoke-extracte
 ```
 
 - Verify the JSON file contains turn data
-- Verify: `node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/smoke-extracted.json','utf8')); console.log(d.turns.length)"` prints 5
+- Verify: `node -e "const d=JSON.parse(require('fs').readFileSync('/tmp/smoke-extracted.json','utf8')); console.log(d.turns.length)"` prints 3
 
 ## 10. Editor server
 
@@ -134,7 +134,7 @@ kill $SERVER_PID
 
 - Sessions endpoint should return groups (number depends on machine)
 - Themes endpoint should return 6+ themes
-- Load should return 5 turns with format "claude-code"
+- Load should return 3 turns with format "claude-code"
 
 ## 11. Compressed vs uncompressed
 
