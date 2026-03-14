@@ -296,6 +296,87 @@ describe("editor-server API", () => {
     assert.ok(!bmMatch.some((m) => m.includes("4")), `bookmark should not reference turn 4, got: ${bmMatch}`);
   });
 
+  // ── Session state persistence ─────────────────────────────
+
+  it("persists excluded turns and bookmarks across session switches", async () => {
+    // Load session
+    const loadRes = await fetch(`${baseUrl}/api/load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: FIXTURE_PATH }),
+    });
+    const loadData = await loadRes.json();
+    const sid = loadData.sessionId;
+
+    // Trigger preview with excludes and bookmarks to persist state
+    await fetch(`${baseUrl}/api/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sid,
+        options: {
+          excludeTurns: [2, 4],
+          bookmarks: [{ turn: 1, label: "First" }, { turn: 3, label: "Third" }],
+        },
+      }),
+    });
+
+    // Re-load same session (simulates switching away and back)
+    const reloadRes = await fetch(`${baseUrl}/api/load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: FIXTURE_PATH }),
+    });
+    const reloadData = await reloadRes.json();
+
+    // Excluded turns should be restored
+    assert.deepEqual(reloadData.excludedTurns, [2, 4]);
+
+    // Bookmarks should be restored as [turn, label] pairs
+    assert.equal(reloadData.savedBookmarks.length, 2);
+    assert.deepEqual(reloadData.savedBookmarks[0], [1, "First"]);
+    assert.deepEqual(reloadData.savedBookmarks[1], [3, "Third"]);
+  });
+
+  it("reset clears persisted excluded turns and bookmarks", async () => {
+    // Load and set state via preview
+    const loadRes = await fetch(`${baseUrl}/api/load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: FIXTURE_PATH }),
+    });
+    const sid = (await loadRes.json()).sessionId;
+
+    await fetch(`${baseUrl}/api/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sid,
+        options: {
+          excludeTurns: [1],
+          bookmarks: [{ turn: 2, label: "BM" }],
+        },
+      }),
+    });
+
+    // Reset
+    await fetch(`${baseUrl}/api/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sid }),
+    });
+
+    // Re-load — state should be cleared
+    const reloadRes = await fetch(`${baseUrl}/api/load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: FIXTURE_PATH }),
+    });
+    const reloadData = await reloadRes.json();
+    assert.deepEqual(reloadData.excludedTurns, []);
+    assert.deepEqual(reloadData.savedBookmarks, []);
+  });
+
   it("rejects cross-origin API requests", async () => {
     const res = await fetch(`${baseUrl}/api/sessions`, {
       headers: { "Origin": "https://evil.example.com" },

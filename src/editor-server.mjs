@@ -17,7 +17,7 @@ const PKG = JSON.parse(readFileSync(new URL("../package.json", import.meta.url),
 
 // ---------------------------------------------------------------------------
 // In-memory session store
-// Map<sessionId, { originalTurns, workingTurns, sourcePath, format }>
+// Map<sessionId, { originalTurns, workingTurns, sourcePath, format, excludedTurns, bookmarks }>
 // ---------------------------------------------------------------------------
 
 const sessions = new Map();
@@ -400,6 +400,8 @@ async function handleApi(req, res, pathname) {
             hasEdits,
             turns: summarizeTurns(s.workingTurns),
             bookmarks: s.extractedBookmarks || [],
+            excludedTurns: s.excludedTurns || [],
+            savedBookmarks: s.bookmarks || [],
           });
         }
       }
@@ -427,6 +429,8 @@ async function handleApi(req, res, pathname) {
         sourcePath: filePath,
         format,
         extractedBookmarks: bookmarks || [],
+        excludedTurns: [],
+        bookmarks: (bookmarks || []).map((bm) => [bm.turn, bm.label]),
       });
       return json(res, {
         sessionId: id,
@@ -434,6 +438,8 @@ async function handleApi(req, res, pathname) {
         hasEdits: false,
         turns: summarizeTurns(turns),
         bookmarks: bookmarks || [],
+        excludedTurns: [],
+        savedBookmarks: (bookmarks || []).map((bm) => [bm.turn, bm.label]),
       });
     } catch (e) {
       return error(res, `Failed to parse: ${e.message}`, 500);
@@ -459,6 +465,8 @@ async function handleApi(req, res, pathname) {
       sourcePath: filename || "imported.html",
       format: "extracted",
       extractedBookmarks: data.bookmarks || [],
+      excludedTurns: [],
+      bookmarks: (data.bookmarks || []).map((bm) => [bm.turn, bm.label]),
     });
     return json(res, {
       sessionId: id,
@@ -466,6 +474,8 @@ async function handleApi(req, res, pathname) {
       hasEdits: false,
       turns: summarizeTurns(turns),
       bookmarks: data.bookmarks || [],
+      excludedTurns: [],
+      savedBookmarks: (data.bookmarks || []).map((bm) => [bm.turn, bm.label]),
       filename: filename || "imported.html",
     });
   }
@@ -508,6 +518,9 @@ async function handleApi(req, res, pathname) {
     const { sessionId, options = {} } = body;
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
+    // Persist client-side state so it survives session switching
+    session.excludedTurns = options.excludeTurns || [];
+    session.bookmarks = (options.bookmarks || []).map((bm) => [bm.turn, bm.label]);
     const turns = prepareTurns(session, options);
     const html = render(turns, buildRenderOpts(options, session));
     return json(res, { html });
@@ -540,6 +553,8 @@ async function handleApi(req, res, pathname) {
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
     session.workingTurns = JSON.parse(JSON.stringify(session.originalTurns));
+    session.excludedTurns = [];
+    session.bookmarks = [];
     return json(res, { turns: summarizeTurns(session.workingTurns) });
   }
 

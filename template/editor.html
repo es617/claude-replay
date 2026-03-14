@@ -1162,14 +1162,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       const data = await apiJson("POST", "/api/load", { path });
       currentSessionId = data.sessionId;
       currentTurns = data.turns;
-      excludedTurns = new Set();
+      excludedTurns = new Set(data.excludedTurns || []);
       bookmarks = new Map();
 
-      // Restore bookmarks from extracted HTML replays
-      if (data.bookmarks && data.bookmarks.length > 0) {
-        for (const bm of data.bookmarks) {
-          bookmarks.set(bm.turn, bm.label);
-        }
+      // Restore bookmarks: prefer savedBookmarks (persisted state), fall back to extracted
+      const bmSource = data.savedBookmarks || (data.bookmarks || []).map((bm) => [bm.turn, bm.label]);
+      for (const [turn, label] of bmSource) {
+        bookmarks.set(turn, label);
       }
 
       const parts = path.split("/");
@@ -1544,11 +1543,10 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       const data = await apiJson("POST", "/api/import", { html: htmlContent, filename: file.name });
       currentSessionId = data.sessionId;
       currentTurns = data.turns;
-      excludedTurns = new Set();
+      excludedTurns = new Set(data.excludedTurns || []);
       bookmarks = new Map();
-      if (data.bookmarks && data.bookmarks.length > 0) {
-        for (const bm of data.bookmarks) bookmarks.set(bm.turn, bm.label);
-      }
+      const bmSrc = data.savedBookmarks || (data.bookmarks || []).map((bm) => [bm.turn, bm.label]);
+      for (const [turn, label] of bmSrc) bookmarks.set(turn, label);
       const filename = file.name.replace(/\.html$/, "");
       titleInput.value = "Replay \u2014 " + filename;
       titleInput.disabled = false;
