@@ -95,10 +95,12 @@ jobs:
         run: node test/validate-format.mjs claude "$CLAUDE_SESSION"
 
       - name: Validate Codex format
-        if: env.HAS_OPENAI == 'true'        run: node test/validate-format.mjs codex "$CODEX_SESSION"
+        if: env.HAS_OPENAI == 'true'
+        run: node test/validate-format.mjs codex "$CODEX_SESSION"
 
       - name: Validate Cursor format
-        if: env.HAS_CURSOR == 'true'        run: node test/validate-format.mjs cursor "$CURSOR_SESSION"
+        if: env.HAS_CURSOR == 'true'
+        run: node test/validate-format.mjs cursor "$CURSOR_SESSION"
 
       # ── Render with claude-replay ───────────────────────
       - name: Render Claude Code session
@@ -108,12 +110,14 @@ jobs:
           head -1 /tmp/replay-claude.html
 
       - name: Render Codex session
-        if: env.HAS_OPENAI == 'true'        run: |
+        if: env.HAS_OPENAI == 'true'
+        run: |
           node bin/claude-replay.mjs "$CODEX_SESSION" -o /tmp/replay-codex.html --no-minify 2>&1
           head -1 /tmp/replay-codex.html
 
       - name: Render Cursor session
-        if: env.HAS_CURSOR == 'true'        run: |
+        if: env.HAS_CURSOR == 'true'
+        run: |
           node bin/claude-replay.mjs "$CURSOR_SESSION" -o /tmp/replay-cursor.html --no-minify 2>&1
           head -1 /tmp/replay-cursor.html
 
