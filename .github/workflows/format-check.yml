@@ -62,7 +62,10 @@ jobs:
         run: |
           touch /tmp/before-codex
           cd /tmp/test-project
-          echo "Create a file called greeting.txt with 'hello from codex', then read it back" | codex || true
+          # Try known non-interactive flags; codex may need a TTY
+          codex -q "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || \
+          codex --quiet "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || \
+          codex -p "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || true
           CODEX_SESSION=$(find ~/.codex/sessions -name "*.jsonl" -newer /tmp/before-codex -type f 2>/dev/null | head -1)
           if [ -z "$CODEX_SESSION" ]; then
             echo "::warning::No Codex session file generated"
@@ -131,6 +134,25 @@ jobs:
             console.log('Extracted', d.turns.length, 'turns');
             if (d.turns.length === 0) process.exit(1);
           "
+
+      # ── Collect artifacts ──────────────────────────────────
+      - name: Collect session files
+        if: always()
+        run: |
+          mkdir -p /tmp/format-artifacts
+          [ -n "$CLAUDE_SESSION" ] && cp "$CLAUDE_SESSION" /tmp/format-artifacts/claude-session.jsonl 2>/dev/null || true
+          [ -n "$CODEX_SESSION" ] && cp "$CODEX_SESSION" /tmp/format-artifacts/codex-session.jsonl 2>/dev/null || true
+          [ -n "$CURSOR_SESSION" ] && cp "$CURSOR_SESSION" /tmp/format-artifacts/cursor-session.jsonl 2>/dev/null || true
+          cp /tmp/replay-*.html /tmp/format-artifacts/ 2>/dev/null || true
+          cp /tmp/extracted.json /tmp/format-artifacts/ 2>/dev/null || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: format-check-sessions
+          path: /tmp/format-artifacts/
+          retention-days: 30
 
       # ── Summary ─────────────────────────────────────────
       - name: Summary

@@ -38,6 +38,7 @@ if (format === "claude") {
   const knownTypes = new Set([
     "user", "assistant", "result", "summary",
     "file-history-snapshot", "session-id",
+    "queue-operation", "last-prompt",
   ]);
   const foundTypes = new Set(entries.map((e) => e.type));
   const unknownTypes = [...foundTypes].filter((t) => !knownTypes.has(t));
