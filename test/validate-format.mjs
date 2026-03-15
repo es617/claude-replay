@@ -179,7 +179,7 @@ if (format === "claude") {
   }
 
   // Check event_msg payload types
-  const knownEventTypes = ["task_started", "task_complete", "user_message"];
+  const knownEventTypes = ["task_started", "task_complete", "user_message", "token_count", "agent_message"];
   for (const entry of eventMsgs.slice(0, 5)) {
     if (entry.payload?.type) {
       warn(knownEventTypes.includes(entry.payload.type),

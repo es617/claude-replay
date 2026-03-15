@@ -15,8 +15,8 @@ jobs:
       HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
       HAS_CURSOR: ${{ secrets.CURSOR_API_KEY != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - run: npm install
@@ -63,7 +63,7 @@ jobs:
           touch /tmp/before-codex
           cd /tmp/test-project
           echo "$OPENAI_API_KEY" | codex login --with-api-key
-          codex exec --full-auto --skip-git-repo-check "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || true
+          codex exec --full-auto --skip-git-repo-check -m gpt-4.1-mini "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || true
           CODEX_SESSION=$(find ~/.codex/sessions -name "*.jsonl" -newer /tmp/before-codex -type f 2>/dev/null | head -1)
           if [ -z "$CODEX_SESSION" ]; then
             echo "::error::No Codex session file generated"
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: format-check-sessions
           path: /tmp/format-artifacts/
