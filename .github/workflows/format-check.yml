@@ -1,0 +1,142 @@
+name: Format Compatibility Check
+
+on:
+  schedule:
+    - cron: "0 6 */2 * *" # Every 2 days at 6am UTC
+  workflow_dispatch: # Manual trigger
+  pull_request: # TEMPORARY — remove after testing
+    branches: [main]
+
+jobs:
+  check-formats:
+    runs-on: ubuntu-latest
+    env:
+      HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+      HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
+      HAS_CURSOR: ${{ secrets.CURSOR_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+      - run: mkdir -p /tmp/test-project
+
+      # ── Install CLI tools ───────────────────────────────
+      - name: Install Claude Code
+        if: env.HAS_ANTHROPIC == 'true'
+        run: npm install -g @anthropic-ai/claude-code@latest
+
+      - name: Install Codex
+        if: env.HAS_OPENAI == 'true'
+        run: npm install -g @openai/codex@latest
+
+      - name: Install Cursor CLI
+        if: env.HAS_CURSOR == 'true'
+        run: |
+          curl https://cursor.com/install -fsS | bash || true
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # ── Generate sessions ───────────────────────────────
+      - name: Generate Claude Code session
+        if: env.HAS_ANTHROPIC == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          touch /tmp/before-claude
+          cd /tmp/test-project
+          claude -p "Create a file called hello.txt with the text 'hello world', then read it back and tell me what it says" \
+            --model claude-haiku-4-5-20251001 --allowedTools "Edit,Read,Write,Bash" || true
+          CLAUDE_SESSION=$(find ~/.claude/projects -name "*.jsonl" -newer /tmp/before-claude -type f 2>/dev/null | head -1)
+          if [ -z "$CLAUDE_SESSION" ]; then
+            echo "::error::No Claude Code session file generated"
+            exit 1
+          fi
+          echo "CLAUDE_SESSION=$CLAUDE_SESSION" >> $GITHUB_ENV
+          echo "Found: $CLAUDE_SESSION ($(wc -l < "$CLAUDE_SESSION") lines)"
+
+      - name: Generate Codex session
+        if: env.HAS_OPENAI == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          touch /tmp/before-codex
+          cd /tmp/test-project
+          echo "Create a file called greeting.txt with 'hello from codex', then read it back" | codex || true
+          CODEX_SESSION=$(find ~/.codex/sessions -name "*.jsonl" -newer /tmp/before-codex -type f 2>/dev/null | head -1)
+          if [ -z "$CODEX_SESSION" ]; then
+            echo "::warning::No Codex session file generated"
+            echo "CODEX_SKIP=true" >> $GITHUB_ENV
+          else
+            echo "CODEX_SESSION=$CODEX_SESSION" >> $GITHUB_ENV
+            echo "Found: $CODEX_SESSION ($(wc -l < "$CODEX_SESSION") lines)"
+          fi
+
+      - name: Generate Cursor session
+        if: env.HAS_CURSOR == 'true'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          touch /tmp/before-cursor
+          cd /tmp/test-project
+          agent -p "Create a file called fruits.txt with 'apple banana cherry', then read it back and tell me what it says" || true
+          CURSOR_SESSION=$(find ~/.cursor/projects -name "*.jsonl" -newer /tmp/before-cursor -type f 2>/dev/null | head -1)
+          if [ -z "$CURSOR_SESSION" ]; then
+            echo "::warning::No Cursor session file generated"
+            echo "CURSOR_SKIP=true" >> $GITHUB_ENV
+          else
+            echo "CURSOR_SESSION=$CURSOR_SESSION" >> $GITHUB_ENV
+            echo "Found: $CURSOR_SESSION ($(wc -l < "$CURSOR_SESSION") lines)"
+          fi
+
+      # ── Validate formats ────────────────────────────────
+      - name: Validate Claude Code format
+        if: env.HAS_ANTHROPIC == 'true'
+        run: node test/validate-format.mjs claude "$CLAUDE_SESSION"
+
+      - name: Validate Codex format
+        if: env.HAS_OPENAI == 'true' && env.CODEX_SKIP != 'true'
+        run: node test/validate-format.mjs codex "$CODEX_SESSION"
+
+      - name: Validate Cursor format
+        if: env.HAS_CURSOR == 'true' && env.CURSOR_SKIP != 'true'
+        run: node test/validate-format.mjs cursor "$CURSOR_SESSION"
+
+      # ── Render with claude-replay ───────────────────────
+      - name: Render Claude Code session
+        if: env.HAS_ANTHROPIC == 'true'
+        run: |
+          node bin/claude-replay.mjs "$CLAUDE_SESSION" -o /tmp/replay-claude.html --no-minify 2>&1
+          head -1 /tmp/replay-claude.html
+
+      - name: Render Codex session
+        if: env.HAS_OPENAI == 'true' && env.CODEX_SKIP != 'true'
+        run: |
+          node bin/claude-replay.mjs "$CODEX_SESSION" -o /tmp/replay-codex.html --no-minify 2>&1
+          head -1 /tmp/replay-codex.html
+
+      - name: Render Cursor session
+        if: env.HAS_CURSOR == 'true' && env.CURSOR_SKIP != 'true'
+        run: |
+          node bin/claude-replay.mjs "$CURSOR_SESSION" -o /tmp/replay-cursor.html --no-minify 2>&1
+          head -1 /tmp/replay-cursor.html
+
+      # ── Roundtrip: extract and verify ───────────────────
+      - name: Roundtrip — extract and verify
+        if: env.HAS_ANTHROPIC == 'true'
+        run: |
+          node bin/claude-replay.mjs extract /tmp/replay-claude.html -o /tmp/extracted.json 2>&1
+          node -e "
+            const d = JSON.parse(require('fs').readFileSync('/tmp/extracted.json','utf8'));
+            console.log('Extracted', d.turns.length, 'turns');
+            if (d.turns.length === 0) process.exit(1);
+          "
+
+      # ── Summary ─────────────────────────────────────────
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Format Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Claude Code: ${{ env.HAS_ANTHROPIC == 'true' && '✓ tested' || '⊘ skipped (no API key)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Codex: ${{ env.HAS_OPENAI == 'true' && '✓ tested' || '⊘ skipped (no API key)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cursor: ${{ env.HAS_CURSOR == 'true' && '✓ tested' || '⊘ skipped (no API key)' }}" >> $GITHUB_STEP_SUMMARY
