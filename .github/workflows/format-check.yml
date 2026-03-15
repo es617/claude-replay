@@ -62,14 +62,11 @@ jobs:
         run: |
           touch /tmp/before-codex
           cd /tmp/test-project
-          # Try known non-interactive flags; codex may need a TTY
-          codex -q "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || \
-          codex --quiet "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || \
-          codex -p "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || true
+          codex exec --full-auto --skip-git-repo-check "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || true
           CODEX_SESSION=$(find ~/.codex/sessions -name "*.jsonl" -newer /tmp/before-codex -type f 2>/dev/null | head -1)
           if [ -z "$CODEX_SESSION" ]; then
-            echo "::warning::No Codex session file generated"
-            echo "CODEX_SKIP=true" >> $GITHUB_ENV
+            echo "::error::No Codex session file generated"
+            exit 1
           else
             echo "CODEX_SESSION=$CODEX_SESSION" >> $GITHUB_ENV
             echo "Found: $CODEX_SESSION ($(wc -l < "$CODEX_SESSION") lines)"
@@ -85,8 +82,8 @@ jobs:
           agent -p "Create a file called fruits.txt with 'apple banana cherry', then read it back and tell me what it says" || true
           CURSOR_SESSION=$(find ~/.cursor/projects -name "*.jsonl" -newer /tmp/before-cursor -type f 2>/dev/null | head -1)
           if [ -z "$CURSOR_SESSION" ]; then
-            echo "::warning::No Cursor session file generated"
-            echo "CURSOR_SKIP=true" >> $GITHUB_ENV
+            echo "::error::No Cursor session file generated"
+            exit 1
           else
             echo "CURSOR_SESSION=$CURSOR_SESSION" >> $GITHUB_ENV
             echo "Found: $CURSOR_SESSION ($(wc -l < "$CURSOR_SESSION") lines)"
@@ -98,12 +95,10 @@ jobs:
         run: node test/validate-format.mjs claude "$CLAUDE_SESSION"
 
       - name: Validate Codex format
-        if: env.HAS_OPENAI == 'true' && env.CODEX_SKIP != 'true'
-        run: node test/validate-format.mjs codex "$CODEX_SESSION"
+        if: env.HAS_OPENAI == 'true'        run: node test/validate-format.mjs codex "$CODEX_SESSION"
 
       - name: Validate Cursor format
-        if: env.HAS_CURSOR == 'true' && env.CURSOR_SKIP != 'true'
-        run: node test/validate-format.mjs cursor "$CURSOR_SESSION"
+        if: env.HAS_CURSOR == 'true'        run: node test/validate-format.mjs cursor "$CURSOR_SESSION"
 
       # ── Render with claude-replay ───────────────────────
       - name: Render Claude Code session
@@ -113,14 +108,12 @@ jobs:
           head -1 /tmp/replay-claude.html
 
       - name: Render Codex session
-        if: env.HAS_OPENAI == 'true' && env.CODEX_SKIP != 'true'
-        run: |
+        if: env.HAS_OPENAI == 'true'        run: |
           node bin/claude-replay.mjs "$CODEX_SESSION" -o /tmp/replay-codex.html --no-minify 2>&1
           head -1 /tmp/replay-codex.html
 
       - name: Render Cursor session
-        if: env.HAS_CURSOR == 'true' && env.CURSOR_SKIP != 'true'
-        run: |
+        if: env.HAS_CURSOR == 'true'        run: |
           node bin/claude-replay.mjs "$CURSOR_SESSION" -o /tmp/replay-cursor.html --no-minify 2>&1
           head -1 /tmp/replay-cursor.html
 
