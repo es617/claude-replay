@@ -115,7 +115,7 @@ if (format === "claude") {
 } else if (format === "codex") {
   // Expected types in Codex JSONL
   const knownTypes = new Set([
-    "session_meta", "event_msg", "response_item",
+    "session_meta", "event_msg", "response_item", "turn_context",
   ]);
   const foundTypes = new Set(entries.map((e) => e.type));
   const unknownTypes = [...foundTypes].filter((t) => !knownTypes.has(t));

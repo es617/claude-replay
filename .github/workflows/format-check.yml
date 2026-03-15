@@ -62,6 +62,7 @@ jobs:
         run: |
           touch /tmp/before-codex
           cd /tmp/test-project
+          echo "$OPENAI_API_KEY" | codex login --with-api-key
           codex exec --full-auto --skip-git-repo-check "Create a file called greeting.txt with 'hello from codex', then read it back" 2>&1 || true
           CODEX_SESSION=$(find ~/.codex/sessions -name "*.jsonl" -newer /tmp/before-codex -type f 2>/dev/null | head -1)
           if [ -z "$CODEX_SESSION" ]; then
