@@ -1,0 +1,21 @@
+{"timestamp":"2026-03-13T04:00:00.000Z","type":"session_meta","payload":{"id":"patch-session","model_provider":"openai"}}
+{"timestamp":"2026-03-13T04:00:00.001Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1"}}
+{"timestamp":"2026-03-13T04:00:00.002Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\npatch with context lines\n"}}
+{"timestamp":"2026-03-13T04:00:01.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** Update File: /src/app.js\n@@\n const x = 1;\n-const y = 2;\n+const y = 3;\n const z = 4;\n*** End Patch\n","call_id":"call_ctx"}}
+{"timestamp":"2026-03-13T04:00:01.500Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_ctx","output":{"output":"Success.","metadata":{"exit_code":0}}}}
+{"timestamp":"2026-03-13T04:00:02.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Updated with context."}],"phase":"final_answer"}}
+{"timestamp":"2026-03-13T04:00:02.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-1"}}
+{"timestamp":"2026-03-13T04:00:10.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-2"}}
+{"timestamp":"2026-03-13T04:00:10.001Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\nempty patch\n"}}
+{"timestamp":"2026-03-13T04:00:11.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** End Patch\n","call_id":"call_empty"}}
+{"timestamp":"2026-03-13T04:00:11.500Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_empty","output":{"output":"No changes.","metadata":{"exit_code":0}}}}
+{"timestamp":"2026-03-13T04:00:12.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Nothing to patch."}],"phase":"final_answer"}}
+{"timestamp":"2026-03-13T04:00:12.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-2"}}
+{"timestamp":"2026-03-13T04:00:20.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-3"}}
+{"timestamp":"2026-03-13T04:00:20.001Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\nmulti-file patch\n"}}
+{"timestamp":"2026-03-13T04:00:21.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** Add File: /src/new.js\n+console.log('new');\n*** End Patch\n","call_id":"call_multi1"}}
+{"timestamp":"2026-03-13T04:00:21.500Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_multi1","output":{"output":"Success.","metadata":{"exit_code":0}}}}
+{"timestamp":"2026-03-13T04:00:22.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** Update File: /src/old.js\n@@\n-old line\n+new line\n*** End Patch\n","call_id":"call_multi2"}}
+{"timestamp":"2026-03-13T04:00:22.500Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_multi2","output":{"output":"Success.","metadata":{"exit_code":0}}}}
+{"timestamp":"2026-03-13T04:00:23.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Patched both files."}],"phase":"final_answer"}}
+{"timestamp":"2026-03-13T04:00:23.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-3"}}

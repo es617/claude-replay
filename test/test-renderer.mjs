@@ -105,6 +105,52 @@ describe("render", () => {
     assert.doesNotMatch(html, /jdoe/);
   });
 
+  it("renders custom title and labels", () => {
+    const html = render(SAMPLE_TURNS, {
+      minified: false,
+      title: "My Custom Title",
+      userLabel: "Developer",
+      assistantLabel: "Bot",
+    });
+    assert.match(html, /<title>My Custom Title<\/title>/);
+    assert.match(html, /My Custom Title/);
+    assert.match(html, /Developer/);
+    assert.match(html, /Bot/);
+  });
+
+  it("embeds bookmarks in output", () => {
+    const bookmarks = [
+      { turn: 1, label: "Start here" },
+      { turn: 2, label: "Tool usage" },
+    ];
+    const html = render(SAMPLE_TURNS, { minified: false, compress: false, bookmarks });
+    assert.match(html, /Start here/);
+    assert.match(html, /Tool usage/);
+  });
+
+  it("renders description and OG image meta tags", () => {
+    const html = render(SAMPLE_TURNS, {
+      minified: false,
+      description: "A fascinating session",
+      ogImage: "https://example.com/preview.png",
+    });
+    assert.match(html, /A fascinating session/);
+    assert.match(html, /https:\/\/example\.com\/preview\.png/);
+    assert.match(html, /<meta property="og:description" content="A fascinating session">/);
+    assert.match(html, /<meta property="og:image" content="https:\/\/example\.com\/preview\.png">/);
+  });
+
+  it("respects showToolCalls=false", () => {
+    const html = render(SAMPLE_TURNS, { showToolCalls: false, minified: false });
+    // The tools checkbox should NOT have "checked"
+    assert.match(html, /id="toggle-tools" >/);
+  });
+
+  it("respects showToolCalls=true", () => {
+    const html = render(SAMPLE_TURNS, { showToolCalls: true, minified: false });
+    assert.match(html, /id="toggle-tools" checked>/);
+  });
+
   it("has no leftover placeholders", () => {
     const html = render(SAMPLE_TURNS, { minified: false });
     assert.doesNotMatch(html, /\/\*THEME_CSS\*\//);

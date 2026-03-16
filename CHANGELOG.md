@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.5.0
+
+### Editor
+- Import HTML — re-edit previously exported replays via button or file browser
+- Export JSON — download session data (turns and bookmarks) as JSON
+- Content search — type `/` in session filter to search across all session files
+- Collapsible sub-blocks — tool calls and thinking collapsed by default, text open, click headers to toggle
+- Expand All / Collapse All buttons in toolbar
+- Ctrl/Cmd+F expands all blocks for browser search
+- Excluded turns and bookmarks persist when switching sessions
+- Autosave edits to `~/.claude-replay/autosave/`, restored on reopen
+- Reset confirmation modal (only when changes exist)
+- Reset indicator includes excluded turns and bookmarks, not just text edits
+- Options organized into Playback, Appearance, Content, Metadata, and Output groups
+- Browse panel shows `.html` files alongside `.jsonl`
+- Friendly error for non-replay HTML files
+
+### Player
+- Fix play from last turn resetting to beginning
+
+## 0.4.1
+
+### Fixes
+- Fix `extract` command failing on minified replays
+
+## 0.4.0
+
+### Web Editor
+- New web-based editor UI (`claude-replay` with no args or `claude-replay editor`)
+- Three-panel layout: session browser, turn editor, live preview
+- Browse and search Claude Code, Cursor, and Codex CLI sessions
+- Edit user prompts with live preview updates
+- Include/exclude individual turns, bulk select, add bookmarks
+- Configure theme, speed, timing, redaction, labels, and metadata
+- Export to self-contained HTML from the editor
+- File browser with home directory restriction
+- Version shown in help modal
+
+### Codex CLI Support
+- Parse Codex CLI transcripts (`~/.codex/sessions/`)
+- Normalize `exec_command` → Bash with command preview in header
+- Normalize `apply_patch` → Edit (diff view) or Write (code block)
+- Extract user text from IDE context boilerplate
+- Map commentary phase to thinking blocks, final_answer to text blocks
+- Session discovery in editor and CLI session ID resolver
+
+### New Features
+- Session chaining: concatenate multiple sessions into one replay (up to 20)
+- Session ID lookup: pass a session ID instead of a file path, searches `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/`
+- `--version` / `-v` flag
+- `--port N` flag for editor server
+
+### Player
+- Unified navigation: all entry points (splash, deep link, play) show turn header first with blocks hidden
+
+### Fixes
+- Fix `--list-themes` being blocked by editor server launch
+- Fix paced timing calculation bugs
+- Fix sidebar visibility after browser resize
+- Fix Cursor session discovery for `<uuid>.jsonl` filenames
+
+
 ## 0.3.0
 
 ### New commands

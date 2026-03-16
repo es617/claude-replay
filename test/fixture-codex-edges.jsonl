@@ -1,0 +1,21 @@
+{"timestamp":"2026-03-13T05:00:00.000Z","type":"session_meta","payload":{"id":"edge-session","model_provider":"openai"}}
+{"timestamp":"2026-03-13T05:00:00.001Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1"}}
+{"timestamp":"2026-03-13T05:00:00.002Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\npending tool call\n"}}
+{"timestamp":"2026-03-13T05:00:01.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"echo hello\"}","call_id":"call_pending"}}
+{"timestamp":"2026-03-13T05:00:02.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Ran the command."}],"phase":"final_answer"}}
+{"timestamp":"2026-03-13T05:00:02.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-1"}}
+{"timestamp":"2026-03-13T05:00:10.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-2"}}
+{"timestamp":"2026-03-13T05:00:10.001Z","type":"event_msg","payload":{"type":"user_message","message":"Just do something without the marker"}}
+{"timestamp":"2026-03-13T05:00:11.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Okay, doing it."}],"phase":"final_answer"}}
+{"timestamp":"2026-03-13T05:00:11.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-2"}}
+{"timestamp":"2026-03-13T05:00:20.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-3"}}
+{"timestamp":"2026-03-13T05:00:20.001Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\nmultiple commentary blocks\n"}}
+{"timestamp":"2026-03-13T05:00:21.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"First thought."}],"phase":"commentary"}}
+{"timestamp":"2026-03-13T05:00:22.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Second thought."}],"phase":"commentary"}}
+{"timestamp":"2026-03-13T05:00:23.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Third thought."}],"phase":"commentary"}}
+{"timestamp":"2026-03-13T05:00:24.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Final answer here."}],"phase":"final_answer"}}
+{"timestamp":"2026-03-13T05:00:24.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-3"}}
+{"timestamp":"2026-03-13T05:00:30.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-4"}}
+{"timestamp":"2026-03-13T05:00:30.001Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\ntruncated session\n"}}
+{"timestamp":"2026-03-13T05:00:31.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Working on it..."}],"phase":"commentary"}}
+{"timestamp":"2026-03-13T05:00:32.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Almost done."}],"phase":"final_answer"}}

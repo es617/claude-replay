@@ -2509,16 +2509,24 @@ body.theme-mode-copilot .thinking-body pre {
     hideSplash();
 
     if (currentTurn >= TURNS.length) {
-      // Reset if at end
-      currentTurn = 0;
-      animatePausedState = null;
-      for (const el of transcript.children) {
-        collapseExpanded(el);
-        el.classList.remove("visible");
-      }
-      for (const w of transcript.querySelectorAll(".block-wrapper")) {
-        w.classList.add("block-hidden");
-        w.classList.remove("block-revealing");
+      // Check if the last turn still has unrevealed blocks
+      const lastEl = turnElements()[TURNS.length - 1];
+      const hasHidden = lastEl && lastEl.querySelectorAll(".block-wrapper.block-hidden").length > 0;
+      if (hasHidden) {
+        // Still have blocks to show — keep at last turn for resume logic below
+        currentTurn = TURNS.length;
+      } else {
+        // Fully played — reset to beginning
+        currentTurn = 0;
+        animatePausedState = null;
+        for (const el of transcript.children) {
+          collapseExpanded(el);
+          el.classList.remove("visible");
+        }
+        for (const w of transcript.querySelectorAll(".block-wrapper")) {
+          w.classList.add("block-hidden");
+          w.classList.remove("block-revealing");
+        }
       }
     }
     playing = true;

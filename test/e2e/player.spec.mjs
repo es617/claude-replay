@@ -469,6 +469,26 @@ test("uncompressed: stepping reveals blocks", async ({ page }) => {
   expect(await visibleBlockCount(page, 1)).toBe(1);
 });
 
+test("play from last turn does not reset to beginning", async ({ page }) => {
+  await goto(page, "turn=5");
+  // All blocks should be hidden (navigated with hideActiveBlocks)
+  const hidden = await blockCount(page, 5, true);
+  expect(hidden).toBeGreaterThan(0);
+
+  // Press play
+  await pressKey(page, " ");
+  // Wait for first block to start revealing
+  await page.waitForFunction(
+    () => document.querySelectorAll('.turn[data-index="5"] .block-wrapper:not(.block-hidden)').length > 0,
+    { timeout: 5000 },
+  );
+
+  // Should still be on turn 5, not reset to turn 1
+  await expect(page.locator('.turn[data-index="5"]')).toBeVisible();
+  // Turn 1 should still be visible (not reset/hidden)
+  await expect(page.locator('.turn[data-index="1"]')).toBeVisible();
+});
+
 test("uncompressed: deep link to turn works", async ({ page }) => {
   await page.goto(getUncompressedFileUrl("turn=2"));
   await waitForReady(page);

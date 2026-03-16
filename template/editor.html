@@ -221,7 +221,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   color: var(--text-dim);
   padding: 8px 12px 4px;
   font-weight: 600;
+  cursor: pointer;
+  user-select: none;
 }
+.session-group-label .arrow {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.session-group-label.open .arrow { transform: rotate(90deg); }
+.session-group-content { display: none; }
+.session-group-label.open + .session-group-content { display: block; }
 
 .session-project { padding: 0; }
 
@@ -239,7 +249,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 .session-project-name:hover { background: var(--bg-hover); }
 
 .session-project-name .arrow {
-  font-size: 10px;
+  font-size: 8px;
   transition: transform 0.15s;
   color: var(--text-dim);
 }
@@ -343,6 +353,47 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   font-size: 12px;
 }
 .sessions-search:focus { outline: 1px solid var(--accent); }
+.search-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 1px 14px 2px;
+}
+.search-results {
+  padding: 4px 12px;
+  font-size: 11px;
+}
+.search-result-item {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.search-result-item:hover { border-color: var(--accent); }
+.search-result-meta {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+.search-result-snippet {
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-result-snippet mark {
+  background: var(--orange);
+  color: var(--bg);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.search-status {
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 4px 0;
+}
 .browse-path-input {
   width: calc(100% - 24px);
   margin: 4px 12px;
@@ -360,6 +411,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   padding: 10px 12px;
 }
 
+.opt-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 12px 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--border);
+}
+.opt-group-label:first-child { margin-top: 0; }
 .opt-row {
   display: flex;
   align-items: center;
@@ -454,7 +516,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   background: var(--bg-surface);
   flex-shrink: 0;
 }
-.turns-toolbar.visible { display: flex; }
+.turns-toolbar.visible { display: flex; flex-wrap: wrap; }
 .btn-small { padding: 2px 8px; font-size: 11px; }
 
 .turns-list {
@@ -553,11 +615,21 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   letter-spacing: 0.04em;
   padding: 3px 8px;
   color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
 }
+.block-item-header .block-chevron {
+  display: inline-block;
+  font-size: 8px;
+  margin-right: 4px;
+  transition: transform 0.15s;
+}
+.block-item-header.open .block-chevron { transform: rotate(90deg); }
 .block-item-header.block-text { background: var(--bg-surface); }
 .block-item-header.block-thinking { background: var(--thinking-bg); color: var(--cyan); }
 .block-item-header.block-tool { background: var(--tool-bg); color: var(--orange); }
 .block-item-body {
+  display: none;
   padding: 6px 8px;
   font-size: 11px;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
@@ -568,6 +640,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   overflow-y: auto;
   color: var(--text);
 }
+.block-item-header.open + .block-item-body { display: block; }
 .block-tool-name { color: var(--accent); font-weight: 600; }
 .block-tool-section {
   font-size: 10px;
@@ -745,6 +818,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     <h1>claude-replay</h1>
     <input type="text" class="topbar-title-input" id="titleInput" placeholder="Session title..." disabled>
     <button class="btn" id="resetBtn" disabled>Reset Edits</button>
+    <button class="btn" id="importHtmlBtn" title="Import a previously exported HTML replay for re-editing">Import HTML</button>
+    <input type="file" id="importHtmlFile" accept=".html" style="display:none">
+    <button class="btn" id="exportDataBtn" disabled title="Download session data as JSON">Export JSON</button>
     <button class="btn btn-primary" id="exportBtn" disabled>Export HTML</button>
     <button class="btn theme-mode-btn" id="themeModeBtn" title="Toggle dark/light mode">
       <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -764,6 +840,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     <div class="sidebar-section open" id="sessionsSection">
       <div class="sessions-content">
         <input type="text" class="sessions-search" id="sessionsSearch" placeholder="Filter sessions...">
+        <div class="search-hint">Use <code>/</code> to search session content</div>
+        <div class="search-results" id="searchResults" style="display:none"></div>
         <div id="sessionsTree"></div>
         <div class="browse-section">
           <div class="browse-header browse-toggle" id="browseToggle">
@@ -783,21 +861,42 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     </div>
     <div class="sidebar-section open" id="optionsSection">
       <div class="options-content">
-        <div class="opt-row">
-          <label for="optTheme" title="Color theme for the replay player">Theme</label>
-          <select id="optTheme" title="Color theme for the replay player"></select>
-        </div>
+        <div class="opt-group-label">Playback <span style="font-weight:normal;text-transform:none">— viewer can change</span></div>
         <div class="opt-row">
           <label for="optSpeed" title="Initial playback speed (0.1 - 10x)">Speed</label>
           <input type="number" id="optSpeed" value="1" min="0.1" max="10" step="0.1" title="Initial playback speed (0.1 - 10x)">
         </div>
         <div class="opt-row">
-          <label title="Show Claude's internal reasoning traces">Show Thinking</label>
-          <input type="checkbox" id="optThinking" checked title="Show Claude's internal reasoning traces">
+          <label title="Show thinking blocks by default">Show Thinking</label>
+          <input type="checkbox" id="optThinking" checked title="Show thinking blocks by default">
         </div>
         <div class="opt-row">
-          <label title="Show tool call blocks (file reads, edits, commands)">Show Tool Calls</label>
-          <input type="checkbox" id="optToolCalls" checked title="Show tool call blocks (file reads, edits, commands)">
+          <label title="Show tool call blocks by default">Show Tool Calls</label>
+          <input type="checkbox" id="optToolCalls" checked title="Show tool call blocks by default">
+        </div>
+
+        <div class="opt-group-label">Appearance</div>
+        <div class="opt-row">
+          <label for="optTheme" title="Color theme for the replay player">Theme</label>
+          <select id="optTheme" title="Color theme for the replay player"></select>
+        </div>
+        <div class="opt-row">
+          <label for="optTiming" title="Timestamp mode: auto, real, or paced">Timing</label>
+          <select id="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">
+            <option value="auto" selected>Auto</option>
+            <option value="real">Real</option>
+            <option value="paced">Paced</option>
+          </select>
+        </div>
+
+        <div class="opt-group-label">Content</div>
+        <div class="opt-row">
+          <label for="optUserLabel" title="Display name for user messages">User label</label>
+          <input type="text" id="optUserLabel" value="User" title="Display name for user messages">
+        </div>
+        <div class="opt-row">
+          <label for="optAssistantLabel" title="Display name for assistant messages (auto-detected if empty)">Asst. label</label>
+          <input type="text" id="optAssistantLabel" placeholder="auto" title="Display name for assistant messages (auto-detected if empty)">
         </div>
         <div class="opt-row">
           <label title="Automatically detect and redact API keys, tokens, and secrets">Auto-redact</label>
@@ -810,14 +909,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
             <button class="add-rule-btn" id="addRuleBtn">+ Add rule</button>
           </div>
         </div>
-        <div class="opt-row">
-          <label for="optUserLabel" title="Display name for user messages">User label</label>
-          <input type="text" id="optUserLabel" value="User" title="Display name for user messages">
-        </div>
-        <div class="opt-row">
-          <label for="optAssistantLabel" title="Display name for assistant messages (auto-detected if empty)">Asst. label</label>
-          <input type="text" id="optAssistantLabel" placeholder="auto" title="Display name for assistant messages (auto-detected if empty)">
-        </div>
+
+        <div class="opt-group-label">Metadata</div>
         <div class="opt-row">
           <label for="optDescription" title="Meta description for link previews when sharing">Description</label>
           <textarea id="optDescription" rows="2" style="resize:vertical" title="Meta description for link previews when sharing"></textarea>
@@ -826,14 +919,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
           <label for="optOgImage" title="Image URL shown in link previews (Open Graph)">OG Image URL</label>
           <input type="text" id="optOgImage" placeholder="https://..." title="Image URL shown in link previews (Open Graph)">
         </div>
-        <div class="opt-row">
-          <label for="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">Timing</label>
-          <select id="optTiming" title="Timestamp mode: auto (use real if available, else paced), real (original timestamps), paced (synthetic even spacing)">
-            <option value="auto" selected>Auto</option>
-            <option value="real">Real</option>
-            <option value="paced">Paced</option>
-          </select>
-        </div>
+
+        <div class="opt-group-label">Output</div>
         <div class="opt-row">
           <input type="checkbox" id="optMinify" checked title="Minify the output HTML for smaller file size">
           <label for="optMinify" title="Minify the output HTML for smaller file size">Minify</label>
@@ -851,6 +938,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     <div class="turns-toolbar" id="turnsToolbar">
       <button class="btn btn-small" id="selectAllBtn" title="Include all turns in the replay">Include All</button>
       <button class="btn btn-small" id="selectNoneBtn" title="Exclude all turns from the replay">Exclude All</button>
+      <button class="btn btn-small" id="expandAllBtn" title="Expand all assistant blocks">Expand All</button>
+      <button class="btn btn-small" id="collapseAllBtn" title="Collapse all assistant blocks">Collapse All</button>
     </div>
     <div class="turns-list" id="turnsList">
       <div class="empty-state">Select a session to begin editing</div>
@@ -879,15 +968,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     </div>
     <div class="modal-body">
       <h3>Getting Started</h3>
-      <p>Select a session from the <b>Sessions</b> panel or use <b>Open Folder</b> to browse for JSONL transcript files.</p>
+      <p>Select a session from the <b>Sessions</b> panel, use <b>Open Folder</b> to browse for transcript files, or click <b>Import HTML</b> to re-edit a previously exported replay.</p>
 
       <h3>Editing</h3>
       <ul>
         <li><b>User prompts</b> are editable — changes appear live in the preview</li>
-        <li><b>Assistant blocks</b> can be expanded (click the summary line) but are read-only</li>
+        <li><b>Assistant blocks</b> can be expanded (click the summary line) — tool calls and thinking are collapsed by default, click headers to toggle</li>
         <li>Use <b>checkboxes</b> to include or exclude individual turns</li>
         <li>Use <b>Include All / Exclude All</b> for bulk selection</li>
+        <li>Use <b>Expand All / Collapse All</b> to toggle all block details</li>
         <li>Add <b>bookmarks</b> to create chapter markers in the replay</li>
+        <li>Excluded turns and bookmarks persist when switching between sessions</li>
       </ul>
 
       <h3>Options</h3>
@@ -901,13 +992,42 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         <li><b>Minify / Compress</b> — optimize the exported HTML file size</li>
       </ul>
 
-      <h3>Preview &amp; Export</h3>
-      <p>The preview updates live as you edit. Click <b>Export HTML</b> to download the final replay as a self-contained HTML file.</p>
+      <h3>Import &amp; Export</h3>
+      <ul>
+        <li><b>Import HTML</b> — load a previously exported replay for re-editing</li>
+        <li><b>Export HTML</b> — download the replay as a self-contained HTML file</li>
+        <li><b>Export JSON</b> — download the session data (turns and bookmarks) as JSON</li>
+      </ul>
+      <p>The preview updates live as you edit. Edits are automatically saved to <code>~/.claude-replay/autosave/</code> and restored when you reopen a session. Reset clears the autosave.</p>
+
+      <h3>Supported Formats</h3>
+      <ul>
+        <li><b>Claude Code</b> — <code>~/.claude/projects/</code></li>
+        <li><b>Cursor</b> — <code>~/.cursor/projects/</code></li>
+        <li><b>Codex</b> — <code>~/.codex/sessions/</code></li>
+        <li><b>HTML replays</b> — previously exported <code>.html</code> files</li>
+      </ul>
 
       <h3>Privacy</h3>
-      <p>The editor runs locally on <code>127.0.0.1</code>. Your session data never leaves your machine. Original JSONL files are never modified.</p>
+      <p>The editor runs locally on <code>127.0.0.1</code>. Your session data never leaves your machine. Original transcript files are never modified.</p>
 
-      <p class="modal-footer-link"><a href="https://github.com/anthropics/claude-replay" target="_blank" rel="noopener">GitHub</a> &middot; <a href="https://github.com/anthropics/claude-replay/issues" target="_blank" rel="noopener">Report an issue</a></p>
+      <p class="modal-footer-link"><a href="https://github.com/anthropics/claude-replay" target="_blank" rel="noopener">GitHub</a> &middot; <a href="https://github.com/anthropics/claude-replay/issues" target="_blank" rel="noopener">Report an issue</a> &middot; <span id="helpVersion"></span></p>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <span class="modal-title" id="confirmTitle">Confirm</span>
+    </div>
+    <div class="modal-body">
+      <p id="confirmMessage"></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn" id="confirmCancel">Cancel</button>
+        <button class="btn btn-warn" id="confirmOk">Reset</button>
+      </div>
     </div>
   </div>
 </div>
@@ -970,9 +1090,34 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const titleInput        = $("titleInput");
   const resetBtn          = $("resetBtn");
   const exportBtn         = $("exportBtn");
+  const exportDataBtn     = $("exportDataBtn");
+  const importHtmlBtn     = $("importHtmlBtn");
+  const importHtmlFile    = $("importHtmlFile");
   const themeModeBtn      = $("themeModeBtn");
   const themeModeLabel    = $("themeModeLabel");
   const helpBtn           = $("helpBtn");
+  const confirmModal      = $("confirmModal");
+  const confirmTitle      = $("confirmTitle");
+  const confirmMessage    = $("confirmMessage");
+  const confirmOk         = $("confirmOk");
+  const confirmCancel     = $("confirmCancel");
+
+  function showConfirm(title, message) {
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    confirmModal.classList.add("open");
+    return new Promise((resolve) => {
+      function cleanup() {
+        confirmModal.classList.remove("open");
+        confirmOk.removeEventListener("click", onOk);
+        confirmCancel.removeEventListener("click", onCancel);
+      }
+      function onOk() { cleanup(); resolve(true); }
+      function onCancel() { cleanup(); resolve(false); }
+      confirmOk.addEventListener("click", onOk);
+      confirmCancel.addEventListener("click", onCancel);
+    });
+  }
   const helpModal         = $("helpModal");
   const helpModalClose    = $("helpModalClose");
   const sessionsToggle    = $("sessionsToggle");
@@ -988,6 +1133,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   const turnsToolbar      = $("turnsToolbar");
   const selectAllBtn      = $("selectAllBtn");
   const selectNoneBtn     = $("selectNoneBtn");
+  const expandAllBtn      = $("expandAllBtn");
+  const collapseAllBtn    = $("collapseAllBtn");
   const turnsList         = $("turnsList");
   const previewIframe     = $("previewIframe");
   const refreshIndicator  = $("refreshIndicator");
@@ -1034,6 +1181,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       const data = await apiJson("GET", "/api/sessions");
       const groups = data.groups || data;
       if (data.homedir) browsePathInput.value = data.homedir;
+      if (data.version) $("helpVersion").textContent = "v" + data.version;
       renderSessions(groups);
     } catch (e) {
       sessionsTree.innerHTML = `<div class="empty-state empty-state-error">Failed to load sessions: ${esc(e.message)}</div>`;
@@ -1047,7 +1195,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     }
     let html = "";
     for (const group of groups) {
-      html += `<div class="session-group-label">${esc(group.name)}</div>`;
+      html += `<div class="session-group-label open"><span class="arrow">&#9654;</span> ${esc(group.name)}</div>`;
+      html += `<div class="session-group-content">`;
       for (const proj of group.projects) {
         const projId = `proj-${esc(group.name)}-${esc(proj.dirName)}`;
         html += `<div class="session-project">`;
@@ -1059,9 +1208,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         }
         html += `</div></div>`;
       }
+      html += `</div>`;
     }
     sessionsTree.innerHTML = html;
 
+    sessionsTree.querySelectorAll(".session-group-label").forEach((el) => {
+      el.addEventListener("click", () => el.classList.toggle("open"));
+    });
     sessionsTree.querySelectorAll(".session-project-name").forEach((el) => {
       el.addEventListener("click", () => {
         el.classList.toggle("open");
@@ -1078,8 +1231,12 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   // Session search/filter
   // =========================================================================
 
-  sessionsSearch.addEventListener("input", () => {
-    const q = sessionsSearch.value.toLowerCase().trim();
+  const searchResults = $("searchResults");
+  let contentSearchDebounce;
+
+  function filterSessionsByName(q) {
+    searchResults.style.display = "none";
+    sessionsTree.style.display = "";
     sessionsTree.querySelectorAll(".session-project").forEach((proj) => {
       const projName = proj.querySelector(".session-project-name").textContent.toLowerCase();
       const items = proj.querySelectorAll(".session-item");
@@ -1090,22 +1247,68 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         if (match) anyVisible = true;
       });
       proj.style.display = anyVisible ? "" : "none";
-      // Auto-expand matching projects when searching
       if (anyVisible && q) {
         proj.querySelector(".session-project-name").classList.add("open");
         proj.querySelector(".session-list").classList.add("open");
       }
     });
-    // Hide group labels if all their projects are hidden
     sessionsTree.querySelectorAll(".session-group-label").forEach((label) => {
-      let next = label.nextElementSibling;
-      let anyGroupVisible = false;
-      while (next && !next.classList.contains("session-group-label")) {
-        if (next.style.display !== "none") anyGroupVisible = true;
-        next = next.nextElementSibling;
-      }
+      const content = label.nextElementSibling;
+      if (!content || !content.classList.contains("session-group-content")) return;
+      const anyGroupVisible = content.querySelector(".session-project:not([style*='display: none'])") !== null;
       label.style.display = anyGroupVisible ? "" : "none";
+      content.style.display = anyGroupVisible ? "" : "none";
     });
+  }
+
+  function highlightSnippet(snippet, query) {
+    const lower = snippet.toLowerCase();
+    const idx = lower.indexOf(query.toLowerCase());
+    if (idx === -1) return esc(snippet);
+    return esc(snippet.slice(0, idx)) + "<mark>" + esc(snippet.slice(idx, idx + query.length)) + "</mark>" + esc(snippet.slice(idx + query.length));
+  }
+
+  async function searchContent(query) {
+    sessionsTree.style.display = "none";
+    searchResults.style.display = "";
+    searchResults.innerHTML = '<div class="search-status">Searching...</div>';
+    try {
+      const data = await apiJson("POST", "/api/search", { query });
+      if (data.results.length === 0) {
+        searchResults.innerHTML = '<div class="search-status">No matches found</div>';
+        return;
+      }
+      let html = "";
+      for (const r of data.results) {
+        html += `<div class="search-result-item" data-path="${esc(r.path)}">
+          <div class="search-result-meta">${esc(r.group)} / ${esc(r.project)} / ${esc(r.file)}</div>
+          <div class="search-result-snippet">${highlightSnippet(r.snippet, query)}</div>
+        </div>`;
+      }
+      searchResults.innerHTML = html;
+      searchResults.querySelectorAll(".search-result-item").forEach((el) => {
+        el.addEventListener("click", () => loadSession(el.dataset.path, null));
+      });
+    } catch (e) {
+      searchResults.innerHTML = `<div class="search-status">Search failed: ${esc(e.message)}</div>`;
+    }
+  }
+
+  sessionsSearch.addEventListener("input", () => {
+    const raw = sessionsSearch.value;
+    clearTimeout(contentSearchDebounce);
+    if (raw.startsWith("/")) {
+      const query = raw.slice(1).trim();
+      if (query.length < 3) {
+        sessionsTree.style.display = "none";
+        searchResults.style.display = "";
+        searchResults.innerHTML = '<div class="search-status">Type at least 3 characters to search content...</div>';
+        return;
+      }
+      contentSearchDebounce = setTimeout(() => searchContent(query), 400);
+    } else {
+      filterSessionsByName(raw.toLowerCase().trim());
+    }
   });
 
   // =========================================================================
@@ -1155,10 +1358,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   // Load session
   // =========================================================================
 
-  function updateEditState(hasEdits) {
-    resetBtn.classList.toggle("btn-warn", hasEdits);
+  let hasTextEdits = false;
+  function updateEditState(textEdits) {
+    if (textEdits !== undefined) hasTextEdits = textEdits;
+    const hasChanges = hasTextEdits || excludedTurns.size > 0 || bookmarks.size > 0;
+    resetBtn.classList.toggle("btn-warn", hasChanges);
     const activeItem = document.querySelector(".session-item.active");
-    if (activeItem) activeItem.classList.toggle("edited", hasEdits);
+    if (activeItem) activeItem.classList.toggle("edited", hasChanges);
   }
 
   async function loadSession(path, itemEl) {
@@ -1169,15 +1375,23 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       const data = await apiJson("POST", "/api/load", { path });
       currentSessionId = data.sessionId;
       currentTurns = data.turns;
-      excludedTurns = new Set();
+      excludedTurns = new Set(data.excludedTurns || []);
       bookmarks = new Map();
 
+      // Restore bookmarks from session state
+      for (const bm of data.bookmarks || []) {
+        bookmarks.set(bm.turn, bm.label);
+      }
+
+
+
       const parts = path.split("/");
-      const filename = parts[parts.length - 1].replace(".jsonl", "");
+      const filename = parts[parts.length - 1].replace(/\.(jsonl|html)$/, "");
       titleInput.value = "Replay \u2014 " + filename;
       titleInput.disabled = false;
       resetBtn.disabled = false;
       exportBtn.disabled = false;
+      exportDataBtn.disabled = false;
 
       updateEditState(data.hasEdits || false);
       showOptionsPanel();
@@ -1237,16 +1451,19 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     for (const b of blocks) {
       if (b.kind === "tool_use") {
         html += `<div class="block-item">
-          <div class="block-item-header block-tool">Tool Call</div>
+          <div class="block-item-header block-tool"><span class="block-chevron">&#9654;</span>Tool: ${esc(b.name)}</div>
           <div class="block-item-body"><span class="block-tool-name">${esc(b.name)}</span>
 <div class="block-tool-section">Input</div>${esc(b.input)}
 <div class="block-tool-section">Result</div>${esc(b.result)}</div>
         </div>`;
-      } else {
-        const label = b.kind === "thinking" ? "Thinking" : "Text";
-        const headerClass = b.kind === "thinking" ? "block-thinking" : "block-text";
+      } else if (b.kind === "thinking") {
         html += `<div class="block-item">
-          <div class="block-item-header ${headerClass}">${label}</div>
+          <div class="block-item-header block-thinking"><span class="block-chevron">&#9654;</span>Thinking</div>
+          <div class="block-item-body">${esc(b.text)}</div>
+        </div>`;
+      } else {
+        html += `<div class="block-item">
+          <div class="block-item-header block-text open"><span class="block-chevron">&#9654;</span>Text</div>
           <div class="block-item-body">${esc(b.text)}</div>
         </div>`;
       }
@@ -1255,6 +1472,12 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   }
 
   function handleTurnClick(e) {
+    // Block-level sub-collapse (tool/thinking/text headers)
+    const blockHeader = e.target.closest(".block-item-header");
+    if (blockHeader) {
+      blockHeader.classList.toggle("open");
+      return;
+    }
     const summary = e.target.closest("[data-action='expand']");
     if (summary) {
       const index = summary.dataset.index;
@@ -1286,7 +1509,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
     if (action === "toggle") {
       e.target.checked ? excludedTurns.delete(index) : excludedTurns.add(index);
-      e.target.closest(".turn-card").classList.toggle("excluded", !e.target.checked);
+      const card = e.target.closest(".turn-card");
+      card.classList.toggle("excluded", !e.target.checked);
+      if (!e.target.checked) {
+        card.querySelector("[data-action='expand']")?.classList.remove("open");
+        card.querySelector(".turn-blocks-detail")?.classList.remove("open");
+      }
+      updateEditState();
       schedulePreview();
     }
 
@@ -1299,6 +1528,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         bookmarks.delete(index);
         labelInput.disabled = true;
       }
+      updateEditState();
       schedulePreview();
     }
 
@@ -1411,6 +1641,11 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
   async function doReset() {
     if (!currentSessionId) return;
+    const hasChanges = hasTextEdits || excludedTurns.size > 0 || bookmarks.size > 0;
+    if (hasChanges) {
+      const ok = await showConfirm("Reset Session", "Reset all edits, excluded turns, and bookmarks to the original session?");
+      if (!ok) return;
+    }
     try {
       const data = await apiJson("POST", "/api/reset", { sessionId: currentSessionId });
       currentTurns = data.turns;
@@ -1436,6 +1671,27 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       const a = document.createElement("a");
       a.href = url;
       a.download = (titleInput.value || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Export failed: " + e.message);
+    }
+  }
+
+  async function doExportData() {
+    if (!currentSessionId) return;
+    try {
+      const res = await api("POST", "/api/export-data", {
+        sessionId: currentSessionId,
+        options: gatherOptions(),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (titleInput.value || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1495,19 +1751,65 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   // Toolbar actions
   resetBtn.addEventListener("click", doReset);
   exportBtn.addEventListener("click", doExport);
+  exportDataBtn.addEventListener("click", doExportData);
+
+  // Import HTML replay
+  importHtmlBtn.addEventListener("click", () => importHtmlFile.click());
+  importHtmlFile.addEventListener("change", async () => {
+    const file = importHtmlFile.files[0];
+    if (!file) return;
+    importHtmlFile.value = ""; // reset so same file can be re-selected
+    try {
+      const htmlContent = await file.text();
+      const data = await apiJson("POST", "/api/import", { html: htmlContent, filename: file.name });
+      currentSessionId = data.sessionId;
+      currentTurns = data.turns;
+      excludedTurns = new Set(data.excludedTurns || []);
+      bookmarks = new Map();
+      for (const bm of data.bookmarks || []) bookmarks.set(bm.turn, bm.label);
+
+      const filename = file.name.replace(/\.html$/, "");
+      titleInput.value = "Replay \u2014 " + filename;
+      titleInput.disabled = false;
+      resetBtn.disabled = false;
+      exportBtn.disabled = false;
+      exportDataBtn.disabled = false;
+      updateEditState(false);
+      showOptionsPanel();
+      turnsToolbar.classList.add("visible");
+      renderTurns();
+      schedulePreview();
+    } catch (e) {
+      alert("Import failed: " + e.message);
+    }
+  });
 
   // Select all / none
   selectAllBtn.addEventListener("click", () => {
     excludedTurns.clear();
     turnsList.querySelectorAll("[data-action='toggle']").forEach((cb) => { cb.checked = true; });
     turnsList.querySelectorAll(".turn-card").forEach((card) => card.classList.remove("excluded"));
+    updateEditState();
     schedulePreview();
   });
   selectNoneBtn.addEventListener("click", () => {
     currentTurns.forEach((t) => excludedTurns.add(t.index));
     turnsList.querySelectorAll("[data-action='toggle']").forEach((cb) => { cb.checked = false; });
     turnsList.querySelectorAll(".turn-card").forEach((card) => card.classList.add("excluded"));
+    turnsList.querySelectorAll("[data-action='expand']").forEach((s) => s.classList.remove("open"));
+    turnsList.querySelectorAll(".turn-blocks-detail").forEach((d) => d.classList.remove("open"));
+    updateEditState();
     schedulePreview();
+  });
+
+  // Expand / collapse all blocks
+  expandAllBtn.addEventListener("click", () => {
+    turnsList.querySelectorAll("[data-action='expand']").forEach((s) => s.classList.add("open"));
+    turnsList.querySelectorAll(".turn-blocks-detail").forEach((d) => d.classList.add("open"));
+  });
+  collapseAllBtn.addEventListener("click", () => {
+    turnsList.querySelectorAll("[data-action='expand']").forEach((s) => s.classList.remove("open"));
+    turnsList.querySelectorAll(".turn-blocks-detail").forEach((d) => d.classList.remove("open"));
   });
 
   // Dark/light/copilot mode
@@ -1551,7 +1853,6 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       prefersDark.addListener(syncThemeMode);
     }
   }
-
   themeModeBtn.addEventListener("click", () => {
     themeModeManual = true;
     const currentMode = document.documentElement.classList.contains("copilot")
@@ -1569,6 +1870,13 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && helpModal.classList.contains("open")) helpModal.classList.remove("open");
+    if (e.key === "Escape" && confirmModal.classList.contains("open")) confirmCancel.click();
+    // Ctrl/Cmd+F: expand all turns and blocks so browser find can search everything
+    if (e.key === "f" && (e.ctrlKey || e.metaKey) && currentSessionId) {
+      turnsList.querySelectorAll("[data-action='expand']").forEach((s) => s.classList.add("open"));
+      turnsList.querySelectorAll(".turn-blocks-detail").forEach((d) => d.classList.add("open"));
+      turnsList.querySelectorAll(".block-item-header").forEach((h) => h.classList.add("open"));
+    }
   });
 
   // Resize handle

@@ -15,8 +15,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - run: npx --yes oxlint@latest --deny-warnings src/ bin/
@@ -27,8 +27,8 @@ jobs:
       matrix:
         node-version: ["18", "20", "22"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
       - run: node --test test/test-*.mjs
@@ -36,8 +36,8 @@ jobs:
   test-e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - run: npm install
@@ -47,15 +47,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "18"
       - run: npm install
       - run: npm run build
       - run: npm pack --dry-run
       - run: npm pack
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: package
           path: "*.tgz"
@@ -65,8 +65,8 @@ jobs:
     needs: [lint, test, test-e2e, build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           name: package
       - name: Extract changelog
@@ -98,8 +98,8 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"

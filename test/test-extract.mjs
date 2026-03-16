@@ -123,6 +123,20 @@ describe("extract", () => {
     assert.equal(data.turns[0].blocks[1].tool_call.input.file_path, '/tmp/"quoted"');
   });
 
+  it("extracts turns from minified compressed HTML", () => {
+    const html = render(SAMPLE_TURNS, { minified: true, redactSecrets: false });
+    const data = extractData(html);
+    assert.equal(data.turns.length, 2);
+    assert.equal(data.turns[0].user_text, "Hello");
+  });
+
+  it("extracts turns from minified uncompressed HTML", () => {
+    const html = render(SAMPLE_TURNS, { minified: true, compress: false, redactSecrets: false });
+    const data = extractData(html);
+    assert.equal(data.turns.length, 2);
+    assert.equal(data.turns[0].user_text, "Hello");
+  });
+
   it("throws on invalid HTML", () => {
     assert.throws(() => extractData("<html><body>no data</body></html>"), {
       message: /Could not find data blobs/,

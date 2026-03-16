@@ -47,7 +47,7 @@ function decodeBlob(raw) {
  */
 function findBlobs(html) {
   const blobs = [];
-  const pattern = /await\s+\w+\("/g;
+  const pattern = /await\s+[\w$]+\("/g;
   let m;
   while ((m = pattern.exec(html)) !== null) {
     const start = m.index + m[0].length;
@@ -58,7 +58,7 @@ function findBlobs(html) {
         i += 2; // skip escaped character
         continue;
       }
-      if (html[i] === '"' && html.startsWith(");", i + 1)) {
+      if (html[i] === '"' && html[i + 1] === ")") {
         blobs.push(html.slice(start, i));
         break;
       }

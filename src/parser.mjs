@@ -66,7 +66,10 @@ function isToolResultOnly(content) {
  * @returns {"claude-code"|"cursor"|"codex"|"github-chat"|"unknown"}
  */
 export function detectFormat(filePath) {
-  const text = readFileSync(filePath, "utf-8");
+  return detectFormatFromText(readFileSync(filePath, "utf-8"));
+}
+
+function detectFormatFromText(text) {
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -590,8 +593,7 @@ function parseGitHubChatPatchLogEvents(events) {
  * Read JSONL and return only user/assistant entries.
  * Returns { entries, format }.
  */
-function parseJsonl(filePath) {
-  const text = readFileSync(filePath, "utf-8");
+function parseJsonl(text) {
   const entries = [];
   let format = "unknown";
   for (const line of text.split("\n")) {
@@ -750,6 +752,8 @@ function attachToolResults(blocks, entries, resultStart) {
  */
 function parseCodexPatch(patchStr) {
   const lines = patchStr.split("\n");
+  // Remove trailing empty string from final newline in patch text
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
   let filePath = "";
   let isNew = false;
   const oldLines = [];
@@ -772,8 +776,8 @@ function parseCodexPatch(patchStr) {
       newLines.push(line.slice(1));
     } else if (line.startsWith("-")) {
       oldLines.push(line.slice(1));
-    } else if (line.trim()) {
-      // Context line (unchanged) — appears in both old and new
+    } else {
+      // Context line (unchanged, may be blank) — appears in both old and new
       oldLines.push(line);
       newLines.push(line);
     }
@@ -814,8 +818,7 @@ function extractCodexUserText(text) {
  * Parse a Codex CLI JSONL transcript into Turn[].
  * Codex uses an event-based format with task_started/task_complete boundaries.
  */
-function parseCodexTranscript(filePath) {
-  const text = readFileSync(filePath, "utf-8");
+function parseCodexTranscript(text) {
   const events = [];
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
@@ -1031,10 +1034,11 @@ function parseCodexTranscript(filePath) {
  * @returns {Turn[]}
  */
 export function parseTranscript(filePath) {
-  const format = detectFormat(filePath);
-  if (format === "codex") return parseCodexTranscript(filePath);
+  const text = readFileSync(filePath, "utf-8");
+  const format = detectFormatFromText(text);
+  if (format === "codex") return parseCodexTranscript(text);
   if (format === "github-chat") return parseGitHubChatTranscript(filePath);
-  const { entries, format: fmt } = parseJsonl(filePath);
+  const { entries, format: fmt } = parseJsonl(text);
   const turns = [];
   let i = 0;
   let turnIndex = 0;

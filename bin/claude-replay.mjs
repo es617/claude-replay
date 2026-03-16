@@ -59,6 +59,13 @@ if (values.version) {
   process.exit(0);
 }
 
+if (values["list-themes"]) {
+  for (const name of listThemes()) {
+    console.log(name);
+  }
+  process.exit(0);
+}
+
 // --- Editor (default when no args, or explicit "editor" subcommand) ---
 if (positionals.length === 0 || positionals[0] === "editor") {
   if (positionals[0] === "editor" || !values.help) {
@@ -116,13 +123,6 @@ Options:
   --open                  Open the generated HTML in the default browser (requires -o)
   --list-themes           List available built-in themes and exit
   -h, --help              Show this help message`);
-  process.exit(0);
-}
-
-if (values["list-themes"]) {
-  for (const name of listThemes()) {
-    console.log(name);
-  }
   process.exit(0);
 }
 
@@ -274,6 +274,13 @@ let turns = filterTurns(allTurns, {
   timeTo: values.to,
 });
 
+// Re-index sequentially after filtering so player position matches turn.index
+const indexMap = new Map(); // original index → new index
+for (let i = 0; i < turns.length; i++) {
+  indexMap.set(turns[i].index, i + 1);
+  turns[i].index = i + 1;
+}
+
 if (turns.length === 0) {
   console.error("Warning: no turns found after filtering.");
 }
@@ -351,7 +358,11 @@ if (values.bookmarks) {
   }
 }
 
-bookmarks.sort((a, b) => a.turn - b.turn);
+// Remap bookmark turn indices to match re-indexed turns
+bookmarks = bookmarks
+  .map((bm) => ({ turn: indexMap.get(bm.turn), label: bm.label }))
+  .filter((bm) => bm.turn != null)
+  .sort((a, b) => a.turn - b.turn);
 
 // Parse --redact rules
 let redactRules;

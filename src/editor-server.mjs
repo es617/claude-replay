@@ -3,23 +3,118 @@
  */
 
 import { createServer } from "node:http";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve, join, dirname } from "node:path";
+import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, unlinkSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { resolve, join, dirname, relative, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 import { execFile } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "./parser.mjs";
 import { render } from "./renderer.mjs";
+import { extractData } from "./extract.mjs";
 import { getTheme, listThemes } from "./themes.mjs";
 
 const EDITOR_HTML_PATH = new URL("../template/editor.html", import.meta.url);
+const PKG = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8"));
 
 // ---------------------------------------------------------------------------
 // In-memory session store
-// Map<sessionId, { originalTurns, workingTurns, sourcePath, format }>
 // ---------------------------------------------------------------------------
 
 const sessions = new Map();
 let sessionCounter = 0;
+
+/**
+ * Create a new session, restoring from autosave if available.
+ * @param {object[]} turns - parsed turns from the source file
+ * @param {string} sourcePath - path or name identifying the source
+ * @param {string} format - "claude" | "cursor" | "codex" | "extracted"
+ * @param {object[]} [sourceBookmarks] - bookmarks from the source (e.g. extracted HTML)
+ * @returns {{ id: string, session: object, hasEdits: boolean }}
+ */
+function createSession(turns, sourcePath, format, sourceBookmarks = []) {
+  const saved = loadAutosave(sourcePath);
+  const id = "s" + (++sessionCounter);
+  const session = {
+    originalTurns: JSON.parse(JSON.stringify(turns)),
+    workingTurns: saved ? saved.workingTurns : turns,
+    sourcePath,
+    format,
+    originalBookmarks: sourceBookmarks,
+    excludedTurns: saved ? (saved.excludedTurns || []) : [],
+    bookmarks: saved ? (saved.bookmarks || []) : sourceBookmarks.slice(),
+  };
+  const hasEdits = saved
+    ? JSON.stringify(session.workingTurns) !== JSON.stringify(session.originalTurns)
+    : false;
+  sessions.set(id, session);
+  return { id, session, hasEdits };
+}
+
+/** Build the standard session response payload. */
+function sessionResponse(id, session, hasEdits, extra = {}) {
+  return {
+    sessionId: id,
+    format: session.format,
+    hasEdits,
+    turns: summarizeTurns(session.workingTurns),
+    excludedTurns: session.excludedTurns,
+    bookmarks: session.bookmarks,
+    ...extra,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Autosave
+// ---------------------------------------------------------------------------
+
+const AUTOSAVE_DIR = join(homedir(), ".claude-replay", "autosave");
+const autosaveTimers = new Map(); // sessionId → timeout handle
+
+function autosaveKey(sourcePath) {
+  return createHash("sha256").update(sourcePath).digest("hex").slice(0, 16) + ".json";
+}
+
+function autosavePath(sourcePath) {
+  return join(AUTOSAVE_DIR, autosaveKey(sourcePath));
+}
+
+/** Schedule an autosave (throttled: at most once per 2 seconds per session). */
+function scheduleAutosave(session) {
+  const id = session.sourcePath;
+  if (autosaveTimers.has(id)) return; // already scheduled
+  autosaveTimers.set(id, setTimeout(() => {
+    autosaveTimers.delete(id);
+    try {
+      mkdirSync(AUTOSAVE_DIR, { recursive: true });
+      const data = {
+        sourcePath: session.sourcePath,
+        workingTurns: session.workingTurns,
+        excludedTurns: session.excludedTurns || [],
+        bookmarks: session.bookmarks || [],
+      };
+      writeFileSync(autosavePath(session.sourcePath), JSON.stringify(data));
+    } catch { /* ignore write errors */ }
+  }, 2000));
+}
+
+/** Load autosave data for a source path, if it exists. */
+function loadAutosave(sourcePath) {
+  try {
+    const p = autosavePath(sourcePath);
+    if (!existsSync(p)) return null;
+    return JSON.parse(readFileSync(p, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/** Delete autosave for a source path. */
+function deleteAutosave(sourcePath) {
+  try {
+    const p = autosavePath(sourcePath);
+    if (existsSync(p)) unlinkSync(p);
+  } catch { /* ignore */ }
+}
 
 // ---------------------------------------------------------------------------
 // HTTP helpers
@@ -31,9 +126,12 @@ function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let settled = false;
     req.on("data", (c) => {
+      if (settled) return;
       size += c.length;
       if (size > MAX_BODY_SIZE) {
+        settled = true;
         req.destroy();
         reject(new Error("Request body too large"));
         return;
@@ -41,13 +139,19 @@ function readBody(req) {
       chunks.push(c);
     });
     req.on("end", () => {
+      if (settled) return;
+      settled = true;
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString()));
       } catch {
         reject(new Error("Invalid JSON body"));
       }
     });
-    req.on("error", reject);
+    req.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
   });
 }
 
@@ -120,7 +224,7 @@ function getThemeSafe(name) {
 }
 
 /**
- * Prepare turns for rendering: clone, filter, apply timing.
+ * Prepare turns for rendering: clone, filter, re-index, apply timing.
  * Returns ready-to-render turns array.
  */
 function prepareTurns(session, options) {
@@ -129,12 +233,36 @@ function prepareTurns(session, options) {
     turns = filterTurns(turns, { excludeTurns: options.excludeTurns });
   }
   const cloned = JSON.parse(JSON.stringify(turns));
+  // Re-index sequentially so the player's position-based logic matches turn.index
+  for (let i = 0; i < cloned.length; i++) {
+    cloned[i].index = i + 1;
+  }
   const timing = options.timing || "auto";
   const hasTimestamps = cloned.some((t) => t.timestamp);
   if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
     applyPacedTiming(cloned);
   }
   return cloned;
+}
+
+/**
+ * Remap bookmark turn indices from original to new sequential indices.
+ * Bookmarks pointing to excluded turns are dropped.
+ */
+function remapBookmarks(bookmarks, originalTurns, excludedSet) {
+  if (!bookmarks || bookmarks.length === 0) return [];
+  // Build mapping: original index → new sequential index
+  const indexMap = new Map();
+  let seq = 1;
+  for (const t of originalTurns) {
+    if (!excludedSet.has(t.index)) {
+      indexMap.set(t.index, seq++);
+    }
+  }
+  return bookmarks
+    .map((bm) => ({ turn: indexMap.get(bm.turn), label: bm.label }))
+    .filter((bm) => bm.turn != null)
+    .sort((a, b) => a.turn - b.turn);
 }
 
 /** Build render options from client options + session metadata. */
@@ -146,7 +274,7 @@ function buildRenderOpts(options, session, overrides = {}) {
       : session.format === "github-chat"
         ? "Copilot"
         : "Claude";
-
+  const excludedSet = new Set(options.excludeTurns || []);
   return {
     speed: parseFloat(options.speed) || 1.0,
     showThinking: options.showThinking !== false,
@@ -159,8 +287,9 @@ function buildRenderOpts(options, session, overrides = {}) {
     title: options.title || "Replay",
     description: options.description || "",
     ogImage: options.ogImage || "",
-    bookmarks: (options.bookmarks || []).sort((a, b) => a.turn - b.turn),
+    bookmarks: remapBookmarks(options.bookmarks || [], session.workingTurns, excludedSet),
     minified: false,
+    compress: options.compress !== false,
     ...overrides,
   };
 }
@@ -169,9 +298,22 @@ function buildRenderOpts(options, session, overrides = {}) {
 // Filesystem browsing
 // ---------------------------------------------------------------------------
 
+/** Ensure a path is under $HOME to prevent filesystem traversal. */
+function assertUnderHome(targetPath) {
+  const resolved = resolve(targetPath);
+  const home = resolve(homedir());
+  const relPath = relative(home, resolved);
+  if (relPath.startsWith("..") || isAbsolute(relPath)) {
+    const err = new Error("Access denied: path must be under your home directory");
+    err.code = "EACCES";
+    throw err;
+  }
+  return resolved;
+}
+
 /** Browse a directory — returns dirs + .jsonl files. */
 function browseDirectory(dirPath) {
-  const resolved = resolve(dirPath);
+  const resolved = assertUnderHome(dirPath);
   const entries = readdirSync(resolved);
   const dirs = [];
   const files = [];
@@ -183,7 +325,7 @@ function browseDirectory(dirPath) {
       const stat = statSync(fullPath);
       if (stat.isDirectory()) {
         dirs.push({ name, path: fullPath });
-      } else if (name.endsWith(".jsonl")) {
+      } else if (name.endsWith(".jsonl") || name.endsWith(".html")) {
         files.push({ name, path: fullPath, date: stat.mtime.toISOString() });
       }
     } catch { /* skip inaccessible entries */ }
@@ -356,7 +498,7 @@ function discoverSessions() {
   // Codex CLI: ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl
   const codexBase = join(home, ".codex", "sessions");
   try {
-    const codexGroup = { name: "Codex CLI", projects: [] };
+    const codexGroup = { name: "Codex", projects: [] };
     // Walk year/month/day directories
     for (const year of readdirSync(codexBase).sort().reverse()) {
       const yearPath = join(codexBase, year);
@@ -428,9 +570,62 @@ function discoverSessions() {
 // ---------------------------------------------------------------------------
 
 async function handleApi(req, res, pathname) {
+  // CSRF protection: reject cross-origin requests to the API.
+  // The editor is served from 127.0.0.1, so legitimate requests have a
+  // matching Origin or no Origin at all (same-origin, curl, etc.).
+  const origin = req.headers.origin;
+  if (origin) {
+    try {
+      const originHost = new URL(origin).hostname;
+      if (originHost !== "127.0.0.1" && originHost !== "localhost") {
+        return error(res, "Cross-origin requests are not allowed", 403);
+      }
+    } catch {
+      return error(res, "Invalid Origin header", 403);
+    }
+  }
+
   // GET /api/sessions — list discovered sessions + home directory
   if (pathname === "/api/sessions" && req.method === "GET") {
-    return json(res, { groups: discoverSessions(), homedir: homedir() });
+    return json(res, { groups: discoverSessions(), homedir: homedir(), version: PKG.version });
+  }
+
+  // POST /api/search — search session content across all discovered sessions
+  if (pathname === "/api/search" && req.method === "POST") {
+    const body = await readBody(req);
+    const query = (body.query || "").toLowerCase().trim();
+    if (!query || query.length < 3) return json(res, { results: [] });
+
+    const groups = discoverSessions();
+    const results = [];
+    const MAX_RESULTS = 30;
+
+    for (const group of groups) {
+      for (const proj of group.projects) {
+        for (const sess of proj.sessions) {
+          if (results.length >= MAX_RESULTS) break;
+          try {
+            const text = readFileSync(sess.path, "utf-8");
+            const lower = text.toLowerCase();
+            const idx = lower.indexOf(query);
+            if (idx === -1) continue;
+            // Extract snippet around match
+            const start = Math.max(0, idx - 40);
+            const end = Math.min(text.length, idx + query.length + 60);
+            const snippet = (start > 0 ? "..." : "") + text.slice(start, end).replace(/\n/g, " ") + (end < text.length ? "..." : "");
+            results.push({
+              group: group.name,
+              project: proj.name,
+              file: sess.file,
+              path: sess.path,
+              date: sess.date,
+              snippet,
+            });
+          } catch { /* skip unreadable files */ }
+        }
+      }
+    }
+    return json(res, { results });
   }
 
   // GET /api/themes — list available themes
@@ -457,37 +652,51 @@ async function handleApi(req, res, pathname) {
     const filePath = body.path;
     if (!filePath) return error(res, "Missing 'path' field");
     try {
+      assertUnderHome(filePath);
       // Reuse existing session for the same file
       for (const [existingId, s] of sessions) {
         if (s.sourcePath === filePath) {
           const hasEdits = JSON.stringify(s.workingTurns) !== JSON.stringify(s.originalTurns);
-          return json(res, {
-            sessionId: existingId,
-            format: s.format,
-            hasEdits,
-            turns: summarizeTurns(s.workingTurns),
-          });
+          return json(res, sessionResponse(existingId, s, hasEdits));
         }
       }
       // New session
-      const format = detectFormat(filePath);
-      const turns = parseTranscript(filePath);
-      const id = "s" + (++sessionCounter);
-      sessions.set(id, {
-        originalTurns: JSON.parse(JSON.stringify(turns)),
-        workingTurns: turns,
-        sourcePath: filePath,
-        format,
-      });
-      return json(res, {
-        sessionId: id,
-        format,
-        hasEdits: false,
-        turns: summarizeTurns(turns),
-      });
+      let format, turns, sourceBookmarks = [];
+      if (filePath.endsWith(".html")) {
+        let data;
+        try {
+          data = extractData(readFileSync(filePath, "utf-8"));
+        } catch {
+          return error(res, "Not a valid claude-replay HTML file", 400);
+        }
+        turns = data.turns;
+        sourceBookmarks = data.bookmarks || [];
+        format = "extracted";
+      } else {
+        format = detectFormat(filePath);
+        turns = parseTranscript(filePath);
+      }
+      const { id, session, hasEdits } = createSession(turns, filePath, format, sourceBookmarks);
+      return json(res, sessionResponse(id, session, hasEdits));
     } catch (e) {
       return error(res, `Failed to parse: ${e.message}`, 500);
     }
+  }
+
+  // POST /api/import — import an HTML replay by content (for file upload)
+  if (pathname === "/api/import" && req.method === "POST") {
+    const body = await readBody(req);
+    const { html: htmlContent, filename } = body;
+    if (!htmlContent) return error(res, "Missing 'html' field");
+    let data;
+    try {
+      data = extractData(htmlContent);
+    } catch {
+      return error(res, "Not a valid claude-replay HTML file", 400);
+    }
+    const sourcePath = filename || "imported.html";
+    const { id, session, hasEdits } = createSession(data.turns, sourcePath, "extracted", data.bookmarks || []);
+    return json(res, sessionResponse(id, session, hasEdits));
   }
 
   // POST /api/edit — update a turn's user text
@@ -499,8 +708,28 @@ async function handleApi(req, res, pathname) {
     const turn = session.workingTurns.find((t) => t.index === turnIndex);
     if (!turn) return error(res, `Turn ${turnIndex} not found`, 404);
     turn.user_text = user_text;
+    scheduleAutosave(session);
     const hasEdits = JSON.stringify(session.workingTurns) !== JSON.stringify(session.originalTurns);
     return json(res, { ok: true, hasEdits });
+  }
+
+  // POST /api/export-data — export turns and bookmarks as JSON
+  if (pathname === "/api/export-data" && req.method === "POST") {
+    const body = await readBody(req);
+    const { sessionId, options = {} } = body;
+    const session = sessions.get(sessionId);
+    if (!session) return error(res, "Unknown session", 404);
+    const turns = prepareTurns(session, options);
+    const excludedSet = new Set(options.excludeTurns || []);
+    const bookmarksArr = remapBookmarks(options.bookmarks || [], session.workingTurns, excludedSet);
+    const data = JSON.stringify({ turns, bookmarks: bookmarksArr }, null, 2);
+    const filename = (options.title || "replay").replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": Buffer.byteLength(data),
+    });
+    return res.end(data);
   }
 
   // POST /api/preview — render HTML for live preview
@@ -509,6 +738,10 @@ async function handleApi(req, res, pathname) {
     const { sessionId, options = {} } = body;
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
+    // Persist client-side state so it survives session switching
+    session.excludedTurns = options.excludeTurns || [];
+    session.bookmarks = options.bookmarks || [];
+    scheduleAutosave(session);
     const turns = prepareTurns(session, options);
     const html = render(turns, buildRenderOpts(options, session));
     return json(res, { html });
@@ -541,6 +774,9 @@ async function handleApi(req, res, pathname) {
     const session = sessions.get(sessionId);
     if (!session) return error(res, "Unknown session", 404);
     session.workingTurns = JSON.parse(JSON.stringify(session.originalTurns));
+    session.excludedTurns = [];
+    session.bookmarks = [];
+    deleteAutosave(session.sourcePath);
     return json(res, { turns: summarizeTurns(session.workingTurns) });
   }
 
