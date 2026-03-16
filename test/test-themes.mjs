@@ -27,18 +27,18 @@ describe("listThemes", () => {
 describe("copilot theme", () => {
   it("matches the Copilot-inspired palette", () => {
     const theme = getTheme("copilot");
-    assert.equal(theme.bg, "#0d1117");
-    assert.equal(theme.accent, "#6cb6ff");
-    assert.equal(theme["tool-bg"], "#11161d");
+    assert.equal(theme.bg, "#1f1f1f");
+    assert.equal(theme.accent, "#007acc");
+    assert.equal(theme["tool-bg"], "#1a1a1a");
   });
 });
 
 describe("vscode theme", () => {
   it("matches the VS Code-inspired palette", () => {
     const theme = getTheme("vscode");
-    assert.equal(theme.bg, "#1e1e1e");
+    assert.equal(theme.bg, "#1f1f1f");
     assert.equal(theme.accent, "#007acc");
-    assert.equal(theme["tool-bg"], "#252526");
+    assert.equal(theme["tool-bg"], "#1a1a1a");
   });
 });
 

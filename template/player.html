@@ -53,21 +53,21 @@ body.theme-mode-light {
 }
 body.theme-mode-copilot {
   color-scheme: dark;
-  --bg: #0d1117;
-  --bg-surface: #161b22;
-  --bg-hover: #1f2630;
-  --border: #2f3947;
-  --text: #d7deea;
-  --text-dim: #9aa6b8;
-  --text-bright: #f4f7ff;
-  --accent: #6cb6ff;
-  --accent-dim: rgba(108, 182, 255, 0.2);
-  --green: #6ccf8a;
-  --red: #ff8f8f;
-  --blue: #6cb6ff;
-  --cyan: #8ab4ff;
-  --orange: #ffc26f;
-  --tool-bg: #161b22;
+  --bg: #1f1f1f;
+  --bg-surface: #181818;
+  --bg-hover: #2a2d2e;
+  --border: #2d2d2d;
+  --text: #cccccc;
+  --text-dim: #858585;
+  --text-bright: #e8e8e8;
+  --accent: #007acc;
+  --accent-dim: rgba(0, 122, 204, 0.2);
+  --green: #6a9955;
+  --red: #f44747;
+  --blue: #569cd6;
+  --cyan: #4ec9b0;
+  --orange: #ce9178;
+  --tool-bg: #1a1a1a;
 }
 
 .container {
@@ -398,86 +398,286 @@ body.in-iframe .bar-title:hover {
   line-height: 1.6;
 }
 
-/* VSCode/Copilot visual mode (toggle) */
+/* VSCode/Copilot visual mode (toggle) — matches VS Code Copilot Chat panel */
 body.vscode-chat-ui {
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
 }
 body.vscode-chat-ui code,
 body.vscode-chat-ui pre,
 body.vscode-chat-ui .diff-view {
   font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+  font-size: 12px;
+}
+/* Turns — tighter spacing like the VS Code chat panel */
+body.vscode-chat-ui .turn {
+  margin-bottom: 2px;
 }
 body.vscode-chat-ui .turn-header {
-  background: color-mix(in srgb, var(--bg-surface) 80%, #2d2d2d 20%);
+  background: transparent;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  border-radius: 0;
+  padding: 6px 16px;
 }
+body.vscode-chat-ui .turn-header:hover {
+  background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+}
+body.vscode-chat-ui .turn-header-label {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+/* Role sections — no left-stripe, no visible borders (like real VS Code chat) */
 body.vscode-chat-ui .role-section {
-  border-radius: 8px;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  padding: 10px 16px;
+  margin: 0;
 }
 body.vscode-chat-ui .role-section.role-user {
-  background: color-mix(in srgb, var(--bg-surface) 90%, var(--bg) 10%);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--text) 4%, var(--bg) 96%);
+  border: none;
+  border-radius: 8px;
+  margin: 8px 4px;
+  padding: 10px 16px;
 }
 body.vscode-chat-ui .role-section.role-assistant {
-  background: color-mix(in srgb, var(--bg) 85%, var(--bg-surface) 15%);
-  border: 1px solid color-mix(in srgb, var(--border) 75%, #2d2d2d 25%);
-  border-left: 3px solid var(--cyan);
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  margin: 4px 0;
 }
+/* Role labels — subtle, small, like VS Code's faint "User" / "Copilot" */
+body.vscode-chat-ui .role-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  margin-bottom: 6px;
+}
+body.vscode-chat-ui .role-label.role-user-label {
+  color: var(--text);
+}
+body.vscode-chat-ui .role-label.role-assistant-label {
+  color: var(--text);
+}
+/* User text — no bold, normal weight like VS Code chat */
+body.vscode-chat-ui .user-prompt {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 11px;
+}
+body.vscode-chat-ui .user-text {
+  color: var(--text-bright);
+  font-weight: normal;
+}
+/* Assistant text */
 body.vscode-chat-ui .assistant-text {
-  line-height: 1.72;
+  line-height: 1.6;
+  padding-left: 0;
 }
-body.vscode-chat-ui .tool-block,
+body.vscode-chat-ui .assistant-text p {
+  margin: 0.5em 0;
+}
+body.vscode-chat-ui .assistant-text h3 {
+  font-size: 1.1em;
+  margin: 0.85em 0 0.35em;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+body.vscode-chat-ui .assistant-text h4 {
+  font-size: 1em;
+  margin: 0.7em 0 0.3em;
+}
+body.vscode-chat-ui .assistant-text ul,
+body.vscode-chat-ui .assistant-text ol {
+  padding-left: 1.5em;
+  margin: 0.3em 0;
+}
+body.vscode-chat-ui .assistant-text li {
+  margin: 0.2em 0;
+}
+body.vscode-chat-ui .assistant-text pre {
+  background: color-mix(in srgb, var(--bg) 94%, #000 6%);
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+body.vscode-chat-ui .assistant-text code {
+  background: color-mix(in srgb, var(--bg-surface) 60%, var(--bg) 40%);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+/* Tool blocks — VS Code inline style for .tool-inline, compact for others */
+body.vscode-chat-ui .tool-block.tool-inline {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  margin: 2px 0;
+}
+body.vscode-chat-ui .tool-block.tool-inline > .tool-header {
+  padding: 3px 0;
+  gap: 8px;
+  font-size: 13px;
+}
+body.vscode-chat-ui .tool-block.tool-inline .tool-verb {
+  color: var(--green);
+  font-weight: 600;
+  font-size: 13px;
+}
+body.vscode-chat-ui .tool-block.tool-inline code {
+  background: color-mix(in srgb, var(--bg-surface) 60%, var(--bg) 40%);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+body.vscode-chat-ui .tool-block.tool-inline .tool-detail {
+  color: var(--text);
+  font-size: 13px;
+}
+body.vscode-chat-ui .tool-block.tool-inline .tool-chevron {
+  margin-left: auto;
+}
+body.vscode-chat-ui .tool-block.tool-inline > .tool-body {
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  margin-top: 4px;
+}
+body.vscode-chat-ui .tool-block:not(.tool-inline) {
+  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 50%, var(--bg) 50%);
+}
 body.vscode-chat-ui .tool-group-header {
-  border-radius: 4px;
+  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 50%, var(--bg) 50%);
 }
+/* VS Code-style inline group header (compact line like tool-inline) */
+body.vscode-chat-ui .tool-group-header.tool-group-inline {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 3px 0;
+  font-size: 13px;
+}
+body.vscode-chat-ui .tool-group-header.tool-group-inline .tool-group-chevron {
+  display: none;
+}
+body.vscode-chat-ui .tool-group-header.tool-group-inline .tool-group-count {
+  color: var(--green);
+  font-weight: 600;
+}
+body.vscode-chat-ui .tool-group-header.tool-group-inline .tool-group-summary {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+body.vscode-chat-ui .tool-group-header.tool-group-inline .tool-chevron {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+body.vscode-chat-ui .tool-header {
+  padding: 5px 10px;
+}
+body.vscode-chat-ui .tool-name {
+  font-size: 12px;
+}
+/* Thinking blocks — collapsible with content title, italic */
+body.vscode-chat-ui .thinking-block {
+  border-left: none;
+  background: transparent;
+  margin: 2px 0;
+  padding-left: 0;
+}
+body.vscode-chat-ui .thinking-header {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 3px 0;
+}
+/* Collapsible fade — match transparent assistant bg */
+body.vscode-chat-ui .role-section.role-assistant .collapsible-wrap.is-collapsed .collapsible-fade {
+  background: linear-gradient(transparent, var(--bg));
+}
+/* Transcript area */
+body.vscode-chat-ui .transcript {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* ═══ Copilot dark theme mode ═══ */
+body.theme-mode-copilot .turn-header {
+  background: transparent;
+  border-bottom-color: color-mix(in srgb, var(--border) 40%, transparent);
+}
+body.theme-mode-copilot .turn-header:hover {
+  background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+}
+/* Copilot user section — subtle blue tint, no border */
 body.theme-mode-copilot.vscode-chat-ui .role-section.role-user {
-  background: color-mix(in srgb, #1f4f80 58%, var(--bg) 42%);
-  border-left-color: #6cb6ff;
-  border-color: color-mix(in srgb, #6cb6ff 28%, var(--border) 72%);
+  background: color-mix(in srgb, #2a4364 35%, var(--bg) 65%);
+  border: none;
 }
 body.theme-mode-copilot.vscode-chat-ui .role-section.role-assistant {
-  border-left-color: #8ab4ff;
-  border-color: color-mix(in srgb, #8ab4ff 18%, var(--border) 82%);
-}
-body.theme-mode-copilot .turn-header {
-  background: #1b2230;
+  background: transparent;
+  border: none;
 }
 body.theme-mode-copilot .role-section {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  box-shadow: none;
 }
+/* Copilot text styling */
 body.theme-mode-copilot .assistant-text h2,
 body.theme-mode-copilot .assistant-text h3,
 body.theme-mode-copilot .assistant-text h4 {
-  color: #f4f7ff;
+  color: var(--text-bright);
   letter-spacing: 0.01em;
-  margin-top: 0.95em;
+  margin-top: 0.85em;
 }
 body.theme-mode-copilot .assistant-text h2,
 body.theme-mode-copilot .assistant-text h3 {
-  border-bottom: 1px solid color-mix(in srgb, #6cb6ff 25%, var(--border) 75%);
-  padding-bottom: 0.26em;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 body.theme-mode-copilot .assistant-text ul,
 body.theme-mode-copilot .assistant-text ol {
   padding-left: 1.4em;
 }
 body.theme-mode-copilot .assistant-text li {
-  margin: 0.24em 0;
+  margin: 0.2em 0;
 }
 body.theme-mode-copilot .assistant-text li::marker {
-  color: #8ab4ff;
+  color: var(--text-dim);
 }
 body.theme-mode-copilot .assistant-text hr {
-  border-top-color: color-mix(in srgb, #6cb6ff 25%, var(--border) 75%);
+  border-top-color: color-mix(in srgb, var(--border) 60%, transparent);
 }
 body.theme-mode-copilot .assistant-text pre,
 body.theme-mode-copilot .user-text pre,
 body.theme-mode-copilot .thinking-body pre {
-  background: #0f141b;
+  background: #181818;
+  border-color: #2d2d2d;
 }
 body.theme-mode-copilot .tool-block,
 body.theme-mode-copilot .tool-group-header {
-  background: #121923;
+  background: color-mix(in srgb, var(--bg-surface) 40%, var(--bg) 60%);
+  border-color: color-mix(in srgb, var(--border) 40%, transparent);
+}
+body.theme-mode-copilot .thinking-block {
+  background: transparent;
+}
+body.theme-mode-copilot .thinking-header {
+  color: var(--text-dim);
+}
+body.theme-mode-copilot .thinking-body pre {
+  background: #181818;
+  border-color: #2d2d2d;
 }
 .assistant-text p { margin: 0.4em 0; }
 .assistant-text pre {
@@ -1262,11 +1462,19 @@ body.theme-mode-copilot .tool-group-header {
   // ═══════════════════════════════════════════
 
   function applyUiMode(mode, { persist = true } = {}) {
+    const prevMode = uiMode;
     uiMode = mode === "vscode" ? "vscode" : "terminal";
     document.body.classList.toggle("vscode-chat-ui", uiMode === "vscode");
 
     if (uiBtn) uiBtn.textContent = `UI: ${uiMode === "vscode" ? "VSCode" : "Terminal"}`;
     if (uiBtn2) uiBtn2.textContent = uiMode === "vscode" ? "VSCode" : "Terminal";
+
+    // Re-render when switching modes (tool/thinking blocks differ)
+    if (prevMode !== uiMode && TURNS.length > 0 && transcript.children.length > 0) {
+      const saved = currentTurn;
+      renderAllTurns();
+      navigate(saved);
+    }
 
     if (persist) {
       try { localStorage.setItem("cr-ui-mode", uiMode); } catch {}
@@ -1303,6 +1511,11 @@ body.theme-mode-copilot .tool-group-header {
   }
 
   function detectInitialThemeMode() {
+    // If the theme declares --default-ui: vscode, it's a copilot/vscode theme
+    const defaultUi = getComputedStyle(document.documentElement)
+      .getPropertyValue("--default-ui").trim();
+    if (defaultUi === "vscode") return "copilot";
+
     const bg = getComputedStyle(document.body).getPropertyValue("--bg").trim().toLowerCase();
     if (!bg) return "dark";
     if (bg.startsWith("#")) {
@@ -1613,6 +1826,76 @@ body.theme-mode-copilot .tool-group-header {
     return truncate(input, 60);
   }
 
+  // VS Code-style verb + inline summary ("Ran `cmd`", "Edited file.mjs")
+  // Uses tc.result (pastTenseMessage) as display text when available, as VS Code does
+  function vsCodeToolSummary(tc) {
+    const name = tc.name || "";
+    const input = tc.input || {};
+    const toolId = String(input.tool_id || "").toLowerCase();
+    const basename = (fp) => { const p = String(fp || ""); const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\")); return i >= 0 ? p.slice(i + 1) : p; };
+
+    // Extract a clean description from pastTenseMessage/result for Copilot tools
+    const resultText = (tc.result || "").replace(/\[\]\([^)]*\)/g, "").trim();
+    const invText = (input.invocation || "").replace(/\[\]\([^)]*\)/g, "").trim();
+
+    if (name === "Bash" || toolId.includes("run_in_terminal")) {
+      return { verb: "Ran", detail: input.command || invText || "", isCode: true };
+    }
+    if (name === "Edit" || toolId.includes("replace_string") || toolId.includes("multi_replace") || toolId.includes("applypatch")) {
+      return { verb: "Edited", detail: basename(input.file_path || input.filePath || input.uri || ""), isCode: true };
+    }
+    if (name === "Write" || toolId.includes("create_file")) {
+      return { verb: "Created", detail: basename(input.file_path || input.filePath || input.uri || ""), isCode: true };
+    }
+    if (name === "Read" || toolId.includes("read_file") || toolId.includes("readfile")) {
+      const fp = basename(input.file_path || input.filePath || input.uri || "");
+      return { verb: "Read", detail: fp || resultText || "", isCode: !!fp };
+    }
+    if (name === "get_errors" || toolId.includes("geterrors") || toolId.includes("get_errors")) {
+      const files = input.filePaths || input.file_paths || [];
+      const fp = Array.isArray(files) && files.length ? basename(files[0]) : "";
+      const suffix = tc.result && !tc.is_error ? ", no problems found" : "";
+      return { verb: "Checked", detail: fp + suffix, isCode: false };
+    }
+    if (name === "Grep" || toolId.includes("grep") || toolId.includes("search") || toolId.includes("findtext") || toolId.includes("findfiles")) {
+      // Prefer result (pastTenseMessage) like "Searched for regex patterns in multiple directories"
+      const detail = resultText || invText || input.pattern || input.query || "";
+      // Remove leading verb if already present ("Searched for X" -> "for X")
+      const cleaned = detail.replace(/^Searched\s+/i, "");
+      return { verb: "Searched", detail: cleaned, isCode: false };
+    }
+    if (name === "Glob" || toolId.includes("file_search") || toolId.includes("list_dir")) {
+      return { verb: "Listed", detail: input.pattern || input.query || input.path || "", isCode: true };
+    }
+    if (toolId.includes("manage_todo_list") || toolId.includes("todo")) {
+      return { verb: "Updated", detail: "todo list", isCode: false };
+    }
+    if (toolId.startsWith("lsp_")) {
+      return { verb: "LSP", detail: toolId.replace("lsp_", "").replace(/_/g, " "), isCode: false };
+    }
+    if (toolId.includes("getchangedfiles")) {
+      return { verb: "Read", detail: resultText || "changed files", isCode: false };
+    }
+    // Fallback: use result or invocation text if available
+    if (resultText) return { verb: name || "Tool", detail: resultText.slice(0, 60), isCode: false };
+    return { verb: name, detail: toolPreview(tc), isCode: false };
+  }
+
+  // Extract a short title from thinking text (first meaningful line)
+  function thinkingTitle(text) {
+    if (!text) return "Thinking";
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let title = trimmed.replace(/^#+\s*/, "");
+      // Strip markdown bold/italic markers
+      title = title.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
+      if (title.length > 80) title = title.slice(0, 77) + "...";
+      return title;
+    }
+    return "Thinking";
+  }
+
   function formatToolBody(tc) {
     const name = tc.name || "";
     const input = tc.input || {};
@@ -1805,11 +2088,15 @@ body.theme-mode-copilot .tool-group-header {
       html += `<div class="role-label role-assistant-label">/*ASSISTANT_LABEL*/</div>`;
 
       // Group consecutive tool_use blocks into runs
+      // In vscode mode, thinking blocks don't break tool runs (they render as
+      // small collapsed headers inside the group, matching VS Code Copilot Chat)
       const segments = [];
       let toolRun = [];
       let blockIdx = 0;
       for (const block of turn.blocks) {
         if (block.kind === "tool_use" && block.tool_call) {
+          toolRun.push(block);
+        } else if (uiMode === "vscode" && block.kind === "thinking" && toolRun.length > 0) {
           toolRun.push(block);
         } else {
           if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun, blockIdx: blockIdx++ }); toolRun = []; }
@@ -1827,19 +2114,45 @@ body.theme-mode-copilot .tool-group-header {
             const textContent = `<div class="assistant-text">${renderMarkdown(block.text)}</div>`;
             html += `<div class="block-wrapper${hiddenCls}" data-block-idx="${seg.blockIdx}">${wrapCollapsible(textContent, lines, 15)}</div>`;
           } else if (block.kind === "thinking") {
+            const thinkLabel = uiMode === "vscode" ? escapeHtml(thinkingTitle(block.text)) : "Thinking";
             html += `<div class="block-wrapper${hiddenCls}" data-block-idx="${seg.blockIdx}"><div class="thinking-block" data-type="thinking">
               <div class="thinking-header" onclick="this.parentElement.classList.toggle('open')">
-                <span class="thinking-chevron">&#9654;</span> Thinking <span class="block-spinner"></span>
+                <span class="thinking-chevron">&#9654;</span> ${thinkLabel} <span class="block-spinner"></span>
               </div>
               <div class="thinking-body">${renderMarkdown(block.text)}</div>
             </div></div>`;
           }
         } else {
-          // Consecutive tool calls
-          const toolHtml = seg.blocks.map(block => {
+          // Tool run (may include interleaved thinking blocks in vscode mode)
+          const toolBlocks = seg.blocks.filter(b => b.kind === "tool_use");
+          const segBodyHtml = seg.blocks.map(block => {
+            if (block.kind === "thinking") {
+              const thinkLabel = uiMode === "vscode" ? escapeHtml(thinkingTitle(block.text)) : "Thinking";
+              return `<div class="thinking-block" data-type="thinking">
+              <div class="thinking-header" onclick="this.parentElement.classList.toggle('open')">
+                <span class="thinking-chevron">&#9654;</span> ${thinkLabel} <span class="block-spinner"></span>
+              </div>
+              <div class="thinking-body">${renderMarkdown(block.text)}</div>
+            </div>`;
+            }
             const tc = block.tool_call;
+            const tbodyHtml = formatToolBody(tc);
+            if (uiMode === "vscode") {
+              const vs = vsCodeToolSummary(tc);
+              const detailHtml = vs.detail
+                ? (vs.isCode ? ` <code>${escapeHtml(vs.detail)}</code>` : ` <span class="tool-detail">${escapeHtml(vs.detail)}</span>`)
+                : "";
+              return `<div class="tool-block tool-inline" data-type="tool">
+              <div class="tool-header" onclick="this.parentElement.classList.toggle('open')">
+                <span class="tool-indicator${tc.is_error ? " tool-error" : ""}"></span>
+                <span class="tool-verb">${escapeHtml(vs.verb)}</span>${detailHtml}
+                <span class="block-spinner"></span>
+                <span class="tool-chevron">&#9654;</span>
+              </div>
+              <div class="tool-body">${tbodyHtml}</div>
+            </div>`;
+            }
             const preview = toolPreview(tc);
-            const bodyHtml = formatToolBody(tc);
             return `<div class="tool-block" data-type="tool">
               <div class="tool-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="tool-indicator${tc.is_error ? " tool-error" : ""}"></span>
@@ -1848,24 +2161,45 @@ body.theme-mode-copilot .tool-group-header {
                 <span class="block-spinner"></span>
                 <span class="tool-chevron">&#9654;</span>
               </div>
-              <div class="tool-body">${bodyHtml}</div>
+              <div class="tool-body">${tbodyHtml}</div>
             </div>`;
           }).join("");
 
-          if (seg.blocks.length <= 4) {
-            html += `<div class="block-wrapper${hiddenCls}" data-block-idx="${seg.blockIdx}">${toolHtml}</div>`;
+          const toolCount = toolBlocks.length;
+          const groupThreshold = uiMode === "vscode" ? 2 : 4;
+          if (toolCount <= groupThreshold) {
+            html += `<div class="block-wrapper${hiddenCls}" data-block-idx="${seg.blockIdx}">${segBodyHtml}</div>`;
+          } else if (uiMode === "vscode") {
+            // VS Code-style compact group: "N tool calls" with verb summaries
+            const verbCounts = {};
+            for (const b of toolBlocks) {
+              const v = vsCodeToolSummary(b.tool_call).verb;
+              verbCounts[v] = (verbCounts[v] || 0) + 1;
+            }
+            const summary = Object.entries(verbCounts).map(([v, c]) => c > 1 ? `${c} ${v}` : v).join(", ");
+            const hasError = toolBlocks.some(b => b.tool_call.is_error);
+            html += `<div class="block-wrapper${hiddenCls}" data-block-idx="${seg.blockIdx}"><div class="tool-group" data-type="tool">
+              <div class="tool-group-header tool-group-inline" onclick="this.parentElement.classList.toggle('open')">
+                <span class="tool-indicator${hasError ? ' tool-error' : ''}"></span>
+                <span class="tool-group-count">${toolCount} tool calls</span>
+                <span class="tool-group-summary">${escapeHtml(summary)}</span>
+                <span class="block-spinner"></span>
+                <span class="tool-chevron">&#9654;</span>
+              </div>
+              <div class="tool-group-body">${segBodyHtml}</div>
+            </div></div>`;
           } else {
-            const names = seg.blocks.map(b => b.tool_call.name);
+            const names = toolBlocks.map(b => b.tool_call.name);
             const uniqueNames = [...new Set(names)].join(", ");
-            const hasError = seg.blocks.some(b => b.tool_call.is_error);
+            const hasError = toolBlocks.some(b => b.tool_call.is_error);
             html += `<div class="block-wrapper${hiddenCls}" data-block-idx="${seg.blockIdx}"><div class="tool-group" data-type="tool">
               <div class="tool-group-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="tool-group-chevron">&#9654;</span>
-                ${hasError ? '<span class="tool-indicator tool-error" style="display:inline-block;margin-right:4px;"></span>' : ''}${seg.blocks.length} tool calls
+                ${hasError ? '<span class="tool-indicator tool-error" style="display:inline-block;margin-right:4px;"></span>' : ''}${toolCount} tool calls
                 <span class="tool-group-names">${escapeHtml(uniqueNames)}</span>
                 <span class="block-spinner"></span>
               </div>
-              <div class="tool-group-body">${toolHtml}</div>
+              <div class="tool-group-body">${segBodyHtml}</div>
             </div></div>`;
           }
         }
@@ -2030,6 +2364,8 @@ body.theme-mode-copilot .tool-group-header {
     let toolRun = [];
     for (const block of turn.blocks) {
       if (block.kind === "tool_use" && block.tool_call) {
+        toolRun.push(block);
+      } else if (uiMode === "vscode" && block.kind === "thinking" && toolRun.length > 0) {
         toolRun.push(block);
       } else {
         if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); toolRun = []; }
@@ -2836,13 +3172,20 @@ body.theme-mode-copilot .tool-group-header {
   // Init
   transcript.textContent = "";
   transcript.style.opacity = "";
-  renderAllTurns();
-  try {
-    const savedUi = localStorage.getItem("cr-ui-mode");
-    applyUiMode(savedUi === "vscode" ? "vscode" : "terminal", { persist: false });
-  } catch {
-    applyUiMode("terminal", { persist: false });
+
+  // Apply UI and theme modes BEFORE rendering (tool/thinking blocks depend on uiMode)
+  let savedUi;
+  try { savedUi = localStorage.getItem("cr-ui-mode"); } catch {}
+
+  // If no saved preference, check if theme declares a default UI mode via CSS variable
+  if (!savedUi) {
+    const defaultUi = getComputedStyle(document.documentElement)
+      .getPropertyValue("--default-ui").trim();
+    if (defaultUi === "vscode") savedUi = "vscode";
   }
+
+  applyUiMode(savedUi === "vscode" ? "vscode" : "terminal", { persist: false });
+
   try {
     const savedTheme = localStorage.getItem("cr-theme-mode");
     const initialTheme = savedTheme && THEME_MODES.includes(savedTheme)
@@ -2852,6 +3195,8 @@ body.theme-mode-copilot .tool-group-header {
   } catch {
     applyThemeMode("dark", { persist: false });
   }
+
+  renderAllTurns();
   applyVisibility();
   const hashMatch = location.hash.match(/turn=(\d+)/);
   if (hashMatch) {
