@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+### Fixes
+- Fix editor failing on Windows (path separator in home directory check)
+
 ## 0.5.2
 
 ### New
