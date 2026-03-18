@@ -232,6 +232,8 @@ code { background: var(--bg-surface); padding: 2px 6px; border-radius: 4px; font
   </div>
 </div>
 
+<script data-goatcounter="https://es617.goatcounter.com/count" async src="//gc.zgo.at/count.js"><` + `/script>
+
 <script>
 ${bundleJs}
 const { parseTranscriptFromText, detectFormatFromText, applyPacedTiming, getTheme, renderFromTemplate } = ClaudeReplay;
