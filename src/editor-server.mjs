@@ -344,7 +344,7 @@ function discoverSessions() {
     const claudeGroup = { name: "Claude Code", projects: [] };
     for (const proj of projects.sort()) {
       const projPath = join(claudeBase, proj);
-      const files = readdirSync(projPath).filter((f) => f.endsWith(".jsonl")).sort().reverse();
+      const files = readdirSync(projPath).filter((f) => f.endsWith(".jsonl"));
       if (files.length === 0) continue;
       const parts = proj.replace(/^-+/, "").split("-");
       const displayName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
@@ -356,6 +356,11 @@ function discoverSessions() {
           let date = null;
           try { date = statSync(fullPath).mtime.toISOString(); } catch { /* ignore */ }
           return { file: f, path: fullPath, date };
+        }).sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return b.date.localeCompare(a.date);
         }),
       });
     }
@@ -374,7 +379,7 @@ function discoverSessions() {
       let ids;
       try { ids = readdirSync(transcriptsDir); } catch { continue; }
       const cursorSessions = [];
-      for (const id of ids.sort().reverse()) {
+      for (const id of ids) {
         const idDir = join(transcriptsDir, id);
         try { if (!statSync(idDir).isDirectory()) continue; } catch { continue; }
         // Try transcript.jsonl first, then <uuid>.jsonl
@@ -391,6 +396,12 @@ function discoverSessions() {
         } catch { continue; }
       }
       if (cursorSessions.length === 0) continue;
+      cursorSessions.sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return b.date.localeCompare(a.date);
+      });
       const parts = proj.replace(/^-+/, "").split("-");
       const displayName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
       cursorGroup.projects.push({ name: displayName, dirName: proj, sessions: cursorSessions });
