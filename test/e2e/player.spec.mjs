@@ -489,6 +489,38 @@ test("play from last turn does not reset to beginning", async ({ page }) => {
   await expect(page.locator('.turn[data-index="1"]')).toBeVisible();
 });
 
+// ─── Hash reveal mode (#turn=Nr) ──────────────────────────
+
+test("deep link with r suffix reveals blocks", async ({ page }) => {
+  await goto(page, "turn=3r");
+  // Turn 3 should be visible
+  await expect(page.locator('.turn[data-index="3"]')).toBeVisible();
+  // Blocks should be revealed (not hidden)
+  const visible = await visibleBlockCount(page, 3);
+  expect(visible).toBeGreaterThan(0);
+  const hidden = await blockCount(page, 3, true);
+  expect(hidden).toBe(0);
+});
+
+test("deep link without r suffix hides active blocks", async ({ page }) => {
+  await goto(page, "turn=3");
+  await expect(page.locator('.turn[data-index="3"]')).toBeVisible();
+  // Active turn blocks should be hidden
+  const hidden = await blockCount(page, 3, true);
+  expect(hidden).toBeGreaterThan(0);
+});
+
+test("deep link with r suffix does not trigger scroll animation", async ({ page }) => {
+  await goto(page, "turn=5r");
+  // Should be at the last turn with blocks visible, no splash
+  await expect(page.locator("#splash")).toHaveClass(/hidden/);
+  await expect(page.locator('.turn[data-index="5"]')).toBeVisible();
+  const visible = await visibleBlockCount(page, 5);
+  expect(visible).toBeGreaterThan(0);
+});
+
+// ─── Uncompressed ─────────────────────────────────────────
+
 test("uncompressed: deep link to turn works", async ({ page }) => {
   await page.goto(getUncompressedFileUrl("turn=2"));
   await waitForReady(page);

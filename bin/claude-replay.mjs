@@ -6,7 +6,8 @@
 
 import { parseArgs } from "node:util";
 import { basename, dirname, resolve } from "node:path";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, watch as fsWatch } from "node:fs";
+import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "../src/parser.mjs";
 import { render } from "../src/renderer.mjs";
@@ -41,6 +42,8 @@ const options = {
   "no-minify": { type: "boolean", default: false },
   "no-compress": { type: "boolean", default: false },
   format: { type: "string" },
+  serve: { type: "boolean", default: false },
+  watch: { type: "boolean", default: false },
   open: { type: "boolean", default: false },
   version: { type: "boolean", short: "v", default: false },
   help: { type: "boolean", short: "h", default: false },
@@ -154,7 +157,9 @@ Options:
   --bookmarks FILE        JSON file with bookmarks [{turn, label}]
   --no-minify             Use unminified template (default: minified if available)
   --no-compress           Embed raw JSON instead of compressed (for older browsers)
-  --open                  Open the generated HTML in the default browser (requires -o)
+  --serve                 Serve the replay on a local HTTP server instead of writing to file
+  --watch                 Watch input files for changes and auto-regenerate
+  --open                  Open the generated HTML in the default browser
   --list-themes           List available built-in themes and exit
   -h, --help              Show this help message`);
   process.exit(0);
@@ -292,58 +297,11 @@ if (values["exclude-turns"]) {
   });
 }
 
-// Parse all input files and concatenate turns
-let format = detectFormat(inputFiles[0]);
-let allTurns = [];
-for (const file of inputFiles) {
-  const fileTurns = parseTranscript(file);
-  if (inputFiles.length > 1) {
-    const f = detectFormat(file);
-    if (f === "cursor") format = "cursor";
-  }
-  allTurns.push(...fileTurns);
-}
-
-// Sort by timestamp if all sessions have them, then re-index sequentially
-if (inputFiles.length > 1) {
-  const allHaveTimestamps = allTurns.length > 0 && allTurns.every((t) => t.timestamp);
-  if (allHaveTimestamps) {
-    allTurns.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-  }
-  // Re-index sequentially
-  for (let i = 0; i < allTurns.length; i++) {
-    allTurns[i].index = i + 1;
-  }
-  console.error(`Merged ${inputFiles.length} sessions (${allTurns.length} turns total)`);
-}
-
-let turns = filterTurns(allTurns, {
-  turnRange,
-  excludeTurns,
-  timeFrom: values.from,
-  timeTo: values.to,
-});
-
-// Re-index sequentially after filtering so player position matches turn.index
-const indexMap = new Map(); // original index → new index
-for (let i = 0; i < turns.length; i++) {
-  indexMap.set(turns[i].index, i + 1);
-  turns[i].index = i + 1;
-}
-
-if (turns.length === 0) {
-  console.error("Warning: no turns found after filtering.");
-}
-
-// Apply timing mode: auto (default), real, paced
+// Validate timing mode early
 const timing = values.timing || "auto";
 if (!["auto", "real", "paced"].includes(timing)) {
   console.error(`Error: unknown --timing mode "${timing}". Use auto, real, or paced.`);
   process.exit(1);
-}
-const hasTimestamps = turns.some((t) => t.timestamp);
-if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
-  applyPacedTiming(turns);
 }
 
 const speed = parseFloat(values.speed) || 1.0;
@@ -352,8 +310,6 @@ const speed = parseFloat(values.speed) || 1.0;
 let title = values.title;
 if (!title) {
   const dir = basename(dirname(inputFiles[0]));
-  // Claude projects dirs look like "-Users-enrico-Personal-project-name"
-  // Extract the last segment as the project name
   const parts = dir.replace(/^-+/, "").split("-");
   const projectName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
   if (projectName && projectName !== "." && projectName !== "/") {
@@ -363,8 +319,8 @@ if (!title) {
   }
 }
 
-// Parse bookmarks from --mark and --bookmarks
-let bookmarks = [];
+// Parse bookmarks from --mark and --bookmarks (static, parsed once)
+let cliBookmarks = [];
 
 if (values.mark) {
   for (const m of values.mark) {
@@ -379,7 +335,7 @@ if (values.mark) {
       console.error(`Error: invalid turn number in --mark '${m}'`);
       process.exit(1);
     }
-    bookmarks.push({ turn, label });
+    cliBookmarks.push({ turn, label });
   }
 }
 
@@ -399,7 +355,7 @@ if (values.bookmarks) {
         console.error(`Error: each bookmark must have numeric 'turn' and string 'label'`);
         process.exit(1);
       }
-      bookmarks.push({ turn: item.turn, label: item.label });
+      cliBookmarks.push({ turn: item.turn, label: item.label });
     }
   } catch (e) {
     if (e.message.startsWith("Error:")) throw e;
@@ -408,22 +364,7 @@ if (values.bookmarks) {
   }
 }
 
-// Remap bookmark turn indices to match re-indexed turns
-bookmarks = bookmarks
-  .map((bm) => ({ turn: indexMap.get(bm.turn), label: bm.label }))
-  .filter((bm) => bm.turn != null);
-
-// Extract bookmarks embedded in turns (from replay JSONL format)
-for (const t of turns) {
-  if (t.bookmark) {
-    bookmarks.push({ turn: t.index, label: t.bookmark });
-    delete t.bookmark;
-  }
-}
-
-bookmarks.sort((a, b) => a.turn - b.turn);
-
-// Parse --redact rules
+// Parse --redact rules (static, parsed once)
 let redactRules;
 if (values.redact) {
   redactRules = values.redact.map((r) => {
@@ -433,34 +374,207 @@ if (values.redact) {
   });
 }
 
-const html = render(turns, {
-  speed,
-  showThinking: !values["no-thinking"],
-  showToolCalls: !values["no-tool-calls"],
-  theme,
-  redactSecrets: !values["no-auto-redact"],
-  redactRules,
-  userLabel: values["user-label"],
-  assistantLabel: values["assistant-label"] || (format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : "Claude"),
-  title,
-  description: values.description,
-  ogImage: values["og-image"],
-  bookmarks,
-  minified: !values["no-minify"],
-  compress: !values["no-compress"],
-});
+/** Parse input files and render to HTML. Can be called repeatedly for --watch. */
+function buildReplay() {
+  let format = detectFormat(inputFiles[0]);
+  let allTurns = [];
+  for (const file of inputFiles) {
+    const fileTurns = parseTranscript(file);
+    if (inputFiles.length > 1) {
+      const f = detectFormat(file);
+      if (f === "cursor") format = "cursor";
+    }
+    allTurns.push(...fileTurns);
+  }
 
-if (values.output) {
-  writeFileSync(values.output, html);
-  console.error(`Wrote ${values.output} (${turns.length} turns)`);
-  if (values.open) {
-    const cmd = process.platform === "darwin" ? "open"
-      : process.platform === "win32" ? "start" : "xdg-open";
-    execFile(cmd, [values.output], () => {});
+  if (inputFiles.length > 1) {
+    const allHaveTimestamps = allTurns.length > 0 && allTurns.every((t) => t.timestamp);
+    if (allHaveTimestamps) {
+      allTurns.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    }
+    for (let i = 0; i < allTurns.length; i++) {
+      allTurns[i].index = i + 1;
+    }
+    console.error(`Merged ${inputFiles.length} sessions (${allTurns.length} turns total)`);
   }
+
+  let turns = filterTurns(allTurns, {
+    turnRange,
+    excludeTurns,
+    timeFrom: values.from,
+    timeTo: values.to,
+  });
+
+  const indexMap = new Map();
+  for (let i = 0; i < turns.length; i++) {
+    indexMap.set(turns[i].index, i + 1);
+    turns[i].index = i + 1;
+  }
+
+  if (turns.length === 0) {
+    console.error("Warning: no turns found after filtering.");
+  }
+
+  const hasTimestamps = turns.some((t) => t.timestamp);
+  if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
+    applyPacedTiming(turns);
+  }
+
+  let bookmarks = cliBookmarks
+    .map((bm) => ({ turn: indexMap.get(bm.turn), label: bm.label }))
+    .filter((bm) => bm.turn != null);
+
+  for (const t of turns) {
+    if (t.bookmark) {
+      bookmarks.push({ turn: t.index, label: t.bookmark });
+      delete t.bookmark;
+    }
+  }
+  bookmarks.sort((a, b) => a.turn - b.turn);
+
+  const html = render(turns, {
+    speed,
+    showThinking: !values["no-thinking"],
+    showToolCalls: !values["no-tool-calls"],
+    theme,
+    redactSecrets: !values["no-auto-redact"],
+    redactRules,
+    userLabel: values["user-label"],
+    assistantLabel: values["assistant-label"] || (format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : "Claude"),
+    title,
+    description: values.description,
+    ogImage: values["og-image"],
+    bookmarks,
+    minified: !values["no-minify"],
+    compress: !values["no-compress"],
+  });
+
+  return { html, turnCount: turns.length };
+}
+
+// ---------------------------------------------------------------------------
+// --serve and --watch mode
+// ---------------------------------------------------------------------------
+
+if (values.serve) {
+  const servePort = values.port ? parseInt(values.port, 10) : 7332;
+  let currentHtml = "";
+  let currentTurnCount = 0;
+  let buildVersion = 0;
+
+  function rebuild() {
+    try {
+      const { html, turnCount } = buildReplay();
+      currentHtml = html;
+      currentTurnCount = turnCount;
+      buildVersion++;
+      console.error(`[${new Date().toLocaleTimeString()}] Built replay (${turnCount} turns, v${buildVersion})`);
+    } catch (e) {
+      console.error(`[${new Date().toLocaleTimeString()}] Build error: ${e.message}`);
+    }
+  }
+
+  const reloadScript = `<script>
+(function() {
+  var v = /*BUILD_VERSION*/;
+  setInterval(function() {
+    fetch("/__reload").then(function(r) { return r.json(); }).then(function(d) {
+      if (d.version > v) {
+        v = d.version;
+        var turns = document.querySelectorAll(".turn");
+        var totalOld = turns.length;
+        var pos = 0;
+        for (var i = turns.length - 1; i >= 0; i--) {
+          if (turns[i].classList.contains("visible")) { pos = i + 1; break; }
+        }
+        var atEnd = pos >= totalOld && totalOld > 0;
+        var target = atEnd ? d.turns : pos;
+        location.hash = "turn=" + target + (atEnd ? "r" : "");
+        location.reload();
+      }
+    }).catch(function() {});
+  }, 1000);
+})();
+</script>`;
+
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    if (url.pathname === "/__reload") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ version: buildVersion, turns: currentTurnCount }));
+    }
+    const antiFlash = '<script>if(location.hash)document.write("<style>#splash{display:none!important}</style>")<' + '/script>';
+    const html = currentHtml
+      .replace("</head>", antiFlash + "</head>")
+      .replace("</body>", reloadScript.replace("/*BUILD_VERSION*/", String(buildVersion)) + "</body>");
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(html);
+  });
+
+  rebuild();
+
+  if (values.watch) {
+    let debounce;
+    for (const file of inputFiles) {
+      fsWatch(file, () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(rebuild, 300);
+      });
+    }
+    console.error(`Watching ${inputFiles.length} file(s) for changes...`);
+  }
+
+  server.listen(servePort, () => {
+    const url = `http://127.0.0.1:${servePort}`;
+    console.error(`Serving replay at ${url}`);
+    if (values.open) {
+      const cmd = process.platform === "darwin" ? "open"
+        : process.platform === "win32" ? "start" : "xdg-open";
+      execFile(cmd, [url], () => {});
+    }
+  });
+} else if (values.watch) {
+  // --watch without --serve: write to file on each change
+  if (!values.output) {
+    console.error("Error: --watch without --serve requires -o/--output");
+    process.exit(1);
+  }
+
+  function rebuild() {
+    try {
+      const { html, turnCount } = buildReplay();
+      writeFileSync(values.output, html);
+      console.error(`[${new Date().toLocaleTimeString()}] Wrote ${values.output} (${turnCount} turns)`);
+    } catch (e) {
+      console.error(`[${new Date().toLocaleTimeString()}] Build error: ${e.message}`);
+    }
+  }
+
+  rebuild();
+  let debounce;
+  for (const file of inputFiles) {
+    fsWatch(file, () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(rebuild, 300);
+    });
+  }
+  console.error(`Watching ${inputFiles.length} file(s) for changes...`);
 } else {
-  if (values.open) {
-    console.error("Warning: --open requires -o/--output (cannot open stdout output)");
+  // Normal mode: build once and output
+  const { html, turnCount } = buildReplay();
+
+  if (values.output) {
+    writeFileSync(values.output, html);
+    console.error(`Wrote ${values.output} (${turnCount} turns)`);
+    if (values.open) {
+      const cmd = process.platform === "darwin" ? "open"
+        : process.platform === "win32" ? "start" : "xdg-open";
+      execFile(cmd, [values.output], () => {});
+    }
+  } else {
+    if (values.open) {
+      console.error("Warning: --open requires -o/--output (cannot open stdout output)");
+    }
+    process.stdout.write(html);
   }
-  process.stdout.write(html);
 }

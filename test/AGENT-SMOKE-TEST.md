@@ -155,6 +155,39 @@ node bin/claude-replay.mjs test/fixture.jsonl -o /tmp/smoke-uncompressed.html --
 - Both should produce valid HTML
 - Compressed file should be smaller: `wc -c /tmp/smoke-compressed.html /tmp/smoke-uncompressed.html`
 
+## 12. Serve and watch
+
+```bash
+# --serve should start a server
+node bin/claude-replay.mjs test/fixture.jsonl --serve --port 17998 &
+SERVE_PID=$!
+sleep 1
+
+# Should serve HTML
+curl -s http://127.0.0.1:17998 | head -1
+# Should show <!DOCTYPE html>
+
+# Reload endpoint should return version and turn count
+curl -s http://127.0.0.1:17998/__reload
+# Should return JSON with version and turns fields
+
+kill $SERVE_PID
+
+# --watch without --serve should require -o
+node bin/claude-replay.mjs test/fixture.jsonl --watch 2>&1; echo "exit: $?"
+# Should print error and exit 1
+
+# --watch -o should write file
+cp test/fixture.jsonl /tmp/smoke-watch-input.jsonl
+node bin/claude-replay.mjs /tmp/smoke-watch-input.jsonl --watch -o /tmp/smoke-watch.html &
+WATCH_PID=$!
+sleep 1
+head -1 /tmp/smoke-watch.html
+# Should show <!DOCTYPE html>
+kill $WATCH_PID
+rm /tmp/smoke-watch-input.jsonl /tmp/smoke-watch.html
+```
+
 ## Reporting
 
 Report each section as PASS or FAIL. If any section fails, include the error output.

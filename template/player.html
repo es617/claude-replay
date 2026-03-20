@@ -2465,13 +2465,32 @@ body.in-iframe .bar-title:hover {
   transcript.style.opacity = "";
   renderAllTurns();
   applyVisibility();
-  const hashMatch = location.hash.match(/turn=(\d+)/);
+  const hashMatch = location.hash.match(/turn=(\d+)(r)?/);
   if (hashMatch) {
     const startTurn = Math.min(parseInt(hashMatch[1], 10), TURNS.length);
+    const reveal = hashMatch[2] === "r";
     if (startTurn > 0) {
-      // Deep link: skip splash, jump directly — hide active blocks so turn header is visible
       hideSplash();
-      showUpTo(startTurn, { hideActiveBlocks: true });
+      if (reveal) {
+        // Watch/live mode: instant scroll, no animation, suppress scroll activation
+        showUpTo(startTurn, { hideActiveBlocks: false, skipScroll: true });
+        scrollProtectUntil = Date.now() + 2000;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = turnElements()[startTurn - 1];
+            if (el) {
+              const barH = getControlsHeight();
+              const viewH = window.innerHeight - barH;
+              const target = el.querySelector(".block-wrapper:last-child") || el;
+              const absBottom = target.getBoundingClientRect().bottom + window.scrollY;
+              window.scrollTo(0, Math.max(0, absBottom - viewH + PEEK_OFFSET));
+            }
+          });
+        });
+      } else {
+        // Normal deep link: animated scroll, blocks hidden
+        showUpTo(startTurn, { hideActiveBlocks: true });
+      }
     }
     // else: turn=0 means splash, which is already visible
   }
@@ -2479,14 +2498,18 @@ body.in-iframe .bar-title:hover {
   updateProgress();
 
   // React to hash changes (e.g. from parent editor iframe control)
+  let lastProcessedHash = location.hash;
   window.addEventListener("hashchange", () => {
-    const m = location.hash.match(/turn=(\d+)/);
+    if (location.hash === lastProcessedHash) return;
+    lastProcessedHash = location.hash;
+    const m = location.hash.match(/turn=(\d+)(r)?/);
     if (!m) return;
     const target = Math.min(parseInt(m[1], 10), TURNS.length);
+    const rev = m[2] === "r";
     if (target > 0) {
       stopPlay();
       hideSplash();
-      showUpTo(target, { hideActiveBlocks: true });
+      showUpTo(target, { hideActiveBlocks: !rev });
     }
   });
 

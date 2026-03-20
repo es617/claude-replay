@@ -12,7 +12,7 @@
 
 AI coding sessions are great for development, but hard to share. Screen recordings are bulky and transcripts are hard to navigate.
 
-**claude-replay** turns Claude Code, Cursor, and Codex CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation.
+**claude-replay** turns Claude Code, Cursor, and Codex CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation. Use `--serve --watch` to monitor agent sessions live as they run.
 
 ![Demo](https://raw.githubusercontent.com/es617/claude-replay/main/docs/demo.gif)
 
@@ -36,6 +36,7 @@ Claude Code, Cursor, and Codex CLI store conversation transcripts as JSONL files
 - Multiple color themes
 - Terminal-style bottom-to-top scroll
 - Embeddable via iframe
+- Live watch mode — monitor agent sessions in real time (`--serve --watch`)
 - Web-based editor UI for visual session editing and preview
 
 ## Use cases
@@ -47,6 +48,7 @@ claude-replay is useful for:
 - **Demos** — share reproducible sessions without video
 - **Bug reports** — attach a replay instead of long logs
 - **Teaching** — step through AI reasoning and tool usage
+- **Live monitoring** — watch agent sessions in real time on remote machines or containers
 
 ## Installation
 
@@ -202,9 +204,11 @@ The extracted JSONL can be fed back into `claude-replay` to regenerate with diff
 | `--theme-file FILE` | Custom theme JSON file (overrides `--theme`) |
 | `--no-minify` | Use unminified template (default: minified if available) |
 | `--no-compress` | Embed raw JSON instead of compressed data (for older browsers) |
-| `--open` | Open the generated HTML in the default browser (requires `-o`) |
+| `--open` | Open the generated HTML in the default browser |
+| `--serve` | Serve the replay on a local HTTP server instead of writing to file |
+| `--watch` | Watch input files for changes and auto-regenerate |
 | `--list-themes` | List available built-in themes and exit |
-| `--port N` | Port for the editor server (default: 7331) |
+| `--port N` | Port for the editor/serve server (default: 7331 editor, 7332 serve) |
 
 ### Examples
 
@@ -226,6 +230,15 @@ claude-replay session.jsonl --turns 1-5 > snippet.html
 
 # Chain multiple sessions into one replay
 claude-replay abc123 def456 ghi789 -o combined.html
+
+# Live preview: serve and auto-reload on changes
+claude-replay session.jsonl --serve --watch
+
+# Serve without watching (one-shot preview)
+claude-replay session.jsonl --serve
+
+# Watch and write to file on changes
+claude-replay session.jsonl --watch -o replay.html
 ```
 
 ## Timing modes
