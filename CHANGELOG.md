@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+### New
+- `--serve` — serve the replay on a local HTTP server instead of writing to file
+- `--watch` — watch input files for changes and auto-regenerate the replay
+- `--serve --watch` — live-updating replay in the browser, auto-follows new turns
+- `--no-origin-check` — disable CSRF origin check for remote/containerized environments
+- `CLAUDE_REPLAY_ALLOWED_ORIGINS` env var — whitelist specific origins for the editor server
+- `#turn=Nr` hash syntax — deep link to a turn with blocks revealed (used by watch mode)
+- Static website at es617.github.io/claude-replay with online replay generator
+
 ## 0.5.3
 
 ### Fixes
