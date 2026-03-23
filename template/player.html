@@ -53,8 +53,8 @@ body {
 .controls-row {
   display: flex;
   align-items: center;
-  gap: 8px 12px;
-  padding: 8px 12px;
+  gap: 8px 0;
+  padding: 8px;
   flex-wrap: wrap;
 }
 
@@ -77,6 +77,9 @@ body {
 }
 .controls button:hover { background: var(--border); }
 #btn-play { width: 36px; }
+#btn-prev, #btn-next { min-width: 30px; width: 30px; font-size: 13px; }
+#btn-prev-turn, #btn-next-turn { min-width: 26px; width: 26px; font-size: 10px; padding: 2px; }
+.nav-group { display: flex; align-items: center; gap: 3px; }
 .controls button.active { background: var(--accent-dim); border-color: var(--accent); }
 
 .bar-title {
@@ -86,10 +89,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   text-decoration: none;
-  margin-right: auto;
+  margin: 0 0 0 12px;
   flex: 1;
   min-width: 0;
 }
+@media (max-width: 480px) { .bar-title { display: none; } .nav-group { margin-right: auto; } }
 body.in-iframe .bar-title {
   cursor: pointer;
 }
@@ -160,14 +164,21 @@ body.in-iframe .bar-title:hover {
   color: var(--text-dim);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  margin-left: 12px;
 }
 
 
 .speed-wrap {
   position: relative;
 }
+.controls-secondary button {
+  width: 34px;
+  min-width: 34px;
+}
 .speed-wrap button#speed-btn {
   font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  letter-spacing: -0.5px;
 }
 .speed-popover {
   display: none;
@@ -235,13 +246,15 @@ body.in-iframe .bar-title:hover {
 .controls-secondary {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
+  margin-left: 6px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
 /* More menu (replaces secondary controls on mobile + iframe) */
-.more-wrap { position: relative; }
+.more-wrap { position: relative; display: none; margin-left: 6px; }
+@media (max-width: 600px) { .more-wrap { display: block; } }
 .more-popover {
   display: none;
   position: absolute;
@@ -258,6 +271,11 @@ body.in-iframe .bar-title:hover {
   overflow-y: auto;
 }
 .more-wrap.open .more-popover { display: block; }
+.more-open-link { display: none; font-size: 12px; color: var(--text-dim); text-decoration: none; padding: 4px 0; white-space: nowrap; }
+.more-open-link + hr.more-divider { display: none; }
+body.in-iframe .more-open-link { display: block; }
+body.in-iframe .more-open-link + hr.more-divider { display: block; }
+.more-open-link:hover { color: var(--text); }
 .more-popover label {
   display: flex;
   align-items: center;
@@ -289,23 +307,24 @@ body.in-iframe .bar-title:hover {
 }
 
 #more-btn {
-  display: none;
   background: none !important;
   border: none !important;
   font-size: 16px;
   font-weight: bold;
+  min-width: 20px;
+  width: 20px;
+  padding: 0;
+  justify-content: flex-end;
 }
-#chapter-btn { font-size: 20px; }
+#chapter-btn { font-size: 16px; }
 
 @media (max-width: 600px) {
-  body:not(.in-iframe) #more-btn { display: inline-flex; }
   body:not(.in-iframe) .controls-secondary { display: none; }
   body:not(.in-iframe) .chapter-wrap { display: none !important; }
 }
 /* iframe */
 /* Narrow iframes: collapse into more menu */
-@media (max-width: 400px) {
-  body.in-iframe #more-btn { display: inline-flex; }
+@media (max-width: 600px) {
   body.in-iframe .controls-secondary { display: none; }
   body.in-iframe .chapter-wrap { display: none !important; }
 }
@@ -744,7 +763,6 @@ body.in-iframe .bar-title:hover {
 @media (max-width: 600px) {
   .controls-row {
     padding: 6px 8px;
-    gap: 6px 8px;
   }
   .controls button {
     min-height: 40px;
@@ -924,16 +942,20 @@ body.in-iframe .bar-title:hover {
 <div class="container">
   <div class="controls">
     <div class="controls-row">
-      <button id="btn-prev" title="Previous turn">&larr;</button>
-      <button id="btn-play" title="Play / Pause">&#9654;</button>
-      <button id="btn-next" title="Next turn">&rarr;</button>
+      <div class="nav-group">
+        <button id="btn-prev-turn" title="Previous turn">&#x23EE;&#xFE0E;</button>
+        <button id="btn-prev" title="Previous block">&larr;</button>
+        <button id="btn-play" title="Play / Pause">&#9654;</button>
+        <button id="btn-next" title="Next block">&rarr;</button>
+        <button id="btn-next-turn" title="Next turn">&#x23ED;&#xFE0E;</button>
+      </div>
       <a class="bar-title" id="bar-title" title="/*PAGE_TITLE*/">/*PAGE_TITLE*/</a>
       <span class="progress-text" id="progress-text">0 of 0</span>
-      <div class="chapter-wrap" id="chapter-wrap" style="display:none">
-        <button id="chapter-btn" title="Chapters">&#9776;</button>
-        <div class="chapter-menu" id="chapter-menu"></div>
-      </div>
       <div class="controls-secondary">
+        <div class="chapter-wrap" id="chapter-wrap" style="display:none">
+          <button id="chapter-btn" title="Chapters">&#9776;</button>
+          <div class="chapter-menu" id="chapter-menu"></div>
+        </div>
         <div class="speed-wrap" id="speed-wrap">
           <button id="speed-btn" title="Speed">/*INITIAL_SPEED*/x</button>
           <div class="speed-popover" id="speed-popover"></div>
@@ -949,6 +971,8 @@ body.in-iframe .bar-title:hover {
       <div class="more-wrap" id="more-wrap">
         <button id="more-btn" title="More">&#x22EE;</button>
         <div class="more-popover" id="more-popover">
+          <a class="more-open-link" id="more-open-link" href="#" target="_blank" rel="noopener">Open in new tab &#x2197;</a>
+          <hr class="more-divider">
           <div class="more-row">
             <span class="more-row-label">Speed</span>
             <button id="speed-btn2" title="Cycle speed">/*INITIAL_SPEED*/x</button>
@@ -1063,6 +1087,8 @@ body.in-iframe .bar-title:hover {
   const btnPlay = $("#btn-play");
   const btnPrev = $("#btn-prev");
   const btnNext = $("#btn-next");
+  const btnPrevTurn = $("#btn-prev-turn");
+  const btnNextTurn = $("#btn-next-turn");
   const progressFill = $("#progress-fill");
   const progressText = $("#progress-text");
   const progressBar = $("#progress-bar");
@@ -2169,6 +2195,8 @@ body.in-iframe .bar-title:hover {
   btnPlay.addEventListener("click", () => playing ? stopPlay() : startPlay());
   btnNext.addEventListener("click", stepForward);
   btnPrev.addEventListener("click", stepBack);
+  btnNextTurn.addEventListener("click", () => jumpTurn(1));
+  btnPrevTurn.addEventListener("click", () => jumpTurn(-1));
 
   // Speed popover toggle
   speedBtn.addEventListener("click", (e) => {
@@ -2207,11 +2235,18 @@ body.in-iframe .bar-title:hover {
   // Chapter popover toggle (wired in bookmarks section below)
 
   // More menu (mobile/iframe) toggle
+  const moreOpenLink = $("#more-open-link");
   moreBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     const wasOpen = moreWrap.classList.contains("open");
     closeAllPopovers();
-    if (!wasOpen) moreWrap.classList.add("open");
+    if (!wasOpen) {
+      // Update open link with current turn position
+      const activeTurn = $(".turn.active");
+      const turnIdx = activeTurn ? parseInt(activeTurn.dataset.index, 10) : currentTurn;
+      moreOpenLink.href = location.href.replace(/#.*/, "") + "#turn=" + turnIdx;
+      moreWrap.classList.add("open");
+    }
   });
 
   // Sync more-popover controls with main controls
