@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1
+
+### Player
+- Turn skip buttons (⏮/⏭) for jumping between turns
+- Auto-paced timing toggle — viewers can switch between real and smooth paced timing in the speed menu
+- Responsive controls: title hidden below 480px, speed/filter/chapters collapse into more menu below 600px
+- "Open in new tab" link in more menu for iframe embeds
+
+### Editor
+- Sessions sorted by modification time instead of UUID alphabetical order
+
 ## 0.6.0
 
 ### New
