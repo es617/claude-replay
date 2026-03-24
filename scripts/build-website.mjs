@@ -268,7 +268,11 @@ function processFile(text, filename) {
     if (timing === "paced" || (timing === "auto" && !hasTimestamps)) {
       applyPacedTiming(turns);
     }
+    // Extract embedded bookmarks from replay JSONL
+    var bookmarks = [];
+    for (const t of turns) { if (t.bookmark) { bookmarks.push({ turn: t.index, label: t.bookmark }); delete t.bookmark; } }
     currentTurns = turns;
+    currentTurns._bookmarks = bookmarks;
     currentFormat = format;
     currentFileName = filename;
     status.textContent = "";
@@ -300,6 +304,8 @@ function gatherOptions() {
     assistantLabel: currentFormat === "codex" ? "Codex" : currentFormat === "cursor" ? "Assistant" : "Claude",
     redactSecrets: true,
     redactRules,
+    bookmarks: currentTurns._bookmarks || [],
+    hasRealTimestamps: currentTurns.some((t) => t.timestamp),
   };
 }
 
