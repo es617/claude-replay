@@ -4,6 +4,7 @@
 ![Claude Code](https://img.shields.io/badge/Claude_Code-replay-blue)
 ![Cursor](https://img.shields.io/badge/Cursor-replay-purple)
 ![Codex CLI](https://img.shields.io/badge/Codex_CLI-replay-green)
+![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-replay-orange)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
@@ -12,19 +13,20 @@
 
 AI coding sessions are great for development, but hard to share. Screen recordings are bulky and transcripts are hard to navigate.
 
-**claude-replay** turns Claude Code, Cursor, and Codex CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation. Use `--serve --watch` to monitor agent sessions live as they run.
+**claude-replay** turns Claude Code, Cursor, Codex CLI, and Gemini CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation. Use `--serve --watch` to monitor agent sessions live as they run.
 
 ![Demo](https://raw.githubusercontent.com/es617/claude-replay/main/docs/demo.gif)
 
 **[Try it online](https://es617.github.io/claude-replay/)** · **[Live demo](https://es617.github.io/claude-replay/demo-redaction.html)**
 
-Claude Code, Cursor, and Codex CLI store conversation transcripts as JSONL files on disk. **claude-replay** auto-detects the format and converts them into visual replays suitable for blog posts, demos, and documentation.
+Claude Code, Cursor, Codex CLI, and Gemini CLI store conversation transcripts on disk. **claude-replay** auto-detects the format and converts them into visual replays suitable for blog posts, demos, and documentation.
 
 | Source | Transcript location |
 |---|---|
 | Claude Code | `~/.claude/projects/<project>/` |
 | Cursor | `~/.cursor/projects/<project>/agent-transcripts/<id>/` |
 | Codex CLI | `~/.codex/sessions/<date>/` |
+| Gemini CLI | `~/.gemini/tmp/<projectHash>/chats/` |
 
 ## Features
 
@@ -100,7 +102,7 @@ claude-replay session1-id session2-id -o combined.html
 
 Running `claude-replay` with no arguments opens a browser-based editor that auto-discovers your Claude Code and Cursor sessions. From there you can browse, edit, preview, and export replays visually.
 
-For CLI usage, you can pass just a session ID — claude-replay will search `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/` to find the matching file. Or pass the full path to a JSONL file directly.
+For CLI usage, you can pass just a session ID — claude-replay will search `~/.claude/projects/`, `~/.cursor/projects/`, `~/.codex/sessions/`, and `~/.gemini/tmp/` to find the matching file. Or pass the full path to a session file directly.
 
 ### Cursor
 
@@ -118,6 +120,20 @@ Codex CLI (OpenAI) transcripts are also supported — the format is auto-detecte
 claude-replay ~/.codex/sessions/2026/03/12/rollout-<id>.jsonl -o replay.html
 ```
 
+### Gemini CLI
+
+Gemini CLI transcripts are also supported — the format is auto-detected. Gemini stores sessions as single JSON files (not JSONL) with inline thinking blocks and tool calls. Tool names are mapped to their Claude Code equivalents (`run_shell_command` → `Bash`, `read_file` → `Read`, etc.) for consistent rendering.
+
+```bash
+claude-replay ~/.gemini/tmp/<projectHash>/chats/session-<id>.json -o replay.html
+```
+
+You can also search by session ID:
+
+```bash
+claude-replay <session-id> -o replay.html  # searches ~/.gemini/tmp/ automatically
+```
+
 ## Web Editor
 
 The default experience. Launch it by running `claude-replay` with no arguments:
@@ -130,7 +146,7 @@ claude-replay --port 8080
 ![Editor](https://raw.githubusercontent.com/es617/claude-replay/main/docs/editor-demo.gif)
 
 The editor provides:
-- **Session browser** — auto-discovers sessions from `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/`, plus a folder navigator for JSONL files stored elsewhere
+- **Session browser** — auto-discovers sessions from `~/.claude/projects/`, `~/.cursor/projects/`, `~/.codex/sessions/`, and `~/.gemini/tmp/`, plus a folder navigator for session files stored elsewhere
 - **Turn editor** — include/exclude turns, edit user prompts, expand assistant blocks (read-only), add bookmarks
 - **Options panel** — theme, speed, thinking/tool call toggles, redaction rules, labels
 - **Live preview** — updates as you edit, renders the same output as the CLI
@@ -146,7 +162,7 @@ claude-replay <input> [input2...] [options]     Generate replay from CLI
 claude-replay extract <replay.html> [-o output.jsonl] [--format jsonl|json]
 ```
 
-Each `<input>` can be a `.jsonl` file path or a session ID. If it does not end in `.jsonl` and is not an existing file path, it is treated as a session ID. claude-replay searches `~/.claude/projects/`, `~/.cursor/projects/`, and `~/.codex/sessions/` for a matching session file. You can find your current session ID in Claude Code by running `/status`.
+Each `<input>` can be a session file path or a session ID. If it is not an existing file path, it is treated as a session ID. claude-replay searches `~/.claude/projects/`, `~/.cursor/projects/`, `~/.codex/sessions/`, and `~/.gemini/tmp/` for a matching session file. You can find your current session ID in Claude Code by running `/status`.
 
 Multiple inputs are concatenated into a single replay (up to 20). When all sessions have timestamps, turns are sorted chronologically; otherwise command-line order is used. This is useful when accepting a plan creates a new session — chain the sessions to get the full story in one replay.
 
@@ -425,6 +441,10 @@ One JSON object per line with a top-level `role` field. No timestamps. Thinking 
 ### Codex CLI
 
 Event-based JSONL with typed events (`session_meta`, `response_item`, `event_msg`, etc.). Includes timestamps. Tool calls (`exec_command`, `apply_patch`) are mapped to Claude Code equivalents for consistent rendering. Codex's encrypted reasoning blocks are skipped; commentary messages are shown as thinking blocks. The format is auto-detected — no flags needed.
+
+### Gemini CLI
+
+Single JSON file with a `sessionId` field and a `messages` array containing `user` and `gemini` typed entries. Includes timestamps, inline thinking blocks (thoughts), and tool calls with nested results. Tool names (`run_shell_command`, `read_file`, `edit_file`, etc.) are mapped to Claude Code equivalents for consistent rendering. The format is auto-detected — no flags needed.
 
 ## Requirements
 

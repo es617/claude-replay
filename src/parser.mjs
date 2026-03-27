@@ -1,5 +1,5 @@
 /**
- * Parse Claude Code, Cursor, and Codex CLI JSONL transcripts into structured turns.
+ * Parse Claude Code, Cursor, Codex CLI, and Gemini CLI transcripts into structured turns.
  */
 
 import { readFileSync } from "node:fs";
@@ -62,13 +62,22 @@ function isToolResultOnly(content) {
 /**
  * Detect transcript format by peeking at the first entry.
  * @param {string} filePath
- * @returns {"claude-code"|"cursor"|"codex"|"unknown"}
+ * @returns {"claude-code"|"cursor"|"codex"|"gemini"|"unknown"}
  */
 export function detectFormat(filePath) {
   return detectFormatFromText(readFileSync(filePath, "utf-8"));
 }
 
 export function detectFormatFromText(text) {
+  // Gemini CLI: single JSON object with sessionId + messages array
+  const trimmedFull = text.trim();
+  if (trimmedFull.startsWith("{")) {
+    try {
+      const obj = JSON.parse(trimmedFull);
+      if (obj.sessionId && Array.isArray(obj.messages)) return "gemini";
+    } catch { /* not valid single-object JSON, fall through to JSONL */ }
+  }
+
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -309,7 +318,155 @@ function extractCodexUserText(text) {
 }
 
 /**
+ * Map Gemini CLI tool names to their claude-replay equivalents.
+ */
+const GEMINI_TOOL_MAP = {
+  run_shell_command: "Bash",
+  shell: "Bash",
+  read_file: "Read",
+  read_many_files: "Read",
+  edit_file: "Edit",
+  write_file: "Write",
+  write_to_file: "Write",
+  list_directory: "Glob",
+  search_files: "Grep",
+  grep_search: "Grep",
+  web_search: "WebSearch",
+  web_fetch: "WebFetch",
+  complete_task: "complete_task",
+};
+
+/**
+ * Extract tool result text from Gemini's nested result structure.
+ * Gemini stores results as: [{ functionResponse: { response: { output, error } } }]
+ */
+function extractGeminiToolResult(result) {
+  if (!result) return null;
+  if (typeof result === "string") return result;
+  if (!Array.isArray(result) || result.length === 0) return null;
+  const fr = result[0]?.functionResponse;
+  if (!fr) return null;
+  const resp = fr.response;
+  if (!resp) return null;
+  const output = resp.output ?? "";
+  const error = resp.error ?? "";
+  // Prefer error text if output is empty and error is meaningful
+  if (!output && error && error !== "(none)") return error;
+  return output || null;
+}
+
+/**
+ * Parse a Gemini CLI JSON session into Turn[].
+ * Gemini stores sessions as a single JSON object with a messages array,
+ * unlike the JSONL format used by Claude Code, Cursor, and Codex.
+ */
+function parseGeminiTranscript(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  if (!data.messages || !Array.isArray(data.messages)) return [];
+
+  const turns = [];
+  let turnIndex = 0;
+  let currentUserText = "";
+  let currentTimestamp = "";
+  let currentBlocks = [];
+
+  function finalizeTurn() {
+    if (!currentUserText && currentBlocks.length === 0) return;
+    turnIndex++;
+    turns.push({
+      index: turnIndex,
+      user_text: currentUserText,
+      blocks: currentBlocks,
+      timestamp: currentTimestamp,
+    });
+    currentUserText = "";
+    currentTimestamp = "";
+    currentBlocks = [];
+  }
+
+  for (const msg of data.messages) {
+    const type = msg.type;
+    const ts = msg.timestamp ?? null;
+
+    if (type === "user") {
+      // Start a new turn — finalize previous if any
+      finalizeTurn();
+      currentUserText = cleanSystemTags(msg.content ?? "");
+      currentTimestamp = ts ?? "";
+      continue;
+    }
+
+    if (type === "gemini") {
+      // Thoughts → thinking blocks
+      const thoughts = msg.thoughts ?? [];
+      for (const thought of thoughts) {
+        const subject = (thought.subject ?? "").trim();
+        const description = (thought.description ?? "").trim();
+        if (!description && !subject) continue;
+        const thinkText = subject ? `${subject}: ${description}` : description;
+        currentBlocks.push({ kind: "thinking", text: thinkText, tool_call: null, timestamp: thought.timestamp ?? ts });
+      }
+
+      // Tool calls → tool_use blocks
+      const toolCalls = msg.toolCalls ?? [];
+      for (const tc of toolCalls) {
+        const rawName = tc.name ?? "unknown";
+        const mappedName = GEMINI_TOOL_MAP[rawName] ?? rawName;
+        const input = tc.args ?? {};
+        // For Bash-mapped tools, normalize args.command
+        const normalizedInput = mappedName === "Bash" && input.command ? { command: input.command } : input;
+        const resultText = extractGeminiToolResult(tc.result);
+        const isError = tc.status === "error" ||
+          (tc.result?.[0]?.functionResponse?.response?.exitCode != null &&
+           tc.result[0].functionResponse.response.exitCode !== 0);
+        currentBlocks.push({
+          kind: "tool_use",
+          text: "",
+          tool_call: {
+            tool_use_id: tc.id ?? "",
+            name: mappedName,
+            input: normalizedInput,
+            result: resultText,
+            resultTimestamp: tc.timestamp ?? null,
+            is_error: isError,
+          },
+          timestamp: ts,
+        });
+      }
+
+      // Content → text block
+      const content = (msg.content ?? "").trim();
+      if (content) {
+        currentBlocks.push({ kind: "text", text: content, tool_call: null, timestamp: ts });
+      }
+      continue;
+    }
+
+    // Skip unknown message types
+  }
+
+  // Finalize last turn
+  finalizeTurn();
+
+  // Drop empty turns and re-index
+  const filtered = turns.filter((t) => {
+    if (t.user_text) return true;
+    return t.blocks.some((b) => b.kind === "tool_use" || (b.kind === "text" && b.text) || (b.kind === "thinking" && b.text));
+  });
+  for (let j = 0; j < filtered.length; j++) {
+    filtered[j].index = j + 1;
+  }
+  return filtered;
+}
+
+/**
  * Parse a Codex CLI JSONL transcript into Turn[].
+ */
 /**
  * Parse a replay JSONL file (output of `claude-replay extract`).
  * Each line is a turn object with { index, user_text, blocks, timestamp }.
@@ -559,6 +716,7 @@ export function parseTranscript(filePath) {
  */
 export function parseTranscriptFromText(text) {
   const format = detectFormatFromText(text);
+  if (format === "gemini") return parseGeminiTranscript(text);
   if (format === "codex") return parseCodexTranscript(text);
   if (format === "replay") return parseReplayJsonl(text);
   const { entries, format: fmt } = parseJsonl(text);

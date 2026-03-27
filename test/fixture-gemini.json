@@ -1,0 +1,208 @@
+{
+  "sessionId": "test-gemini-001",
+  "projectHash": "abc123def456",
+  "startTime": "2026-03-01T10:00:00.000Z",
+  "lastUpdated": "2026-03-01T10:05:00.000Z",
+  "messages": [
+    {
+      "id": "msg-001",
+      "timestamp": "2026-03-01T10:00:00.000Z",
+      "type": "user",
+      "content": "What files are in the current directory?"
+    },
+    {
+      "id": "msg-002",
+      "timestamp": "2026-03-01T10:00:05.000Z",
+      "type": "gemini",
+      "content": "I'll list the files for you.",
+      "thoughts": [
+        {
+          "subject": "Analyzing Request",
+          "description": "The user wants to see the directory contents. I should use the shell command tool to list files.",
+          "timestamp": "2026-03-01T10:00:01.000Z"
+        },
+        {
+          "subject": "Choosing Tool",
+          "description": "I'll use run_shell_command with ls to show the directory listing.",
+          "timestamp": "2026-03-01T10:00:02.000Z"
+        }
+      ],
+      "toolCalls": [
+        {
+          "id": "run_shell_command-001",
+          "name": "run_shell_command",
+          "args": {
+            "command": "ls -la",
+            "description": "List files in the current directory"
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "run_shell_command-001",
+                "name": "run_shell_command",
+                "response": {
+                  "output": "total 16\ndrwxr-xr-x  4 user user 4096 Mar  1 10:00 .\ndrwxr-xr-x 10 user user 4096 Mar  1 09:00 ..\n-rw-r--r--  1 user user  256 Mar  1 10:00 README.md\n-rw-r--r--  1 user user  128 Mar  1 10:00 package.json",
+                  "error": "(none)",
+                  "exitCode": 0,
+                  "signal": 0
+                }
+              }
+            }
+          ],
+          "status": "success",
+          "timestamp": "2026-03-01T10:00:03.000Z"
+        }
+      ],
+      "tokens": {
+        "input": 150,
+        "output": 45,
+        "cached": 0,
+        "thoughts": 30,
+        "tool": 20,
+        "total": 245
+      },
+      "model": "gemini-2.5-flash"
+    },
+    {
+      "id": "msg-003",
+      "timestamp": "2026-03-01T10:01:00.000Z",
+      "type": "user",
+      "content": "Read the README.md file"
+    },
+    {
+      "id": "msg-004",
+      "timestamp": "2026-03-01T10:01:10.000Z",
+      "type": "gemini",
+      "content": "",
+      "thoughts": [],
+      "toolCalls": [
+        {
+          "id": "read_file-001",
+          "name": "read_file",
+          "args": {
+            "file_path": "README.md"
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "read_file-001",
+                "name": "read_file",
+                "response": {
+                  "output": "# My Project\n\nA sample project for testing.",
+                  "error": "(none)",
+                  "exitCode": 0,
+                  "signal": 0
+                }
+              }
+            }
+          ],
+          "status": "success",
+          "timestamp": "2026-03-01T10:01:05.000Z"
+        }
+      ],
+      "tokens": {
+        "input": 200,
+        "output": 60,
+        "cached": 50,
+        "thoughts": 0,
+        "tool": 30,
+        "total": 340
+      },
+      "model": "gemini-2.5-flash"
+    },
+    {
+      "id": "msg-005",
+      "timestamp": "2026-03-01T10:01:15.000Z",
+      "type": "gemini",
+      "content": "The README.md contains the project title \"My Project\" and a brief description: \"A sample project for testing.\"",
+      "thoughts": [
+        {
+          "subject": "Summarizing Content",
+          "description": "I've read the file. Let me summarize it for the user.",
+          "timestamp": "2026-03-01T10:01:12.000Z"
+        }
+      ],
+      "toolCalls": [],
+      "tokens": {
+        "input": 250,
+        "output": 30,
+        "cached": 100,
+        "thoughts": 15,
+        "tool": 0,
+        "total": 395
+      },
+      "model": "gemini-2.5-flash"
+    },
+    {
+      "id": "msg-006",
+      "timestamp": "2026-03-01T10:02:00.000Z",
+      "type": "user",
+      "content": "Thanks!"
+    },
+    {
+      "id": "msg-007",
+      "timestamp": "2026-03-01T10:02:05.000Z",
+      "type": "gemini",
+      "content": "You're welcome! Let me know if you need anything else.",
+      "thoughts": [],
+      "toolCalls": [],
+      "tokens": {
+        "input": 300,
+        "output": 15,
+        "cached": 200,
+        "thoughts": 0,
+        "tool": 0,
+        "total": 515
+      },
+      "model": "gemini-2.5-flash"
+    },
+    {
+      "id": "msg-008",
+      "timestamp": "2026-03-01T10:03:00.000Z",
+      "type": "user",
+      "content": "Run a failing command"
+    },
+    {
+      "id": "msg-009",
+      "timestamp": "2026-03-01T10:03:10.000Z",
+      "type": "gemini",
+      "content": "The command failed with exit code 1.",
+      "thoughts": [],
+      "toolCalls": [
+        {
+          "id": "run_shell_command-002",
+          "name": "run_shell_command",
+          "args": {
+            "command": "cat nonexistent.txt",
+            "description": "Attempt to read a nonexistent file"
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "run_shell_command-002",
+                "name": "run_shell_command",
+                "response": {
+                  "output": "",
+                  "error": "cat: nonexistent.txt: No such file or directory",
+                  "exitCode": 1,
+                  "signal": 0
+                }
+              }
+            }
+          ],
+          "status": "error",
+          "timestamp": "2026-03-01T10:03:05.000Z"
+        }
+      ],
+      "tokens": {
+        "input": 350,
+        "output": 20,
+        "cached": 250,
+        "thoughts": 0,
+        "tool": 10,
+        "total": 630
+      },
+      "model": "gemini-2.5-flash"
+    }
+  ]
+}

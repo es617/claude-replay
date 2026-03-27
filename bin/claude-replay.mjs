@@ -84,7 +84,7 @@ if (positionals.length === 0 || positionals[0] === "editor") {
     if (editorArg) {
       if (existsSync(editorArg)) {
         initialFile = resolve(editorArg);
-      } else if (!editorArg.endsWith(".jsonl")) {
+      } else if (!editorArg.endsWith(".jsonl") && !editorArg.endsWith(".json")) {
         const { resolveSessionId } = await import("../src/resolve-session.mjs");
         const matches = resolveSessionId(editorArg);
         if (matches.length === 1) {
@@ -115,11 +115,12 @@ if (values.help) {
        claude-replay <input> [input2...] [options]  Generate replay from CLI
        claude-replay extract <replay.html> [-o output.jsonl]
 
-Convert Claude Code session transcripts into embeddable HTML replays.
+Convert Claude Code, Cursor, Codex, and Gemini CLI session transcripts into embeddable HTML replays.
 
-<input> can be a .jsonl file path or a session ID. If it does not end in
-.jsonl and is not an existing file, it is treated as a session ID and
-searched in ~/.claude/projects/ and ~/.cursor/projects/.
+<input> can be a .jsonl/.json file path or a session ID. If it does not end
+in .jsonl/.json and is not an existing file, it is treated as a session ID
+and searched in ~/.claude/projects/, ~/.cursor/projects/, ~/.codex/sessions/,
+and ~/.gemini/tmp/.
 
 Multiple inputs are concatenated into a single replay (up to 20). Sessions
 with timestamps are sorted chronologically; otherwise command-line order is
@@ -221,13 +222,13 @@ const inputFiles = [];
 for (const arg of positionals) {
   if (existsSync(arg)) {
     inputFiles.push(arg);
-  } else if (!arg.endsWith(".jsonl")) {
+  } else if (!arg.endsWith(".jsonl") && !arg.endsWith(".json")) {
     // Treat as session ID
     const { resolveSessionId } = await import("../src/resolve-session.mjs");
     const matches = resolveSessionId(arg);
     if (matches.length === 0) {
       console.error(`Error: no session found matching "${arg}"`);
-      console.error("Searched ~/.claude/projects/, ~/.cursor/projects/, and ~/.codex/sessions/");
+      console.error("Searched ~/.claude/projects/, ~/.cursor/projects/, ~/.codex/sessions/, and ~/.gemini/tmp/");
       process.exit(1);
     } else if (matches.length === 1) {
       inputFiles.push(matches[0].path);
@@ -443,7 +444,7 @@ function buildReplay() {
     redactSecrets: !values["no-auto-redact"],
     redactRules,
     userLabel: values["user-label"],
-    assistantLabel: values["assistant-label"] || (format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : "Claude"),
+    assistantLabel: values["assistant-label"] || (format === "gemini" ? "Gemini" : format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : "Claude"),
     title,
     description: values.description,
     ogImage: values["og-image"],

@@ -410,6 +410,34 @@ function discoverSessions() {
     if (cursorGroup.projects.length > 0) groups.push(cursorGroup);
   } catch { /* directory doesn't exist */ }
 
+  // Gemini CLI: ~/.gemini/tmp/<projectHash>/chats/session-*.json
+  const geminiBase = join(home, ".gemini", "tmp");
+  try {
+    const geminiGroup = { name: "Gemini", projects: [] };
+    for (const hashDir of readdirSync(geminiBase).sort()) {
+      const chatsDir = join(geminiBase, hashDir, "chats");
+      try { if (!statSync(chatsDir).isDirectory()) continue; } catch { continue; }
+      const files = readdirSync(chatsDir).filter((f) => f.endsWith(".json")).sort().reverse();
+      if (files.length === 0) continue;
+      geminiGroup.projects.push({
+        name: hashDir.slice(0, 12),
+        dirName: hashDir,
+        sessions: files.map((f) => {
+          const fullPath = join(chatsDir, f);
+          let date = null;
+          try { date = statSync(fullPath).mtime.toISOString(); } catch { /* ignore */ }
+          return { file: f, path: fullPath, date };
+        }).sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return b.date.localeCompare(a.date);
+        }),
+      });
+    }
+    if (geminiGroup.projects.length > 0) groups.push(geminiGroup);
+  } catch { /* directory doesn't exist */ }
+
   // Codex CLI: ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl
   const codexBase = join(home, ".codex", "sessions");
   try {

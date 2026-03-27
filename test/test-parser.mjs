@@ -12,6 +12,7 @@ const PACED_FIXTURE = new URL("./fixture-paced.jsonl", import.meta.url).pathname
 const SYSTEM_TAGS_FIXTURE = new URL("./fixture-system-tags.jsonl", import.meta.url).pathname;
 const CODEX_PATCH_FIXTURE = new URL("./fixture-codex-patch.jsonl", import.meta.url).pathname;
 const CODEX_EDGES_FIXTURE = new URL("./fixture-codex-edges.jsonl", import.meta.url).pathname;
+const GEMINI_FIXTURE = new URL("./fixture-gemini.json", import.meta.url).pathname;
 
 describe("parseTranscript", () => {
   // Fixture produces 3 turns (orphan assistant after tool result merges into previous):
@@ -414,5 +415,98 @@ describe("Codex edge cases", () => {
     const text = multiTurn.blocks.filter((b) => b.kind === "text");
     assert.equal(text.length, 1);
     assert.equal(text[0].text, "Final answer here.");
+  });
+});
+
+describe("Gemini format", () => {
+  it("detects gemini format", () => {
+    assert.equal(detectFormat(GEMINI_FIXTURE), "gemini");
+  });
+
+  it("does not confuse gemini with claude-code", () => {
+    assert.equal(detectFormat(FIXTURE), "claude-code");
+  });
+
+  it("parses turns from Gemini session", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    // Fixture has 4 user messages → 4 turns
+    assert.equal(turns.length, 4);
+  });
+
+  it("extracts user text", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    assert.equal(turns[0].user_text, "What files are in the current directory?");
+    assert.equal(turns[1].user_text, "Read the README.md file");
+    assert.equal(turns[2].user_text, "Thanks!");
+    assert.equal(turns[3].user_text, "Run a failing command");
+  });
+
+  it("extracts thoughts as thinking blocks with subject", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    const thinking = turns[0].blocks.filter((b) => b.kind === "thinking");
+    assert.equal(thinking.length, 2);
+    assert.match(thinking[0].text, /Analyzing Request/);
+    assert.match(thinking[0].text, /directory contents/);
+    assert.match(thinking[1].text, /Choosing Tool/);
+  });
+
+  it("maps run_shell_command to Bash", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    const tool = turns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(tool, "should have a tool_use block");
+    assert.equal(tool.tool_call.name, "Bash");
+    assert.equal(tool.tool_call.input.command, "ls -la");
+  });
+
+  it("maps read_file to Read", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    const tool = turns[1].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(tool, "should have a tool_use block");
+    assert.equal(tool.tool_call.name, "Read");
+  });
+
+  it("extracts tool results from nested functionResponse", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    const tool = turns[0].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(tool.tool_call.result, "should have a result");
+    assert.match(tool.tool_call.result, /README\.md/);
+    assert.match(tool.tool_call.result, /package\.json/);
+  });
+
+  it("handles empty content with toolCalls (turn 2)", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    // Turn 2: first gemini message has empty content + toolCall, second has text + thought
+    const toolBlocks = turns[1].blocks.filter((b) => b.kind === "tool_use");
+    assert.equal(toolBlocks.length, 1);
+    const textBlocks = turns[1].blocks.filter((b) => b.kind === "text");
+    assert.ok(textBlocks.length >= 1, "should have text from follow-up gemini message");
+    assert.match(textBlocks[0].text, /README\.md contains/);
+  });
+
+  it("handles empty thoughts array", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    // Turn 3 (Thanks!) has no thoughts
+    const thinking = turns[2].blocks.filter((b) => b.kind === "thinking");
+    assert.equal(thinking.length, 0);
+  });
+
+  it("marks error tool calls", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    const tool = turns[3].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(tool, "should have a tool_use block");
+    assert.equal(tool.tool_call.is_error, true);
+  });
+
+  it("preserves timestamps", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    assert.equal(turns[0].timestamp, "2026-03-01T10:00:00.000Z");
+  });
+
+  it("assigns sequential turn indices", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    assert.deepEqual(
+      turns.map((t) => t.index),
+      [1, 2, 3, 4]
+    );
   });
 });
