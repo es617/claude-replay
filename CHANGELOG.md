@@ -11,6 +11,16 @@
 ### Editor
 - Sessions sorted by modification time instead of UUID alphabetical order
 
+## 0.6.2
+
+### Editor
+- Shift+click range selection for turn checkboxes
+
+### Docs
+- Add `--init` to Docker commands for proper Ctrl+C handling
+
+## 0.6.1
+
 ## 0.6.0
 
 ### New
