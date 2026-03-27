@@ -65,7 +65,7 @@ npx claude-replay
 ### Docker
 
 ```bash
-docker run --rm -p 7331:7331 \
+docker run --rm --init -p 7331:7331 \
   -v ~/.claude/projects:/root/.claude/projects:ro \
   ghcr.io/es617/claude-replay
 ```
@@ -75,7 +75,7 @@ Open http://localhost:7331 for the web editor. Session directories are mounted r
 For CLI usage:
 
 ```bash
-docker run --rm \
+docker run --rm --init \
   -v ~/.claude/projects:/root/.claude/projects:ro \
   -v $(pwd):/output \
   ghcr.io/es617/claude-replay \
