@@ -1348,6 +1348,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       currentTurns = data.turns;
       excludedTurns = new Set(data.excludedTurns || []);
       bookmarks = new Map();
+      lastToggleIndex = null;
 
       // Restore bookmarks from session state
       for (const bm of data.bookmarks || []) {
@@ -1474,18 +1475,49 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     }
   }
 
+  let lastToggleIndex = null;
+  let lastClickShift = false;
+  // Track shift key from click since change events don't carry it
+  document.addEventListener("click", (e) => { lastClickShift = e.shiftKey; }, true);
+
+  function setTurnChecked(index, checked) {
+    const cb = turnsList.querySelector(`input[data-action="toggle"][data-index="${index}"]`);
+    if (!cb) return;
+    cb.checked = checked;
+    checked ? excludedTurns.delete(index) : excludedTurns.add(index);
+    const card = cb.closest(".turn-card");
+    card.classList.toggle("excluded", !checked);
+    if (!checked) {
+      card.querySelector("[data-action='expand']")?.classList.remove("open");
+      card.querySelector(".turn-blocks-detail")?.classList.remove("open");
+    }
+  }
+
   function handleTurnEvent(e) {
     const { action, index: rawIndex } = e.target.dataset;
     const index = parseInt(rawIndex);
 
     if (action === "toggle") {
-      e.target.checked ? excludedTurns.delete(index) : excludedTurns.add(index);
-      const card = e.target.closest(".turn-card");
-      card.classList.toggle("excluded", !e.target.checked);
-      if (!e.target.checked) {
-        card.querySelector("[data-action='expand']")?.classList.remove("open");
-        card.querySelector(".turn-blocks-detail")?.classList.remove("open");
+      const checked = e.target.checked;
+      // Shift+click: apply to range from last toggle
+      if (lastClickShift && lastToggleIndex != null && lastToggleIndex !== index) {
+        const from = Math.min(lastToggleIndex, index);
+        const to = Math.max(lastToggleIndex, index);
+        for (const t of currentTurns) {
+          if (t.index >= from && t.index <= to) {
+            setTurnChecked(t.index, checked);
+          }
+        }
+      } else {
+        checked ? excludedTurns.delete(index) : excludedTurns.add(index);
+        const card = e.target.closest(".turn-card");
+        card.classList.toggle("excluded", !checked);
+        if (!checked) {
+          card.querySelector("[data-action='expand']")?.classList.remove("open");
+          card.querySelector(".turn-blocks-detail")?.classList.remove("open");
+        }
       }
+      lastToggleIndex = index;
       updateEditState();
       schedulePreview();
     }
