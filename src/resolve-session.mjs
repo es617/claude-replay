@@ -54,6 +54,22 @@ export function resolveSessionId(sessionId, { home } = {}) {
     }
   } catch { /* directory doesn't exist */ }
 
+  // Gemini CLI: ~/.gemini/tmp/<projectHash>/chats/session-<date>-<id>.json
+  const geminiBase = join(homeDir, ".gemini", "tmp");
+  try {
+    for (const hashDir of readdirSync(geminiBase)) {
+      const chatsDir = join(geminiBase, hashDir, "chats");
+      try { if (!statSync(chatsDir).isDirectory()) continue; } catch { continue; }
+      for (const f of readdirSync(chatsDir)) {
+        if (!f.endsWith(".json")) continue;
+        const stem = f.replace(/\.json$/, "");
+        if (f === sessionId || f === sessionId + ".json" || stem === sessionId || stem.endsWith("-" + sessionId)) {
+          matches.push({ path: join(chatsDir, f), project: hashDir.slice(0, 12), group: "Gemini CLI" });
+        }
+      }
+    }
+  } catch { /* directory doesn't exist */ }
+
   // Codex CLI: ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<timestamp>-<uuid>.jsonl
   // Filenames look like: rollout-2026-03-12T23-00-40-019ce523-9654-7023-8409-23aaaddef5d9.jsonl
   // The UUID is the session ID. Match by exact filename or UUID substring in the
