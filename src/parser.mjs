@@ -62,7 +62,7 @@ function isToolResultOnly(content) {
 /**
  * Detect transcript format by peeking at the first entry.
  * @param {string} filePath
- * @returns {"claude-code"|"cursor"|"codex"|"gemini"|"unknown"}
+ * @returns {"claude-code"|"cursor"|"codex"|"gemini"|"opencode"|"unknown"}
  */
 export function detectFormat(filePath) {
   return detectFormatFromText(readFileSync(filePath, "utf-8"));
@@ -85,6 +85,10 @@ export function detectFormatFromText(text) {
       const obj = JSON.parse(trimmed);
       if (obj.user_text !== undefined && obj.blocks !== undefined) return "replay";
       if (obj.type === "session_meta") return "codex";
+      // Newer Codex format: item-based events with thread.started
+      if (obj.type === "thread.started" || (obj.type === "item.completed" && obj.item)) return "codex";
+      // OpenCode: JSONL with step_start/step_finish/tool_use/text events + sessionID
+      if (obj.sessionID && (obj.type === "step_start" || obj.type === "step_finish" || obj.type === "tool_use" || obj.type === "text" || obj.type === "reasoning" || obj.type === "error")) return "opencode";
       if (obj.type === "user" || obj.type === "assistant") return "claude-code";
       if (obj.role === "user" || obj.role === "assistant") return "cursor";
     } catch { continue; }
@@ -465,6 +469,156 @@ function parseGeminiTranscript(text) {
 }
 
 /**
+ * Map OpenCode tool names to their claude-replay equivalents.
+ */
+const OPENCODE_TOOL_MAP = {
+  bash: "Bash",
+  read: "Read",
+  write: "Write",
+  edit: "Edit",
+  patch: "Edit",
+  glob: "Glob",
+  grep: "Grep",
+  ls: "Glob",
+  webfetch: "WebFetch",
+  websearch: "WebSearch",
+  codesearch: "Grep",
+  task: "Task",
+  todo: "TodoWrite",
+};
+
+/**
+ * Parse an OpenCode JSONL transcript into Turn[].
+ * OpenCode uses step_start/step_finish boundaries with tool_use and text events.
+ * Each step (message) is grouped into turns by messageID changes.
+ */
+function parseOpenCodeTranscript(text) {
+  const events = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try { events.push(JSON.parse(trimmed)); } catch { continue; }
+  }
+
+  // Group events into steps by messageID sequences.
+  // A "turn" in replay terms maps to a complete agent response cycle
+  // (potentially multiple steps: tool calls then final text).
+  const turns = [];
+  let turnIndex = 0;
+  let currentBlocks = [];
+  let currentTimestamp = "";
+  function finalizeTurn() {
+    if (currentBlocks.length === 0) return;
+    turnIndex++;
+    turns.push({
+      index: turnIndex,
+      user_text: "",
+      blocks: currentBlocks,
+      timestamp: currentTimestamp,
+    });
+    currentBlocks = [];
+    currentTimestamp = "";
+  }
+
+  for (const evt of events) {
+    const type = evt.type;
+    const part = evt.part ?? {};
+    const ts = evt.timestamp ? new Date(evt.timestamp).toISOString() : null;
+
+    if (type === "step_start") {
+      // New messageID means new step — but consecutive tool-call steps
+      // followed by a text step form one logical turn, so we only split
+      // when the previous step ended with reason "stop".
+      if (!currentTimestamp && ts) currentTimestamp = ts;
+      continue;
+    }
+
+    if (type === "tool_use") {
+      const rawName = part.tool ?? "unknown";
+      const mappedName = OPENCODE_TOOL_MAP[rawName] ?? rawName;
+      const state = part.state ?? {};
+      const input = state.input ?? {};
+      const output = state.output ?? "";
+      const isError = state.status === "error" ||
+        (state.metadata?.exit != null && state.metadata.exit !== 0);
+      const resultTs = state.time?.end ? new Date(state.time.end).toISOString() : null;
+
+      // Normalize tool inputs for consistent rendering
+      let normalizedInput = input;
+      if (mappedName === "Bash" && input.command) {
+        normalizedInput = input.workdir
+          ? { command: `cd ${input.workdir} && ${input.command}` }
+          : { command: input.command };
+      } else if (mappedName === "Write" && input.filePath) {
+        normalizedInput = { file_path: input.filePath, content: input.content ?? "" };
+      } else if (mappedName === "Read" && input.filePath) {
+        normalizedInput = { file_path: input.filePath };
+      } else if (mappedName === "Edit" && input.filePath) {
+        normalizedInput = { file_path: input.filePath, ...input };
+      }
+
+      currentBlocks.push({
+        kind: "tool_use",
+        text: "",
+        tool_call: {
+          tool_use_id: part.callID ?? "",
+          name: mappedName,
+          input: normalizedInput,
+          result: typeof output === "string" ? output : JSON.stringify(output),
+          resultTimestamp: resultTs,
+          is_error: isError,
+        },
+        timestamp: ts,
+      });
+      continue;
+    }
+
+    if (type === "reasoning") {
+      const content = (part.text ?? "").trim();
+      if (content) {
+        currentBlocks.push({ kind: "thinking", text: content, tool_call: null, timestamp: ts });
+      }
+      continue;
+    }
+
+    if (type === "text") {
+      const content = (part.text ?? "").trim();
+      if (content) {
+        currentBlocks.push({ kind: "text", text: content, tool_call: null, timestamp: ts });
+      }
+      continue;
+    }
+
+    if (type === "step_finish") {
+      const reason = part.reason ?? "";
+      // "stop" means the agent finished responding — finalize the turn
+      if (reason === "stop") {
+        finalizeTurn();
+      }
+      // "tool-calls" means more steps follow in this turn — keep accumulating
+      continue;
+    }
+
+    if (type === "error") {
+      const errData = evt.error ?? {};
+      const errMsg = errData.data?.message ?? errData.name ?? "Unknown error";
+      currentBlocks.push({ kind: "text", text: `Error: ${errMsg}`, tool_call: null, timestamp: ts });
+      finalizeTurn();
+      continue;
+    }
+  }
+
+  // Capture any remaining blocks (session ended without step_finish reason=stop)
+  finalizeTurn();
+
+  // Re-index
+  for (let j = 0; j < turns.length; j++) {
+    turns[j].index = j + 1;
+  }
+  return turns;
+}
+
+/**
  * Parse a Codex CLI JSONL transcript into Turn[].
  */
 /**
@@ -488,7 +642,92 @@ function parseReplayJsonl(text) {
 }
 
 /**
+ * Parse newer Codex format with item.completed / item.started events.
+ * Items contain { type, command, aggregated_output, exit_code, text, ... }.
+ */
+function parseCodexNewFormat(events) {
+  const blocks = [];
+  let userText = "";
+  let timestamp = "";
+
+  for (const evt of events) {
+    if (evt.type !== "item.completed") continue;
+    const item = evt.item;
+    if (!item || typeof item !== "object") continue;
+
+    const itemType = item.type ?? "";
+    const ts = evt.timestamp ?? null;
+
+    if (itemType === "command_execution") {
+      const cmd = typeof item.command === "string" ? item.command : String(item.command ?? "");
+      // Strip /bin/bash -lc wrapper for readability
+      const cleanCmd = cmd.replace(/^\/bin\/bash\s+-lc\s+/, "").replace(/^'(.*)'$/, "$1").replace(/^"(.*)"$/, "$1");
+      const toolCall = {
+        tool_use_id: item.id ?? "",
+        name: "Bash",
+        input: { command: cleanCmd },
+        result: (item.aggregated_output ?? "").trim(),
+        resultTimestamp: ts,
+        is_error: item.exit_code != null && item.exit_code !== 0,
+      };
+      blocks.push({ kind: "tool_use", text: "", tool_call: toolCall, timestamp: ts });
+    } else if (itemType === "reasoning") {
+      const text = item.text ?? "";
+      if (text.trim()) {
+        blocks.push({ kind: "thinking", text, tool_call: null, timestamp: ts });
+      }
+    } else if (itemType === "agent_message") {
+      const text = item.text ?? "";
+      if (text.trim()) {
+        blocks.push({ kind: "text", text, tool_call: null, timestamp: ts });
+      }
+    } else if (itemType === "function_call") {
+      const name = item.name ?? "unknown";
+      let input = {};
+      try { input = JSON.parse(item.arguments ?? "{}"); } catch { input = { raw: item.arguments }; }
+      if (name === "exec_command" && input.cmd) {
+        const cmd = input.workdir ? `cd ${input.workdir} && ${input.cmd}` : input.cmd;
+        input = { command: cmd };
+      }
+      let mappedName = name;
+      if (name === "exec_command") mappedName = "Bash";
+      if (name === "apply_patch") {
+        const parsed = parseCodexPatch(item.arguments ?? input.raw ?? "");
+        mappedName = parsed.isNew ? "Write" : "Edit";
+        input = parsed;
+      }
+      const toolCall = {
+        tool_use_id: item.id ?? "",
+        name: mappedName,
+        input,
+        result: (item.output ?? "").trim() || null,
+        resultTimestamp: ts,
+        is_error: item.status === "failed",
+      };
+      blocks.push({ kind: "tool_use", text: "", tool_call: toolCall, timestamp: ts });
+    } else if (itemType === "message" && (item.role === "user")) {
+      const content = item.content ?? [];
+      if (Array.isArray(content)) {
+        const textParts = content.filter((b) => b.type === "input_text").map((b) => b.text ?? "");
+        userText = extractCodexUserText(textParts.join("\n"));
+      }
+    }
+  }
+
+  if (!blocks.length) return [];
+
+  // Wrap all blocks as a single turn (new format doesn't have multi-turn boundaries)
+  return [{
+    index: 1,
+    user_text: userText || "Task",
+    blocks,
+    timestamp: timestamp || "",
+  }];
+}
+
+/**
  * Codex uses an event-based format with task_started/task_complete boundaries.
+ * Newer Codex versions use item.started/item.completed with nested item objects.
  */
 function parseCodexTranscript(text) {
   const events = [];
@@ -497,6 +736,10 @@ function parseCodexTranscript(text) {
     if (!trimmed) continue;
     try { events.push(JSON.parse(trimmed)); } catch { continue; }
   }
+
+  // Detect newer item-based format
+  const isNewFormat = events.some((e) => e.type === "thread.started" || e.type === "item.completed");
+  if (isNewFormat) return parseCodexNewFormat(events);
 
   const turns = [];
   let turnIndex = 0;
@@ -717,6 +960,7 @@ export function parseTranscript(filePath) {
 export function parseTranscriptFromText(text) {
   const format = detectFormatFromText(text);
   if (format === "gemini") return parseGeminiTranscript(text);
+  if (format === "opencode") return parseOpenCodeTranscript(text);
   if (format === "codex") return parseCodexTranscript(text);
   if (format === "replay") return parseReplayJsonl(text);
   const { entries, format: fmt } = parseJsonl(text);

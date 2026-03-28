@@ -5,6 +5,7 @@
 ![Cursor](https://img.shields.io/badge/Cursor-replay-purple)
 ![Codex CLI](https://img.shields.io/badge/Codex_CLI-replay-green)
 ![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-replay-orange)
+![OpenCode](https://img.shields.io/badge/OpenCode-replay-red)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
@@ -13,13 +14,13 @@
 
 AI coding sessions are great for development, but hard to share. Screen recordings are bulky and transcripts are hard to navigate.
 
-**claude-replay** turns Claude Code, Cursor, Codex CLI, and Gemini CLI session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation. Use `--serve --watch` to monitor agent sessions live as they run.
+**claude-replay** turns Claude Code, Cursor, Codex CLI, Gemini CLI, and OpenCode session logs into interactive, shareable HTML replays. The generated replay is a single self-contained HTML file with no external dependencies — you can email it, host it anywhere, or embed it in documentation. Use `--serve --watch` to monitor agent sessions live as they run.
 
 ![Demo](https://raw.githubusercontent.com/es617/claude-replay/main/docs/demo.gif)
 
 **[Try it online](https://es617.github.io/claude-replay/)** · **[Live demo](https://es617.github.io/claude-replay/demo-redaction.html)**
 
-Claude Code, Cursor, Codex CLI, and Gemini CLI store conversation transcripts on disk. **claude-replay** auto-detects the format and converts them into visual replays suitable for blog posts, demos, and documentation.
+Claude Code, Cursor, Codex CLI, Gemini CLI, and OpenCode store conversation transcripts on disk. **claude-replay** auto-detects the format and converts them into visual replays suitable for blog posts, demos, and documentation.
 
 | Source | Transcript location |
 |---|---|
@@ -27,6 +28,7 @@ Claude Code, Cursor, Codex CLI, and Gemini CLI store conversation transcripts on
 | Cursor | `~/.cursor/projects/<project>/agent-transcripts/<id>/` |
 | Codex CLI | `~/.codex/sessions/<date>/` |
 | Gemini CLI | `~/.gemini/tmp/<projectHash>/chats/` |
+| OpenCode | Export via `opencode export <sessionID>` |
 
 ## Features
 
@@ -132,6 +134,16 @@ You can also search by session ID:
 
 ```bash
 claude-replay <session-id> -o replay.html  # searches ~/.gemini/tmp/ automatically
+```
+
+### OpenCode
+
+OpenCode transcripts are supported — the format is auto-detected. OpenCode stores sessions in a SQLite database, so you'll need to export the session first using the OpenCode CLI. Thinking/reasoning blocks are rendered natively.
+
+```bash
+# Export a session from OpenCode, then replay it
+opencode export <sessionID> > session.jsonl
+claude-replay session.jsonl -o replay.html
 ```
 
 ## Web Editor
