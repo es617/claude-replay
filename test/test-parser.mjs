@@ -551,6 +551,13 @@ describe("OpenCode format", () => {
     assert.equal(bash.tool_call.is_error, false);
   });
 
+  it("extracts reasoning as thinking blocks", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    const thinking = turns[0].blocks.filter((b) => b.kind === "thinking");
+    assert.equal(thinking.length, 1);
+    assert.match(thinking[0].text, /output 55/);
+  });
+
   it("extracts text blocks", () => {
     const turns = parseTranscript(OPENCODE_FIXTURE);
     const text = turns[0].blocks.filter((b) => b.kind === "text");
@@ -581,12 +588,13 @@ describe("OpenCode format", () => {
     );
   });
 
-  it("groups tool calls and text in same turn", () => {
+  it("groups tool calls, thinking, and text in same turn", () => {
     const turns = parseTranscript(OPENCODE_FIXTURE);
-    // Turn 1 should have: write + bash + text = 3 blocks
-    assert.equal(turns[0].blocks.length, 3);
+    // Turn 1 should have: write + bash + thinking + text = 4 blocks
+    assert.equal(turns[0].blocks.length, 4);
     assert.equal(turns[0].blocks[0].kind, "tool_use");
     assert.equal(turns[0].blocks[1].kind, "tool_use");
-    assert.equal(turns[0].blocks[2].kind, "text");
+    assert.equal(turns[0].blocks[2].kind, "thinking");
+    assert.equal(turns[0].blocks[3].kind, "text");
   });
 });

@@ -86,7 +86,7 @@ export function detectFormatFromText(text) {
       if (obj.user_text !== undefined && obj.blocks !== undefined) return "replay";
       if (obj.type === "session_meta") return "codex";
       // OpenCode: JSONL with step_start/step_finish/tool_use/text events + sessionID
-      if (obj.sessionID && (obj.type === "step_start" || obj.type === "step_finish" || obj.type === "tool_use" || obj.type === "text" || obj.type === "error")) return "opencode";
+      if (obj.sessionID && (obj.type === "step_start" || obj.type === "step_finish" || obj.type === "tool_use" || obj.type === "text" || obj.type === "reasoning" || obj.type === "error")) return "opencode";
       if (obj.type === "user" || obj.type === "assistant") return "claude-code";
       if (obj.role === "user" || obj.role === "assistant") return "cursor";
     } catch { continue; }
@@ -572,6 +572,14 @@ function parseOpenCodeTranscript(text) {
         },
         timestamp: ts,
       });
+      continue;
+    }
+
+    if (type === "reasoning") {
+      const content = (part.text ?? "").trim();
+      if (content) {
+        currentBlocks.push({ kind: "thinking", text: content, tool_call: null, timestamp: ts });
+      }
       continue;
     }
 

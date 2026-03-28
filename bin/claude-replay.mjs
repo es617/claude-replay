@@ -444,7 +444,7 @@ function buildReplay() {
     redactSecrets: !values["no-auto-redact"],
     redactRules,
     userLabel: values["user-label"],
-    assistantLabel: values["assistant-label"] || (format === "gemini" ? "Gemini" : format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : "Claude"),
+    assistantLabel: values["assistant-label"] || (format === "gemini" ? "Gemini" : format === "codex" ? "Codex" : format === "cursor" ? "Assistant" : format === "opencode" ? "OpenCode" : "Claude"),
     title,
     description: values.description,
     ogImage: values["og-image"],
