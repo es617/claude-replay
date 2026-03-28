@@ -13,6 +13,7 @@ const SYSTEM_TAGS_FIXTURE = new URL("./fixture-system-tags.jsonl", import.meta.u
 const CODEX_PATCH_FIXTURE = new URL("./fixture-codex-patch.jsonl", import.meta.url).pathname;
 const CODEX_EDGES_FIXTURE = new URL("./fixture-codex-edges.jsonl", import.meta.url).pathname;
 const GEMINI_FIXTURE = new URL("./fixture-gemini.json", import.meta.url).pathname;
+const OPENCODE_FIXTURE = new URL("./fixture-opencode.jsonl", import.meta.url).pathname;
 
 describe("parseTranscript", () => {
   // Fixture produces 3 turns (orphan assistant after tool result merges into previous):
@@ -508,5 +509,84 @@ describe("Gemini format", () => {
       turns.map((t) => t.index),
       [1, 2, 3, 4]
     );
+  });
+});
+
+describe("OpenCode format", () => {
+  it("detects opencode format", () => {
+    assert.equal(detectFormat(OPENCODE_FIXTURE), "opencode");
+  });
+
+  it("does not confuse opencode with claude-code", () => {
+    assert.equal(detectFormat(FIXTURE), "claude-code");
+  });
+
+  it("does not confuse opencode with codex", () => {
+    assert.equal(detectFormat(CODEX_FIXTURE), "codex");
+  });
+
+  it("parses turns from OpenCode session", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    // Fixture has 2 "stop" step_finish boundaries → 2 turns
+    // Turn 1: write + bash + text (fibonacci)
+    // Turn 2: error bash + text (file not found)
+    assert.equal(turns.length, 2);
+  });
+
+  it("maps write tool to Write with normalized input", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    const write = turns[0].blocks.find((b) => b.kind === "tool_use" && b.tool_call.name === "Write");
+    assert.ok(write, "should have a Write tool_use block");
+    assert.equal(write.tool_call.input.file_path, "/tmp/test/fib.py");
+    assert.match(write.tool_call.input.content, /def fib/);
+    assert.equal(write.tool_call.result, "Wrote file successfully.");
+  });
+
+  it("maps bash tool to Bash with normalized input", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    const bash = turns[0].blocks.find((b) => b.kind === "tool_use" && b.tool_call.name === "Bash");
+    assert.ok(bash, "should have a Bash tool_use block");
+    assert.equal(bash.tool_call.input.command, "cd /tmp/test && python3 fib.py");
+    assert.equal(bash.tool_call.result, "55\n");
+    assert.equal(bash.tool_call.is_error, false);
+  });
+
+  it("extracts text blocks", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    const text = turns[0].blocks.filter((b) => b.kind === "text");
+    assert.equal(text.length, 1);
+    assert.match(text[0].text, /Fibonacci/);
+  });
+
+  it("marks error tool calls", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    const errorBash = turns[1].blocks.find((b) => b.kind === "tool_use");
+    assert.ok(errorBash, "should have an error tool_use block");
+    assert.equal(errorBash.tool_call.is_error, true);
+    assert.match(errorBash.tool_call.result, /No such file/);
+  });
+
+  it("preserves timestamps as ISO strings", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    assert.ok(turns[0].timestamp, "should have a timestamp");
+    // Timestamps are epoch → ISO
+    assert.match(turns[0].timestamp, /^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("assigns sequential turn indices", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    assert.deepEqual(
+      turns.map((t) => t.index),
+      [1, 2]
+    );
+  });
+
+  it("groups tool calls and text in same turn", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    // Turn 1 should have: write + bash + text = 3 blocks
+    assert.equal(turns[0].blocks.length, 3);
+    assert.equal(turns[0].blocks[0].kind, "tool_use");
+    assert.equal(turns[0].blocks[1].kind, "tool_use");
+    assert.equal(turns[0].blocks[2].kind, "text");
   });
 });
