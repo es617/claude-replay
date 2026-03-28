@@ -85,6 +85,8 @@ export function detectFormatFromText(text) {
       const obj = JSON.parse(trimmed);
       if (obj.user_text !== undefined && obj.blocks !== undefined) return "replay";
       if (obj.type === "session_meta") return "codex";
+      // Newer Codex format: item-based events with thread.started
+      if (obj.type === "thread.started" || (obj.type === "item.completed" && obj.item)) return "codex";
       // OpenCode: JSONL with step_start/step_finish/tool_use/text events + sessionID
       if (obj.sessionID && (obj.type === "step_start" || obj.type === "step_finish" || obj.type === "tool_use" || obj.type === "text" || obj.type === "reasoning" || obj.type === "error")) return "opencode";
       if (obj.type === "user" || obj.type === "assistant") return "claude-code";
@@ -640,7 +642,92 @@ function parseReplayJsonl(text) {
 }
 
 /**
+ * Parse newer Codex format with item.completed / item.started events.
+ * Items contain { type, command, aggregated_output, exit_code, text, ... }.
+ */
+function parseCodexNewFormat(events) {
+  const blocks = [];
+  let userText = "";
+  let timestamp = "";
+
+  for (const evt of events) {
+    if (evt.type !== "item.completed") continue;
+    const item = evt.item;
+    if (!item || typeof item !== "object") continue;
+
+    const itemType = item.type ?? "";
+    const ts = evt.timestamp ?? null;
+
+    if (itemType === "command_execution") {
+      const cmd = typeof item.command === "string" ? item.command : String(item.command ?? "");
+      // Strip /bin/bash -lc wrapper for readability
+      const cleanCmd = cmd.replace(/^\/bin\/bash\s+-lc\s+/, "").replace(/^'(.*)'$/, "$1").replace(/^"(.*)"$/, "$1");
+      const toolCall = {
+        tool_use_id: item.id ?? "",
+        name: "Bash",
+        input: { command: cleanCmd },
+        result: (item.aggregated_output ?? "").trim(),
+        resultTimestamp: ts,
+        is_error: item.exit_code != null && item.exit_code !== 0,
+      };
+      blocks.push({ kind: "tool_use", text: "", tool_call: toolCall, timestamp: ts });
+    } else if (itemType === "reasoning") {
+      const text = item.text ?? "";
+      if (text.trim()) {
+        blocks.push({ kind: "thinking", text, tool_call: null, timestamp: ts });
+      }
+    } else if (itemType === "agent_message") {
+      const text = item.text ?? "";
+      if (text.trim()) {
+        blocks.push({ kind: "text", text, tool_call: null, timestamp: ts });
+      }
+    } else if (itemType === "function_call") {
+      const name = item.name ?? "unknown";
+      let input = {};
+      try { input = JSON.parse(item.arguments ?? "{}"); } catch { input = { raw: item.arguments }; }
+      if (name === "exec_command" && input.cmd) {
+        const cmd = input.workdir ? `cd ${input.workdir} && ${input.cmd}` : input.cmd;
+        input = { command: cmd };
+      }
+      let mappedName = name;
+      if (name === "exec_command") mappedName = "Bash";
+      if (name === "apply_patch") {
+        const parsed = parseCodexPatch(item.arguments ?? input.raw ?? "");
+        mappedName = parsed.isNew ? "Write" : "Edit";
+        input = parsed;
+      }
+      const toolCall = {
+        tool_use_id: item.id ?? "",
+        name: mappedName,
+        input,
+        result: (item.output ?? "").trim() || null,
+        resultTimestamp: ts,
+        is_error: item.status === "failed",
+      };
+      blocks.push({ kind: "tool_use", text: "", tool_call: toolCall, timestamp: ts });
+    } else if (itemType === "message" && (item.role === "user")) {
+      const content = item.content ?? [];
+      if (Array.isArray(content)) {
+        const textParts = content.filter((b) => b.type === "input_text").map((b) => b.text ?? "");
+        userText = extractCodexUserText(textParts.join("\n"));
+      }
+    }
+  }
+
+  if (!blocks.length) return [];
+
+  // Wrap all blocks as a single turn (new format doesn't have multi-turn boundaries)
+  return [{
+    index: 1,
+    user_text: userText || "Task",
+    blocks,
+    timestamp: timestamp || "",
+  }];
+}
+
+/**
  * Codex uses an event-based format with task_started/task_complete boundaries.
+ * Newer Codex versions use item.started/item.completed with nested item objects.
  */
 function parseCodexTranscript(text) {
   const events = [];
@@ -649,6 +736,10 @@ function parseCodexTranscript(text) {
     if (!trimmed) continue;
     try { events.push(JSON.parse(trimmed)); } catch { continue; }
   }
+
+  // Detect newer item-based format
+  const isNewFormat = events.some((e) => e.type === "thread.started" || e.type === "item.completed");
+  if (isNewFormat) return parseCodexNewFormat(events);
 
   const turns = [];
   let turnIndex = 0;
