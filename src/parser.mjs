@@ -505,8 +505,6 @@ function parseOpenCodeTranscript(text) {
   let turnIndex = 0;
   let currentBlocks = [];
   let currentTimestamp = "";
-  let lastMessageID = null;
-
   function finalizeTurn() {
     if (currentBlocks.length === 0) return;
     turnIndex++;
@@ -526,12 +524,10 @@ function parseOpenCodeTranscript(text) {
     const ts = evt.timestamp ? new Date(evt.timestamp).toISOString() : null;
 
     if (type === "step_start") {
-      const msgID = part.messageID ?? null;
       // New messageID means new step — but consecutive tool-call steps
       // followed by a text step form one logical turn, so we only split
       // when the previous step ended with reason "stop".
       if (!currentTimestamp && ts) currentTimestamp = ts;
-      lastMessageID = msgID;
       continue;
     }
 
