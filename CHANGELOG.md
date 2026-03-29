@@ -1,15 +1,10 @@
 # Changelog
 
-## 0.6.1
+## 0.7.0
 
-### Player
-- Turn skip buttons (⏮/⏭) for jumping between turns
-- Auto-paced timing toggle — viewers can switch between real and smooth paced timing in the speed menu
-- Responsive controls: title hidden below 480px, speed/filter/chapters collapse into more menu below 600px
-- "Open in new tab" link in more menu for iframe embeds
-
-### Editor
-- Sessions sorted by modification time instead of UUID alphabetical order
+### New Formats
+- Gemini CLI transcript support — auto-detected JSON format with inline thinking and tool calls
+- OpenCode CLI transcript support — auto-detected JSONL format with reasoning and tool calls across multiple providers
 
 ## 0.6.2
 
@@ -20,6 +15,15 @@
 - Add `--init` to Docker commands for proper Ctrl+C handling
 
 ## 0.6.1
+
+### Player
+- Turn skip buttons (⏮/⏭) for jumping between turns
+- Auto-paced timing toggle — viewers can switch between real and smooth paced timing in the speed menu
+- Responsive controls: title hidden below 480px, speed/filter/chapters collapse into more menu below 600px
+- "Open in new tab" link in more menu for iframe embeds
+
+### Editor
+- Sessions sorted by modification time instead of UUID alphabetical order
 
 ## 0.6.0
 
