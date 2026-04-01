@@ -492,6 +492,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   flex-shrink: 0;
 }
 .turns-toolbar.visible { display: flex; flex-wrap: wrap; }
+.toolbar-hint { font-size: 10px; color: var(--text-dim); margin-left: auto; align-self: center; }
 .btn-small { padding: 2px 8px; font-size: 11px; }
 
 .turns-list {
@@ -913,6 +914,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       <button class="btn btn-small" id="selectNoneBtn" title="Exclude all turns from the replay">Exclude All</button>
       <button class="btn btn-small" id="expandAllBtn" title="Expand all assistant blocks">Expand All</button>
       <button class="btn btn-small" id="collapseAllBtn" title="Collapse all assistant blocks">Collapse All</button>
+      <span class="toolbar-hint">Shift+click for range select</span>
     </div>
     <div class="turns-list" id="turnsList">
       <div class="empty-state">Select a session to begin editing</div>
