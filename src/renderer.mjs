@@ -112,6 +112,53 @@ function turnsToJsonData(turns, { redact = true, redactRules } = {}) {
 }
 
 /**
+ * Extract file activity data from turns for the file sidebar.
+ */
+function extractFileData(turns) {
+  const fileMap = new Map();
+  for (const turn of turns) {
+    for (let blockIdx = 0; blockIdx < (turn.blocks || []).length; blockIdx++) {
+      const block = turn.blocks[blockIdx];
+      if (!block.tool_call) continue;
+      const filePath = block.tool_call.input?.file_path;
+      if (!filePath) continue;
+      const name = filePath.split("/").pop() || filePath;
+      if (!fileMap.has(filePath)) {
+        fileMap.set(filePath, { path: filePath, name, refs: [] });
+      }
+      fileMap.get(filePath).refs.push({
+        turn: turn.index,
+        block: blockIdx,
+        tool: block.tool_call.name,
+      });
+    }
+  }
+  const files = [...fileMap.values()];
+  // Compute common prefix to show relative paths
+  if (files.length > 0) {
+    const paths = files.map((f) => f.path).filter((p) => p.includes("/"));
+    if (paths.length > 0) {
+      const parts = paths[0].split("/");
+      let common = "";
+      for (let i = 0; i < parts.length - 1; i++) {
+        const prefix = parts.slice(0, i + 1).join("/") + "/";
+        if (paths.every((p) => p.startsWith(prefix))) {
+          common = prefix;
+        } else {
+          break;
+        }
+      }
+      if (common) {
+        for (const file of files) {
+          file.relPath = file.path.startsWith(common) ? file.path.slice(common.length) : file.path;
+        }
+      }
+    }
+  }
+  return files;
+}
+
+/**
  * Render turns into a self-contained HTML string.
  * @param {import('./parser.mjs').Turn[]} turns
  * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, theme?: Record<string,string>, userLabel?: string, assistantLabel?: string, title?: string, redactSecrets?: boolean }} opts
@@ -175,7 +222,9 @@ export function render(turns, opts = {}) {
     : escapeJsonForScript(json);
   // Use function replacements to avoid $-pattern interpretation in replacement strings
   html = html.replace("/*BOOKMARKS_DATA*/", () => embedData(JSON.stringify(bookmarks)));
-  html = html.replace("/*TURNS_DATA*/", () => embedData(JSON.stringify(turnsToJsonData(turns, { redact, redactRules: opts.redactRules }))));
+  const turnsData = turnsToJsonData(turns, { redact, redactRules: opts.redactRules });
+  html = html.replace("/*FILES_DATA*/", () => embedData(JSON.stringify(extractFileData(turnsData))));
+  html = html.replace("/*TURNS_DATA*/", () => embedData(JSON.stringify(turnsData)));
 
   return html;
 }
