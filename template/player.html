@@ -605,6 +605,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 .diff-file { color: var(--text-dim); font-size: 11px; margin-bottom: 6px; }
 .diff-line-del { color: var(--red); background: rgba(248,81,73,0.1); }
 .diff-line-add { color: var(--green); background: rgba(63,185,80,0.1); }
+.diff-line-ctx { color: var(--text-dim); }
 .diff-result { color: var(--text-dim); font-size: 11px; padding: 6px 10px; border-top: 1px solid var(--border); }
 .diff-result-error { color: var(--red); }
 .tool-indicator.tool-error { background: var(--red); }
@@ -979,8 +980,8 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   position: fixed;
   top: 0;
   right: max(0px, calc((100vw - 960px) / 2));
-  width: 260px;
-  bottom: 0;
+  width: 260px; /* overridden by JS */
+  bottom: 0; /* adjusted by JS to sit above controls */
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
   z-index: 90;
@@ -989,7 +990,6 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   font-size: 12px;
 }
 .file-sidebar.open { display: flex; }
-body.sidebar-open .transcript { margin-right: 260px; }
 .file-sidebar-header {
   display: flex;
   align-items: center;
@@ -1007,6 +1007,7 @@ body.sidebar-open .transcript { margin-right: 260px; }
 .file-sidebar-close:hover { color: var(--text); }
 .file-sidebar-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 8px 0;
 }
@@ -1023,13 +1024,12 @@ body.sidebar-open .transcript { margin-right: 260px; }
   user-select: none;
 }
 .file-entry-header:hover { background: var(--bg-hover); }
-.file-entry-header.active { color: var(--accent); }
+.file-entry-header.active { border-left: 2px solid var(--accent); padding-left: 10px; color: var(--accent); }
 .file-entry-chevron {
   font-size: 8px; color: var(--text-dim); transition: transform 0.15s;
   flex-shrink: 0;
 }
 .file-entry.expanded .file-entry-chevron { transform: rotate(90deg); }
-.file-entry-icon { font-size: 10px; width: 14px; text-align: center; flex-shrink: 0; }
 .file-entry-name { flex: 1; overflow: hidden; min-width: 0; }
 .file-entry-name-main { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-entry-name-path { display: block; font-size: 9px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1456,11 +1456,26 @@ body.sidebar-open .transcript { margin-right: 260px; }
       const oldLines = String(input.old_string).split("\n");
       const newLines = String(input.new_string).split("\n");
       let diffHtml = `<div class="diff-view"><div class="diff-file">${escapeHtml(fp)}${input.replace_all ? " (replace all)" : ""}</div>`;
-      for (const l of oldLines) {
-        diffHtml += `<div class="diff-line-del">${escapeHtml("\u2212 " + l)}</div>`;
+      // Simple LCS diff
+      const m = oldLines.length, n = newLines.length;
+      const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = m - 1; i >= 0; i--) {
+        for (let j = n - 1; j >= 0; j--) {
+          dp[i][j] = oldLines[i] === newLines[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        }
       }
-      for (const l of newLines) {
-        diffHtml += `<div class="diff-line-add">${escapeHtml("+ " + l)}</div>`;
+      let i = 0, j = 0;
+      while (i < m || j < n) {
+        if (i < m && j < n && oldLines[i] === newLines[j]) {
+          diffHtml += `<div class="diff-line-ctx">${escapeHtml("  " + oldLines[i])}</div>`;
+          i++; j++;
+        } else if (j < n && (i >= m || dp[i][j + 1] >= dp[i + 1][j])) {
+          diffHtml += `<div class="diff-line-add">${escapeHtml("+ " + newLines[j])}</div>`;
+          j++;
+        } else {
+          diffHtml += `<div class="diff-line-del">${escapeHtml("\u2212 " + oldLines[i])}</div>`;
+          i++;
+        }
       }
       diffHtml += "</div>";
       if (tc.result != null) {
@@ -2793,6 +2808,14 @@ body.sidebar-open .transcript { margin-right: 260px; }
   const TOOL_ICONS = { Write: "✚", Edit: "✎", Read: "👁", Bash: "$", Grep: "⌕", Glob: "◉" };
 
   if (FILES.length > 0) {
+    // Calculate sidebar width based on content (min 180, max 260)
+    const maxNameLen = Math.max(...FILES.map((f) => f.name.length));
+    const sidebarWidth = Math.min(260, Math.max(180, maxNameLen * 8 + 70));
+    fileSidebar.style.width = sidebarWidth + "px";
+    const style = document.createElement("style");
+    style.textContent = "body.sidebar-open .transcript { margin-right: " + sidebarWidth + "px; }";
+    document.head.appendChild(style);
+
     fileSidebarToggle.style.display = "";
     $("#fileSidebarToggle2").style.display = "";
     fileSidebarCount.textContent = "(" + FILES.length + ")";
@@ -2800,12 +2823,12 @@ body.sidebar-open .transcript { margin-right: 260px; }
     let html = "";
     for (const file of FILES) {
       const tools = new Set(file.refs.map((r) => r.tool));
-      const icon = tools.has("Write") ? TOOL_ICONS.Write : tools.has("Edit") ? TOOL_ICONS.Edit : tools.has("Bash") ? TOOL_ICONS.Bash : tools.has("Read") ? TOOL_ICONS.Read : "·";
+      const colorClass = tools.has("Write") ? "file-created" : tools.has("Edit") ? "file-modified" : "file-read";
       const badge = file.refs.length > 1 ? `<span class="file-entry-badge">${file.refs.length}</span>` : "";
       html += `<div class="file-entry" data-path="${escapeHtml(file.path)}">`;
       const displayPath = file.relPath || file.path;
       const dir = displayPath.includes("/") ? displayPath.slice(0, displayPath.lastIndexOf("/")) : "";
-      html += `<div class="file-entry-header"><span class="file-entry-chevron">&#9654;</span><span class="file-entry-icon">${icon}</span><span class="file-entry-name" title="${escapeHtml(file.path)}"><span class="file-entry-name-main">${escapeHtml(file.name)}</span>${dir ? `<span class="file-entry-name-path">${escapeHtml(dir)}</span>` : ""}</span>${badge}</div>`;
+      html += `<div class="file-entry-header"><span class="file-entry-chevron">&#9654;</span><span class="file-entry-name ${colorClass}" title="${escapeHtml(file.path)}"><span class="file-entry-name-main">${escapeHtml(file.name)}</span>${dir ? `<span class="file-entry-name-path">${escapeHtml(dir)}</span>` : ""}</span>${badge}</div>`;
       html += `<div class="file-entry-refs">`;
       for (const ref of file.refs) {
         html += `<a class="file-entry-ref" data-turn="${ref.turn}" data-block="${ref.block}"><span class="ref-tool">${ref.tool}</span> in turn ${ref.turn}</a>`;
@@ -2857,14 +2880,15 @@ body.sidebar-open .transcript { margin-right: 260px; }
   // Toggle sidebar
   function toggleFileSidebar(open) {
     const show = open !== undefined ? open : !fileSidebar.classList.contains("open");
+    if (show) fileSidebar.style.bottom = getControlsHeight() + "px";
     fileSidebar.classList.toggle("open", show);
     document.body.classList.toggle("sidebar-open", show);
   }
   fileSidebarToggle.addEventListener("click", () => toggleFileSidebar());
   $("#fileSidebarToggle2").addEventListener("click", (e) => {
     e.preventDefault();
-    toggleFileSidebar(true);
-    moreWrap.classList.remove("open");
+    closeAllPopovers();
+    toggleFileSidebar();
   });
   $("#fileSidebarClose").addEventListener("click", () => toggleFileSidebar(false));
 
