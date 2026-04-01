@@ -120,6 +120,10 @@ export function renderFromTemplate(template, turns, opts = {}) {
   html = html.replace("/*USER_LABEL*/", escapeHtml(userLabel));
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
+  const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
+  const fontSize = opts.fontSize || "normal";
+  html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");
+  html = html.replace('/*FONT_SIZE_NAME*/"normal"', JSON.stringify(fontSize));
 
   const embedData = (json) => escapeJsonForScript(json);
   html = html.replace("/*BOOKMARKS_DATA*/", () => embedData(JSON.stringify(bookmarks)));

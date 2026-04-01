@@ -217,6 +217,7 @@ The extracted JSONL can be fed back into `claude-replay` to regenerate with diff
 | `--speed N` | Initial playback speed, e.g. `2.0` (default: 1.0) |
 | `--no-thinking` | Hide thinking blocks by default |
 | `--no-tool-calls` | Hide tool call blocks by default |
+| `--font-size SIZE` | Font size: `small`, `normal`, `large` (default: `normal`) |
 | `--mark "N:Label"` | Add a bookmark/chapter at turn N (repeatable) |
 | `--bookmarks FILE` | JSON file with bookmarks `[{turn, label}]` |
 | `--no-auto-redact` | Disable automatic secret redaction |

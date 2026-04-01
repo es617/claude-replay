@@ -273,6 +273,7 @@ function buildRenderOpts(options, session, overrides = {}) {
     speed: parseFloat(options.speed) || 1.0,
     showThinking: options.showThinking !== false,
     showToolCalls: options.showToolCalls !== false,
+    fontSize: options.fontSize || "normal",
     theme: getThemeSafe(options.theme || "tokyo-night"),
     redactSecrets: options.redactSecrets !== false,
     redactRules: options.redactRules || [],

@@ -23,7 +23,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 13px;
+  font-size: var(--font-size, /*FONT_SIZE*/13px);
   line-height: 1.6;
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
@@ -255,6 +255,30 @@ body.in-iframe .bar-title:hover {
 }
 .filter-popover label:hover { color: var(--text); }
 .filter-popover input[type="checkbox"] { accent-color: var(--accent); }
+.font-size-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.font-size-row-label { min-width: 50px; }
+.font-size-cycle {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  min-width: 28px;
+  text-align: center;
+}
+.font-size-cycle:hover { color: var(--text); border-color: var(--accent-dim); }
 
 .controls-secondary {
   display: flex;
@@ -978,6 +1002,10 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
           <div class="filter-popover">
             <label><input type="checkbox" id="toggle-thinking" /*CHECKED_THINKING*/> Thinking</label>
             <label><input type="checkbox" id="toggle-tools" /*CHECKED_TOOLS*/> Tools</label>
+            <div class="font-size-row">
+              <span class="font-size-row-label">Font</span>
+              <button class="font-size-cycle" id="font-size-cycle" title="Cycle font size">M</button>
+            </div>
           </div>
         </div>
       </div>
@@ -994,6 +1022,11 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
           <hr class="more-divider">
           <label><input type="checkbox" id="toggle-thinking2" /*CHECKED_THINKING*/> Thinking</label>
           <label><input type="checkbox" id="toggle-tools2" /*CHECKED_TOOLS*/> Tools</label>
+          <hr class="more-divider">
+          <div class="more-row">
+            <span class="more-row-label">Font</span>
+            <button class="font-size-cycle" title="Cycle font size">M</button>
+          </div>
           <hr class="more-divider">
           <div id="more-chapters" style="display:none">
             <hr class="more-divider">
@@ -2299,6 +2332,27 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   // Filter checkboxes
   toggleThinking.addEventListener("change", applyVisibility);
   toggleTools.addEventListener("change", applyVisibility);
+
+  // Font size controls
+  const FONT_SIZE_STEPS = ["small", "normal", "large"];
+  const FONT_SIZE_PX = { small: "11px", normal: "13px", large: "15px" };
+  const FONT_SIZE_LABELS = { small: "S", normal: "M", large: "L" };
+  let currentFontSize = /*FONT_SIZE_NAME*/"normal";
+  function setFontSize(size) {
+    currentFontSize = size;
+    document.body.style.setProperty("--font-size", FONT_SIZE_PX[size] || FONT_SIZE_PX.normal);
+    for (const btn of $$(".font-size-cycle")) {
+      btn.textContent = FONT_SIZE_LABELS[size] || "M";
+    }
+  }
+  setFontSize(currentFontSize);
+  for (const btn of $$(".font-size-cycle")) {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = FONT_SIZE_STEPS.indexOf(currentFontSize);
+      setFontSize(FONT_SIZE_STEPS[(idx + 1) % FONT_SIZE_STEPS.length]);
+    });
+  }
 
   // Auto-paced toggle (more menu version)
   if (hasRealTimestamps) {

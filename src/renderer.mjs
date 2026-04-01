@@ -161,6 +161,10 @@ export function render(turns, opts = {}) {
   html = html.replace("/*USER_LABEL*/", escapeHtml(userLabel));
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
+  const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
+  const fontSize = opts.fontSize || "normal";
+  html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");
+  html = html.replace('/*FONT_SIZE_NAME*/"normal"', JSON.stringify(fontSize));
 
   // Data blobs last — they may contain text matching any of the above placeholders.
   // BOOKMARKS before TURNS, because TURNS data may contain the literal placeholder

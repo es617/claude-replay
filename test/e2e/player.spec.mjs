@@ -549,6 +549,22 @@ test("prev turn button skips to previous turn", async ({ page }) => {
   await expect(page.locator('.turn[data-index="2"]')).toHaveClass(/active/);
 });
 
+// ─── Font size ────────────────────────────────────────────
+
+test("font size button cycles through S, M, L", async ({ page }) => {
+  await goto(page);
+  await pressKey(page, " ");
+  await page.locator("#filter-btn").click();
+  const btn = page.locator("#font-size-cycle");
+  await expect(btn).toHaveText("M");
+  await btn.click();
+  await expect(btn).toHaveText("L");
+  await btn.click();
+  await expect(btn).toHaveText("S");
+  await btn.click();
+  await expect(btn).toHaveText("M");
+});
+
 // ─── Auto-paced toggle ────────────────────────────────────
 
 test("auto-paced toggle visible in speed popover with real timestamps", async ({ page }) => {

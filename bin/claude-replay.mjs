@@ -29,6 +29,7 @@ const options = {
   theme: { type: "string", default: "tokyo-night" },
   "theme-file": { type: "string" },
   "list-themes": { type: "boolean", default: false },
+  "font-size": { type: "string" },
   "no-auto-redact": { type: "boolean", default: false },
   redact: { type: "string", multiple: true },
   title: { type: "string" },
@@ -143,6 +144,7 @@ Options:
   --speed N               Initial playback speed (default: 1.0)
   --no-thinking           Hide thinking blocks by default
   --no-tool-calls         Hide tool call blocks by default
+  --font-size SIZE        Font size: small, normal, large (default: normal)
   --title TEXT             Page title (default: derived from input path)
   --description TEXT       Meta description for link previews (default: "Interactive AI session replay")
   --og-image URL          OG image URL for link previews (default: hosted default)
@@ -440,6 +442,7 @@ function buildReplay() {
     speed,
     showThinking: !values["no-thinking"],
     showToolCalls: !values["no-tool-calls"],
+    fontSize: values["font-size"] || "normal",
     theme,
     redactSecrets: !values["no-auto-redact"],
     redactRules,

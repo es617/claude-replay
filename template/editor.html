@@ -848,6 +848,14 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
           <label title="Show tool call blocks by default">Show Tool Calls</label>
           <input type="checkbox" id="optToolCalls" checked title="Show tool call blocks by default">
         </div>
+        <div class="opt-row">
+          <label for="optFontSize" title="Default font size (viewer can change)">Font size</label>
+          <select id="optFontSize" title="Default font size">
+            <option value="small">Small</option>
+            <option value="normal" selected>Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
 
         <div class="opt-group-label">Appearance</div>
         <div class="opt-row">
@@ -1121,6 +1129,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     speed:     $("optSpeed"),
     thinking:  $("optThinking"),
     toolCalls: $("optToolCalls"),
+    fontSize:  $("optFontSize"),
     redact:    $("optRedact"),
     userLabel: $("optUserLabel"),
     asstLabel: $("optAssistantLabel"),
@@ -1597,6 +1606,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       speed: parseFloat(opt.speed.value) || 1,
       showThinking: opt.thinking.checked,
       showToolCalls: opt.toolCalls.checked,
+      fontSize: opt.fontSize.value,
       redactSecrets: opt.redact.checked,
       redactRules: getRedactRules(),
       userLabel: opt.userLabel.value || "User",
