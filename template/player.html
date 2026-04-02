@@ -1057,8 +1057,10 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 
 .file-sidebar-toggle { font-size: 13px; }
 .file-sidebar-toggle2 {
-  display: block; font-size: 12px; color: var(--text-dim);
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim);
   text-decoration: none; padding: 4px 0; cursor: pointer;
+  white-space: nowrap;
 }
 .file-sidebar-toggle2:hover { color: var(--text); }
 
@@ -1117,8 +1119,10 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
             <span class="more-row-label">Font</span>
             <button class="font-size-cycle" title="Cycle font size">M</button>
           </div>
-          <a class="file-sidebar-toggle2" id="fileSidebarToggle2" href="#" style="display:none">Files</a>
-          <hr class="more-divider">
+          <div id="fileSidebarToggle2Wrap" style="display:none">
+            <hr class="more-divider">
+            <a class="file-sidebar-toggle2" id="fileSidebarToggle2" href="#"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0A1.5 1.5 0 0 0 2 1.5v13A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5V4.5L10 0H3.5zM10 1l3.5 3.5H10V1zM4 7h8v1H4V7zm0 2h8v1H4V9zm0 2h5v1H4v-1z"/></svg> Files</a>
+          </div>
           <div id="more-chapters" style="display:none">
             <hr class="more-divider">
             <div id="more-chapter-list"></div>
@@ -2817,7 +2821,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     document.head.appendChild(style);
 
     fileSidebarToggle.style.display = "";
-    $("#fileSidebarToggle2").style.display = "";
+    $("#fileSidebarToggle2Wrap").style.display = "";
     fileSidebarCount.textContent = "(" + FILES.length + ")";
 
     let html = "";
