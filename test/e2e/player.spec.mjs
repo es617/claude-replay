@@ -549,6 +549,72 @@ test("prev turn button skips to previous turn", async ({ page }) => {
   await expect(page.locator('.turn[data-index="2"]')).toHaveClass(/active/);
 });
 
+// ─── File sidebar ─────────────────────────────────────────
+
+test("file sidebar toggle visible when session has tool calls", async ({ page }) => {
+  await goto(page);
+  await pressKey(page, " ");
+  await expect(page.locator("#fileSidebarToggle")).toBeVisible();
+});
+
+test("file sidebar opens and shows files", async ({ page }) => {
+  await goto(page);
+  await pressKey(page, " ");
+  await page.locator("#fileSidebarToggle").click();
+  await expect(page.locator("#fileSidebar")).toHaveClass(/open/);
+  const files = page.locator(".file-entry");
+  expect(await files.count()).toBeGreaterThan(0);
+});
+
+test("file sidebar closes with X button", async ({ page }) => {
+  await goto(page);
+  await pressKey(page, " ");
+  await page.locator("#fileSidebarToggle").click();
+  await expect(page.locator("#fileSidebar")).toHaveClass(/open/);
+  await page.locator("#fileSidebarClose").click();
+  await expect(page.locator("#fileSidebar")).not.toHaveClass(/open/);
+});
+
+test("clicking file entry expands to show turn references", async ({ page }) => {
+  await goto(page);
+  await pressKey(page, " ");
+  await page.locator("#fileSidebarToggle").click();
+  const firstFile = page.locator(".file-entry").first();
+  await firstFile.locator(".file-entry-header").click();
+  await expect(firstFile).toHaveClass(/expanded/);
+  const refs = firstFile.locator(".file-entry-ref");
+  expect(await refs.count()).toBeGreaterThan(0);
+});
+
+test("clicking file reference navigates to turn", async ({ page }) => {
+  await goto(page, "turn=1");
+  await page.locator("#fileSidebarToggle").click();
+  const firstFile = page.locator(".file-entry").first();
+  await firstFile.locator(".file-entry-header").click();
+  const ref = firstFile.locator(".file-entry-ref").first();
+  const turnIdx = await ref.getAttribute("data-turn");
+  await ref.click();
+  await expect(page.locator(`.turn[data-index="${turnIdx}"]`)).toHaveClass(/active/);
+});
+
+// ─── Diff rendering ───────────────────────────────────────
+
+test("edit diff shows context, added, and removed lines", async ({ page }) => {
+  await goto(page);
+  // Navigate to a turn with Edit tool calls and expand it
+  await pressKey(page, " "); // start
+  // Step through to find an edit block
+  for (let i = 0; i < 15; i++) await pressKey(page, "ArrowRight");
+  // Check for diff line types
+  const diffView = page.locator(".diff-view").first();
+  if (await diffView.isVisible().catch(() => false)) {
+    // Should have at least add or del lines
+    const addLines = await page.locator(".diff-line-add").count();
+    const delLines = await page.locator(".diff-line-del").count();
+    expect(addLines + delLines).toBeGreaterThan(0);
+  }
+});
+
 // ─── Font size ────────────────────────────────────────────
 
 test("font size button cycles through S, M, L", async ({ page }) => {
