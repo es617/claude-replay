@@ -39,6 +39,7 @@ Claude Code, Cursor, Codex CLI, Gemini CLI, and OpenCode store conversation tran
 - Secret redaction before export
 - Multiple color themes
 - Terminal-style bottom-to-top scroll
+- File activity sidebar — see which files were touched and navigate to their tool calls
 - Embeddable via iframe
 - Live watch mode — monitor agent sessions in real time (`--serve --watch`)
 - Web-based editor UI for visual session editing and preview

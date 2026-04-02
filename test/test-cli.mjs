@@ -125,8 +125,13 @@ describe("CLI flags", () => {
     ]);
     assert.equal(code, 0);
     assert.ok(stdout.includes("TestBookmark"), "bookmark label in output");
-    assert.ok(stdout.includes('\\"turn\\":2'), "bookmark should reference remapped turn 2");
-    assert.ok(!stdout.includes('\\"turn\\":3'), "bookmark should not reference original turn 3");
+    // Extract the bookmarks blob — it appears between BOOKMARKS decode and FILES decode
+    const bmMatch = stdout.match(/\\"label\\":\\"TestBookmark\\"/);
+    assert.ok(bmMatch, "bookmark label should be in bookmarks data");
+    // Check the bookmark's turn index is 2 (remapped), not 3 (original)
+    const bmSection = stdout.match(/\\"turn\\":\d+,\\"label\\":\\"TestBookmark\\"/);
+    assert.ok(bmSection, "bookmark should have turn and label");
+    assert.ok(bmSection[0].includes('\\"turn\\":2'), "bookmark should reference remapped turn 2");
   });
 
   it("--watch without --serve requires -o", async () => {

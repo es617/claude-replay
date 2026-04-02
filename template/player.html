@@ -605,6 +605,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 .diff-file { color: var(--text-dim); font-size: 11px; margin-bottom: 6px; }
 .diff-line-del { color: var(--red); background: rgba(248,81,73,0.1); }
 .diff-line-add { color: var(--green); background: rgba(63,185,80,0.1); }
+.diff-line-ctx { color: var(--text-dim); }
 .diff-result { color: var(--text-dim); font-size: 11px; padding: 6px 10px; border-top: 1px solid var(--border); }
 .diff-result-error { color: var(--red); }
 .tool-indicator.tool-error { background: var(--red); }
@@ -973,6 +974,96 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* File activity sidebar */
+.file-sidebar {
+  position: fixed;
+  top: 0;
+  right: max(0px, calc((100vw - 960px) / 2));
+  width: 260px; /* overridden by JS */
+  bottom: 0; /* adjusted by JS to sit above controls */
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  font-size: 12px;
+}
+.file-sidebar.open { display: flex; }
+.file-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.file-sidebar-title { font-weight: 600; color: var(--text); }
+.file-sidebar-count { color: var(--text-dim); font-weight: 400; }
+.file-sidebar-close {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 18px; cursor: pointer; padding: 0 4px;
+}
+.file-sidebar-close:hover { color: var(--text); }
+.file-sidebar-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.file-entry {
+  padding: 0;
+}
+.file-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--text);
+  user-select: none;
+}
+.file-entry-header:hover { background: var(--bg-hover); }
+.file-entry-header.active { border-left: 2px solid var(--accent); padding-left: 10px; color: var(--accent); }
+.file-entry-chevron {
+  font-size: 8px; color: var(--text-dim); transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.file-entry.expanded .file-entry-chevron { transform: rotate(90deg); }
+.file-entry-name { flex: 1; overflow: hidden; min-width: 0; }
+.file-entry-name-main { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-entry-name-path { display: block; font-size: 9px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-entry-badge {
+  font-size: 10px; color: var(--text-dim); background: var(--bg-hover);
+  padding: 1px 5px; border-radius: 8px; flex-shrink: 0;
+}
+.file-entry-refs {
+  display: none;
+  padding: 2px 12px 6px 32px;
+}
+.file-entry.expanded .file-entry-refs { display: block; }
+.file-entry-ref {
+  display: block;
+  padding: 3px 8px;
+  margin: 1px 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-decoration: none;
+}
+.file-entry-ref:hover { background: var(--bg-hover); color: var(--text); }
+.file-entry-ref .ref-tool { color: var(--accent); }
+
+.file-sidebar-toggle { font-size: 13px; }
+.file-sidebar-toggle2 {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim);
+  text-decoration: none; padding: 4px 0; cursor: pointer;
+  white-space: nowrap;
+}
+.file-sidebar-toggle2:hover { color: var(--text); }
+
 </style>
 </head>
 <body>
@@ -1008,6 +1099,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
             </div>
           </div>
         </div>
+        <button class="file-sidebar-toggle" id="fileSidebarToggle" title="Files" style="display:none"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0A1.5 1.5 0 0 0 2 1.5v13A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5V4.5L10 0H3.5zM10 1l3.5 3.5H10V1zM4 7h8v1H4V7zm0 2h8v1H4V9zm0 2h5v1H4v-1z"/></svg></button>
       </div>
       <div class="more-wrap" id="more-wrap">
         <button id="more-btn" title="More">&#x22EE;</button>
@@ -1027,7 +1119,10 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
             <span class="more-row-label">Font</span>
             <button class="font-size-cycle" title="Cycle font size">M</button>
           </div>
-          <hr class="more-divider">
+          <div id="fileSidebarToggle2Wrap" style="display:none">
+            <hr class="more-divider">
+            <a class="file-sidebar-toggle2" id="fileSidebarToggle2" href="#"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0A1.5 1.5 0 0 0 2 1.5v13A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5V4.5L10 0H3.5zM10 1l3.5 3.5H10V1zM4 7h8v1H4V7zm0 2h8v1H4V9zm0 2h5v1H4v-1z"/></svg> Files</a>
+          </div>
           <div id="more-chapters" style="display:none">
             <hr class="more-divider">
             <div id="more-chapter-list"></div>
@@ -1047,6 +1142,13 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     <button class="splash-play" id="splash-play">&#9654;</button>
   </div>
   <div class="transcript" id="transcript" style="opacity:0.5">Loading...</div>
+  <div class="file-sidebar" id="fileSidebar">
+  <div class="file-sidebar-header">
+    <span class="file-sidebar-title">Files <span class="file-sidebar-count" id="fileSidebarCount"></span></span>
+    <button class="file-sidebar-close" id="fileSidebarClose">&times;</button>
+  </div>
+  <div class="file-sidebar-list" id="fileSidebarList"></div>
+</div>
 </div>
 
 <script>
@@ -1080,6 +1182,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 
   const TURNS = await decodeData("/*TURNS_DATA*/");
   const BOOKMARKS = await decodeData("/*BOOKMARKS_DATA*/");
+  const FILES = await decodeData("/*FILES_DATA*/");
 
   const SPEED_STEPS = [0.5, 1, 2, 3, 5];
   const ANIMATE_MIN_DELAY = 600;       // minimum ms between consecutive block reveals
@@ -1357,11 +1460,37 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       const oldLines = String(input.old_string).split("\n");
       const newLines = String(input.new_string).split("\n");
       let diffHtml = `<div class="diff-view"><div class="diff-file">${escapeHtml(fp)}${input.replace_all ? " (replace all)" : ""}</div>`;
-      for (const l of oldLines) {
-        diffHtml += `<div class="diff-line-del">${escapeHtml("\u2212 " + l)}</div>`;
+      const m = oldLines.length, n = newLines.length;
+      // Fall back to simple before/after for very large diffs
+      if (m * n > 50000) {
+        for (const l of oldLines) diffHtml += `<div class="diff-line-del">${escapeHtml("\u2212 " + l)}</div>`;
+        for (const l of newLines) diffHtml += `<div class="diff-line-add">${escapeHtml("+ " + l)}</div>`;
+        diffHtml += "</div>";
+        if (tc.result != null) {
+          const errCls = tc.is_error ? " diff-result-error" : "";
+          diffHtml += `<div class="diff-result${errCls}">${escapeHtml(tc.result)}</div>`;
+        }
+        return diffHtml;
       }
-      for (const l of newLines) {
-        diffHtml += `<div class="diff-line-add">${escapeHtml("+ " + l)}</div>`;
+      // LCS diff
+      const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = m - 1; i >= 0; i--) {
+        for (let j = n - 1; j >= 0; j--) {
+          dp[i][j] = oldLines[i] === newLines[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        }
+      }
+      let i = 0, j = 0;
+      while (i < m || j < n) {
+        if (i < m && j < n && oldLines[i] === newLines[j]) {
+          diffHtml += `<div class="diff-line-ctx">${escapeHtml("  " + oldLines[i])}</div>`;
+          i++; j++;
+        } else if (j < n && (i >= m || dp[i][j + 1] >= dp[i + 1][j])) {
+          diffHtml += `<div class="diff-line-add">${escapeHtml("+ " + newLines[j])}</div>`;
+          j++;
+        } else {
+          diffHtml += `<div class="diff-line-del">${escapeHtml("\u2212 " + oldLines[i])}</div>`;
+          i++;
+        }
       }
       diffHtml += "</div>";
       if (tc.result != null) {
@@ -2680,6 +2809,124 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   });
 
   $("#splash-play").addEventListener("click", () => startPlay());
+
+  // ═══════════════════════════════════════════
+  // § FILE ACTIVITY SIDEBAR
+  // ═══════════════════════════════════════════
+
+  const fileSidebar = $("#fileSidebar");
+  const fileSidebarList = $("#fileSidebarList");
+  const fileSidebarToggle = $("#fileSidebarToggle");
+  const fileSidebarCount = $("#fileSidebarCount");
+
+  // File activity sidebar — uses pre-computed FILES data
+
+  if (FILES.length > 0) {
+    // Calculate sidebar width based on content (min 180, max 260)
+    const maxNameLen = Math.max(...FILES.map((f) => f.name.length));
+    const sidebarWidth = Math.min(260, Math.max(180, maxNameLen * 8 + 70));
+    fileSidebar.style.width = sidebarWidth + "px";
+    const style = document.createElement("style");
+    style.textContent = "body.sidebar-open .transcript { margin-right: " + sidebarWidth + "px; }";
+    document.head.appendChild(style);
+
+    fileSidebarToggle.style.display = "";
+    $("#fileSidebarToggle2Wrap").style.display = "";
+    fileSidebarCount.textContent = "(" + FILES.length + ")";
+
+    let html = "";
+    for (const file of FILES) {
+      const tools = new Set(file.refs.map((r) => r.tool));
+      const badge = file.refs.length > 1 ? `<span class="file-entry-badge">${file.refs.length}</span>` : "";
+      html += `<div class="file-entry" data-path="${escapeHtml(file.path)}">`;
+      const displayPath = file.relPath || file.path;
+      const dir = displayPath.includes("/") ? displayPath.slice(0, displayPath.lastIndexOf("/")) : "";
+      html += `<div class="file-entry-header"><span class="file-entry-chevron">&#9654;</span><span class="file-entry-name" title="${escapeHtml(file.path)}"><span class="file-entry-name-main">${escapeHtml(file.name)}</span>${dir ? `<span class="file-entry-name-path">${escapeHtml(dir)}</span>` : ""}</span>${badge}</div>`;
+      html += `<div class="file-entry-refs">`;
+      for (const ref of file.refs) {
+        html += `<a class="file-entry-ref" data-turn="${ref.turn}" data-block="${ref.block}"><span class="ref-tool">${ref.tool}</span> in turn ${ref.turn}</a>`;
+      }
+      html += `</div></div>`;
+    }
+    fileSidebarList.innerHTML = html;
+
+    // Toggle expand/collapse file entries
+    fileSidebarList.addEventListener("click", (e) => {
+      const header = e.target.closest(".file-entry-header");
+      if (header) {
+        header.closest(".file-entry").classList.toggle("expanded");
+        return;
+      }
+      const ref = e.target.closest(".file-entry-ref");
+      if (ref) {
+        const turnIdx = parseInt(ref.dataset.turn);
+        if (turnIdx > 0) {
+          navigate(turnIdx, { hideActiveBlocks: false });
+          scrollProtectUntil = Date.now() + 2000;
+          // Expand the matching tool block (and its parent group if grouped)
+          const filePath = ref.closest(".file-entry")?.dataset.path;
+          const toolName = ref.querySelector(".ref-tool")?.textContent;
+          if (filePath) {
+            const turnEl = turnElements()[turnIdx - 1];
+            if (turnEl) {
+              const fileName = filePath.split("/").pop();
+              for (const tb of turnEl.querySelectorAll(".tool-block")) {
+                const nameEl = tb.querySelector(".tool-name");
+                const previewEl = tb.querySelector(".tool-args-preview");
+                if (nameEl && previewEl && nameEl.textContent === toolName && previewEl.textContent.includes(fileName)) {
+                  // Expand parent tool-group if exists
+                  const group = tb.closest(".tool-group");
+                  if (group) group.classList.add("open");
+                  tb.classList.add("open");
+                  break;
+                }
+              }
+            }
+          }
+          if (window.innerWidth <= 700) fileSidebar.classList.remove("open");
+        }
+      }
+    });
+  }
+
+  // Toggle sidebar
+  function toggleFileSidebar(open) {
+    const show = open !== undefined ? open : !fileSidebar.classList.contains("open");
+    if (show) fileSidebar.style.bottom = getControlsHeight() + "px";
+    fileSidebar.classList.toggle("open", show);
+    document.body.classList.toggle("sidebar-open", show);
+  }
+  fileSidebarToggle.addEventListener("click", () => toggleFileSidebar());
+  $("#fileSidebarToggle2").addEventListener("click", (e) => {
+    e.preventDefault();
+    closeAllPopovers();
+    toggleFileSidebar();
+  });
+  $("#fileSidebarClose").addEventListener("click", () => toggleFileSidebar(false));
+
+  // Highlight files touched by current turn — poll on interval when sidebar is open
+  if (FILES.length > 0) {
+    // Build turn → paths lookup from pre-computed FILES data
+    const turnToFiles = new Map();
+    for (const file of FILES) {
+      for (const ref of file.refs) {
+        if (!turnToFiles.has(ref.turn)) turnToFiles.set(ref.turn, new Set());
+        turnToFiles.get(ref.turn).add(file.path);
+      }
+    }
+    let lastHighlightedTurn = -1;
+    setInterval(() => {
+      if (!fileSidebar.classList.contains("open")) return;
+      if (currentTurn === lastHighlightedTurn) return;
+      lastHighlightedTurn = currentTurn;
+      const touchedPaths = turnToFiles.get(currentTurn) || new Set();
+      for (const entry of fileSidebarList.querySelectorAll(".file-entry-header")) {
+        const path = entry.closest(".file-entry").dataset.path;
+        entry.classList.toggle("active", touchedPaths.has(path));
+      }
+    }, 300);
+  }
+
   document.body.dataset.ready = "1";
 })();
 </script>

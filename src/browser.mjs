@@ -127,6 +127,31 @@ export function renderFromTemplate(template, turns, opts = {}) {
 
   const embedData = (json) => escapeJsonForScript(json);
   html = html.replace("/*BOOKMARKS_DATA*/", () => embedData(JSON.stringify(bookmarks)));
+  // Extract file activity from redacted turn data
+  const redactedTurns = turnsToJsonData(turns, { redact, redactRules });
+  const files = [];
+  const fileMap = new Map();
+  for (const turn of redactedTurns) {
+    for (let bi = 0; bi < (turn.blocks || []).length; bi++) {
+      const b = turn.blocks[bi];
+      if (!b.tool_call?.input?.file_path) continue;
+      const fp = b.tool_call.input.file_path;
+      if (!fileMap.has(fp)) { fileMap.set(fp, { path: fp, name: fp.split("/").pop() || fp, refs: [] }); files.push(fileMap.get(fp)); }
+      fileMap.get(fp).refs.push({ turn: turn.index, block: bi, tool: b.tool_call.name });
+    }
+  }
+  // Compute common prefix for relative paths
+  const allPaths = files.map((f) => f.path).filter((p) => p.includes("/"));
+  if (allPaths.length > 0) {
+    const parts = allPaths[0].split("/");
+    let common = "";
+    for (let i = 0; i < parts.length - 1; i++) {
+      const prefix = parts.slice(0, i + 1).join("/") + "/";
+      if (allPaths.every((p) => p.startsWith(prefix))) common = prefix; else break;
+    }
+    if (common) for (const f of files) f.relPath = f.path.startsWith(common) ? f.path.slice(common.length) : f.path;
+  }
+  html = html.replace("/*FILES_DATA*/", () => embedData(JSON.stringify(files)));
   html = html.replace("/*TURNS_DATA*/", () => embedData(JSON.stringify(turnsToJsonData(turns, { redact, redactRules }))));
 
   return html;

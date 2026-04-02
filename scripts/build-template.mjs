@@ -24,6 +24,7 @@ const PLACEHOLDERS = [
   // JS placeholders (inside string literals or as values)
   { pattern: '"/*TURNS_DATA*/"', token: '"__PLACEHOLDER_TURNS_DATA__"' },
   { pattern: '"/*BOOKMARKS_DATA*/"', token: '"__PLACEHOLDER_BOOKMARKS_DATA__"' },
+  { pattern: '"/*FILES_DATA*/"', token: '"__PLACEHOLDER_FILES_DATA__"' },
   { pattern: "/*INITIAL_SPEED*/1", token: "__PLACEHOLDER_INITIAL_SPEED_VAL__" },
   { pattern: "/*INITIAL_SPEED*/", token: "__PLACEHOLDER_INITIAL_SPEED__" },
   { pattern: "/*CHECKED_THINKING*/", token: "__PLACEHOLDER_CHECKED_THINKING__" },
