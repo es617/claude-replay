@@ -127,10 +127,11 @@ export function renderFromTemplate(template, turns, opts = {}) {
 
   const embedData = (json) => escapeJsonForScript(json);
   html = html.replace("/*BOOKMARKS_DATA*/", () => embedData(JSON.stringify(bookmarks)));
-  // Extract file activity for sidebar
+  // Extract file activity from redacted turn data
+  const redactedTurns = turnsToJsonData(turns, { redact, redactRules });
   const files = [];
   const fileMap = new Map();
-  for (const turn of turns) {
+  for (const turn of redactedTurns) {
     for (let bi = 0; bi < (turn.blocks || []).length; bi++) {
       const b = turn.blocks[bi];
       if (!b.tool_call?.input?.file_path) continue;
