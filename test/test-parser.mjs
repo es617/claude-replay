@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "../src/parser.mjs";
+import { parseTranscript, parseTranscriptFromText, filterTurns, detectFormat, detectFormatFromText, applyPacedTiming } from "../src/parser.mjs";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -74,6 +74,23 @@ describe("parseTranscript", () => {
   it("preserves timestamps", () => {
     const turns = parseTranscript(FIXTURE);
     assert.equal(turns[0].timestamp, "2025-06-01T10:00:00Z");
+  });
+
+  it("detects and parses sessions with leading metadata entries", () => {
+    // Real Claude Code sessions start with queue-operation, session-id, etc.
+    // before the first user/assistant entry. Detection must scan past these.
+    const lines = [
+      JSON.stringify({ type: "queue-operation", operation: "enqueue" }),
+      JSON.stringify({ type: "session-id", id: "abc-123" }),
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello" }, timestamp: "2025-06-01T10:00:00Z" }),
+      JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "Hi!" }] }, timestamp: "2025-06-01T10:00:01Z" }),
+      JSON.stringify({ type: "last-prompt", text: "Hello" }),
+    ];
+    const text = lines.join("\n");
+    assert.equal(detectFormatFromText(text), "claude-code");
+    const turns = parseTranscriptFromText(text);
+    assert.equal(turns.length, 1);
+    assert.equal(turns[0].user_text, "Hello");
   });
 });
 

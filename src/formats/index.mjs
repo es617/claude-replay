@@ -50,7 +50,9 @@ export function detectFormatFromText(text) {
     if (fmt.detectFromText(text)) return fmt.name;
   }
 
-  // Check JSONL-based detectors line by line
+  // Check JSONL-based detectors line by line.
+  // Must scan multiple lines — real sessions often start with metadata entries
+  // (e.g. queue-operation, session-id) before the first user/assistant entry.
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -60,7 +62,6 @@ export function detectFormatFromText(text) {
     for (const fmt of formats) {
       if (fmt.detect(obj)) return fmt.name;
     }
-    break; // Only need to check first parseable line
   }
 
   return "unknown";
