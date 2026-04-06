@@ -52,7 +52,23 @@ node bin/claude-replay.mjs test/fixture-codex.jsonl -o /tmp/smoke-codex.html --n
 - Verify exit code 0 and "3 turns" in output
 - Verify the file is valid HTML
 
-## 6. CLI — session ID resolution
+## 6. CLI — real session from disk
+
+```bash
+# Find a real Claude Code session and verify it parses with > 0 turns
+REAL_SESSION=$(find ~/.claude/projects -name "*.jsonl" -type f 2>/dev/null | head -1)
+if [ -n "$REAL_SESSION" ]; then
+  node bin/claude-replay.mjs "$REAL_SESSION" -o /tmp/smoke-real.html --no-minify 2>&1
+  # Should produce > 0 turns — if it says "0 turns", detection is broken
+else
+  echo "No real Claude Code session found on this machine — skipping"
+fi
+```
+
+- Verify the turn count is > 0 (not "0 turns")
+- This catches detection bugs that synthetic fixtures miss (metadata preamble, etc.)
+
+## 7. CLI — session ID resolution
 
 ```bash
 # Should find sessions or show "no session found" (not crash)
@@ -62,7 +78,7 @@ node bin/claude-replay.mjs nonexistent-id 2>&1; echo "exit: $?"
 - Verify it prints a helpful error message mentioning searched paths
 - Verify exit code is 1
 
-## 7. CLI — options
+## 8. CLI — options
 
 ```bash
 # Turn filtering
@@ -96,7 +112,7 @@ node bin/claude-replay.mjs test/fixture.jsonl --redact "BLE" -o /tmp/smoke-redac
 
 Verify each command exits with code 0.
 
-## 8. CLI — multi-session concat
+## 9. CLI — multi-session concat
 
 ```bash
 node bin/claude-replay.mjs test/fixture.jsonl test/fixture-cursor.jsonl -o /tmp/smoke-concat.html --no-minify 2>&1
@@ -104,7 +120,7 @@ node bin/claude-replay.mjs test/fixture.jsonl test/fixture-cursor.jsonl -o /tmp/
 
 - Should say "5 turns" (3 + 2)
 
-## 9. CLI — extract and round-trip
+## 10. CLI — extract and round-trip
 
 ```bash
 # Extract as JSONL (default)
@@ -122,7 +138,7 @@ node bin/claude-replay.mjs /tmp/smoke-extracted.jsonl -o /tmp/smoke-roundtrip.ht
 # Verify bookmarks: grep -c '"label"' /tmp/smoke-roundtrip.html should be > 0
 ```
 
-## 10. Editor server
+## 11. Editor server
 
 ```bash
 # Start server in background
@@ -145,7 +161,7 @@ kill $SERVER_PID
 - Themes endpoint should return 6+ themes
 - Load should return 3 turns with format "claude-code"
 
-## 11. Compressed vs uncompressed
+## 12. Compressed vs uncompressed
 
 ```bash
 node bin/claude-replay.mjs test/fixture.jsonl -o /tmp/smoke-compressed.html --no-minify 2>&1
@@ -155,7 +171,7 @@ node bin/claude-replay.mjs test/fixture.jsonl -o /tmp/smoke-uncompressed.html --
 - Both should produce valid HTML
 - Compressed file should be smaller: `wc -c /tmp/smoke-compressed.html /tmp/smoke-uncompressed.html`
 
-## 12. Serve and watch
+## 13. Serve and watch
 
 ```bash
 # --serve should start a server

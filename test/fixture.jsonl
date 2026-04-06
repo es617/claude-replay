@@ -1,3 +1,5 @@
+{"type":"queue-operation","operation":"enqueue","timestamp":"2025-06-01T09:59:58Z"}
+{"type":"session-id","id":"test-session-abc123","timestamp":"2025-06-01T09:59:59Z"}
 {"type":"user","message":{"role":"user","content":"Hello, what is 2+2?"},"timestamp":"2025-06-01T10:00:00Z"}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"The user is asking a simple math question."},{"type":"text","text":"2 + 2 = 4"}]},"timestamp":"2025-06-01T10:00:01Z"}
 {"type":"user","message":{"role":"user","content":"Now use a tool to read a file"},"timestamp":"2025-06-01T10:01:00Z"}
@@ -6,3 +8,4 @@
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"The file contains: file contents here"}]},"timestamp":"2025-06-01T10:01:03Z"}
 {"type":"user","message":{"role":"user","content":"Thanks!"},"timestamp":"2025-06-01T10:02:00Z"}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"You're welcome!"}]},"timestamp":"2025-06-01T10:02:01Z"}
+{"type":"last-prompt","text":"Thanks!"}
