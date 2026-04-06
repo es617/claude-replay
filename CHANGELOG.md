@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.0
+
+### Player
+- File activity sidebar — shows which files were touched during the session, click to jump to the relevant tool call
+- LCS-based diff rendering for Edit/Write tool calls (falls back to simple diff for large inputs)
+- Font size control (small/normal/large) in filter popover and more menu
+
+### Editor
+- Shift+click hint in turn list toolbar
+- Font size option in playback settings
+
+### Architecture
+- Parser refactored into modular format plugins under `src/formats/` — each format is a self-contained module with `detect()` and `parse()` exports
+- New contributor guide (`CONTRIBUTING.md`) with step-by-step instructions for adding new agent format support
+- Turn structure contract tests validate all formats produce the same output shape
+
 ## 0.7.0
 
 ### New Formats
