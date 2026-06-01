@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseTranscript, parseTranscriptFromText, filterTurns, detectFormat, detectFormatFromText, applyPacedTiming } from "../src/parser.mjs";
+import { extractTitle } from "../src/formats/claude-code.mjs";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -660,4 +661,82 @@ describe("Turn structure contract", () => {
       assert.deepEqual(indices, expected, `${name}: indices should be sequential`);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// extractTitle
+// ---------------------------------------------------------------------------
+
+describe("extractTitle", () => {
+  const line = (obj) => JSON.stringify(obj);
+
+  it("returns null for empty text", () => {
+    assert.equal(extractTitle(""), null);
+  });
+
+  it("returns null when no title entries exist", () => {
+    const text = [
+      line({ type: "user", message: { role: "user", content: "hello" } }),
+      line({ type: "assistant", message: { role: "assistant", content: "hi" } }),
+    ].join("\n");
+    assert.equal(extractTitle(text), null);
+  });
+
+  it("returns ai-title value", () => {
+    const text = [
+      line({ type: "user", message: { role: "user", content: "hello" } }),
+      line({ type: "ai-title", aiTitle: "Explain VM Bundle concept", sessionId: "abc" }),
+    ].join("\n");
+    assert.equal(extractTitle(text), "Explain VM Bundle concept");
+  });
+
+  it("custom-title takes priority over ai-title", () => {
+    const text = [
+      line({ type: "ai-title", aiTitle: "AI generated title", sessionId: "abc" }),
+      line({ type: "custom-title", customTitle: "My custom name", sessionId: "abc" }),
+    ].join("\n");
+    assert.equal(extractTitle(text), "My custom name");
+  });
+
+  it("returns last custom-title when multiple exist", () => {
+    const text = [
+      line({ type: "custom-title", customTitle: "First title", sessionId: "abc" }),
+      line({ type: "custom-title", customTitle: "Updated title", sessionId: "abc" }),
+    ].join("\n");
+    assert.equal(extractTitle(text), "Updated title");
+  });
+
+  it("strips wrapping double-quotes from custom-title", () => {
+    const text = line({ type: "custom-title", customTitle: '"GDPR RLS Exploration"', sessionId: "abc" });
+    assert.equal(extractTitle(text), "GDPR RLS Exploration");
+  });
+
+  it("does not strip quotes that are not a complete outer wrapping pair", () => {
+    const text = line({ type: "ai-title", aiTitle: 'Fix "null" reference bug', sessionId: "abc" });
+    assert.equal(extractTitle(text), 'Fix "null" reference bug');
+  });
+
+  it("falls back to agent-name when no ai/custom title present", () => {
+    const text = [
+      line({ type: "agent-name", agentName: "presidio-pii-config-generator", sessionId: "abc" }),
+    ].join("\n");
+    assert.equal(extractTitle(text), "presidio-pii-config-generator");
+  });
+
+  it("custom-title takes priority over agent-name", () => {
+    const text = [
+      line({ type: "agent-name", agentName: "some-agent", sessionId: "abc" }),
+      line({ type: "custom-title", customTitle: "Real title", sessionId: "abc" }),
+    ].join("\n");
+    assert.equal(extractTitle(text), "Real title");
+  });
+
+  it("ignores malformed JSON lines", () => {
+    const text = [
+      "not-valid-json",
+      line({ type: "ai-title", aiTitle: "Valid title", sessionId: "abc" }),
+      "{broken",
+    ].join("\n");
+    assert.equal(extractTitle(text), "Valid title");
+  });
 });

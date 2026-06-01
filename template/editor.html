@@ -1186,7 +1186,9 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
         html += `<div class="session-list" id="${projId}">`;
         for (const sess of proj.sessions) {
           const dateStr = sess.date ? new Date(sess.date).toLocaleDateString() : "";
-          html += `<div class="session-item" data-path="${esc(sess.path)}">${esc(sess.file.replace(".jsonl", ""))} <span class="badge">${dateStr}</span></div>`;
+          const label = sess.title || sess.file.replace(".jsonl", "");
+          const uuid = sess.file.replace(".jsonl", "");
+          html += `<div class="session-item" data-path="${esc(sess.path)}" title="${esc(uuid)}">${esc(label)} <span class="badge">${dateStr}</span></div>`;
         }
         html += `</div></div>`;
       }

@@ -3,12 +3,13 @@
  */
 
 import { createServer } from "node:http";
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, unlinkSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, openSync, readSync, closeSync, writeFileSync, mkdirSync, unlinkSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve, join, dirname, sep } from "node:path";
 import { homedir } from "node:os";
 import { execFile } from "node:child_process";
 import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "./parser.mjs";
+import { extractTitle } from "./formats/claude-code.mjs";
 import { render } from "./renderer.mjs";
 import { extractData } from "./extract.mjs";
 import { getTheme, listThemes } from "./themes.mjs";
@@ -332,6 +333,36 @@ function browseDirectory(dirPath) {
   return { path: resolved, parent: parent !== resolved ? parent : null, dirs, files };
 }
 
+/**
+ * Read up to `maxBytes` from the end of a file and return as a UTF-8 string.
+ * Drops the partial (potentially invalid) first line when we started mid-file.
+ * Returns "" on any error so callers can safely pass the result to extractTitle().
+ */
+function readTail(filePath, maxBytes = 65536) {
+  try {
+    const size = statSync(filePath).size;
+    const start = Math.max(0, size - maxBytes);
+    const length = size - start;
+    const buf = Buffer.alloc(length);
+    const fd = openSync(filePath, "r");
+    try {
+      readSync(fd, buf, 0, length, start);
+    } finally {
+      closeSync(fd);
+    }
+    let text = buf.toString("utf8");
+    // When we didn't start at the beginning of the file, the first line may be
+    // a partial JSON object; drop everything up to and including the first newline.
+    if (start > 0) {
+      const nl = text.indexOf("\n");
+      if (nl >= 0) text = text.slice(nl + 1);
+    }
+    return text;
+  } catch {
+    return "";
+  }
+}
+
 /** Discover session folders under Claude Code and Cursor project dirs. */
 function discoverSessions() {
   const home = homedir();
@@ -357,7 +388,8 @@ function discoverSessions() {
           const fullPath = join(projPath, f);
           let date = null;
           try { date = statSync(fullPath).mtime.toISOString(); } catch { /* ignore */ }
-          return { file: f, path: fullPath, date };
+          const title = extractTitle(readTail(fullPath)) || null;
+          return { file: f, path: fullPath, date, title };
         }).sort((a, b) => {
           if (!a.date && !b.date) return 0;
           if (!a.date) return 1;
