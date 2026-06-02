@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1
+
+### Editor
+- Use session title from Claude Code transcripts when available.
+
 ## 0.8.0
 
 ### Player
