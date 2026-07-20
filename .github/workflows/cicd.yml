@@ -108,7 +108,9 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
-      - run: npm install -g npm@latest
+      # Pin to npm 11.x: npm@latest (12.x) dropped Node 20 support (requires
+      # node >=22.22.2). npm 11 supports Node 20.17+ and OIDC trusted publishing.
+      - run: npm install -g npm@11
       - run: npm install
       - run: npm run build
       - run: npm publish --provenance --access public
