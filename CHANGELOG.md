@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0
+
+### New Formats
+- Kimi Code transcript support — auto-detected `wire.jsonl` format with thinking, tool calls, and subagent session discovery
+
 ## 0.8.1
 
 ### Editor
