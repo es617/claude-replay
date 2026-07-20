@@ -279,7 +279,7 @@ function buildRenderOpts(options, session, overrides = {}) {
     redactSecrets: options.redactSecrets !== false,
     redactRules: options.redactRules || [],
     userLabel: options.userLabel || "User",
-    assistantLabel: options.assistantLabel || (session.format === "gemini" ? "Gemini" : session.format === "codex" ? "Codex" : session.format === "cursor" ? "Assistant" : session.format === "opencode" ? "OpenCode" : "Claude"),
+    assistantLabel: options.assistantLabel || (session.format === "gemini" ? "Gemini" : session.format === "codex" ? "Codex" : session.format === "cursor" ? "Assistant" : session.format === "opencode" ? "OpenCode" : session.format === "kimi-code" ? "Kimi" : "Claude"),
     title: options.title || "Replay",
     description: options.description || "",
     ogImage: options.ogImage || "",
