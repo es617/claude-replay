@@ -58,7 +58,7 @@ const html = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>claude-replay — Turn AI coding sessions into shareable HTML replays</title>
-<meta name="description" content="Convert Claude Code, Cursor, and Codex session logs into interactive, self-contained HTML replays.">
+<meta name="description" content="Convert Claude Code, Cursor, Codex CLI, Gemini CLI, OpenCode, and Kimi Code session logs into interactive, self-contained HTML replays.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='none' stroke='%23bb9af7' stroke-width='2'/><polygon points='12,8 12,24 24,16' fill='%23bb9af7'/></svg>">
 <style>
 :root {
@@ -167,7 +167,7 @@ kbd { background: var(--bg-surface); border: 1px solid var(--border); padding: 1
   <div class="hero">
     <h1><span class="accent">claude-replay</span></h1>
     <p>Turn AI coding sessions into interactive, shareable HTML replays.</p>
-    <p class="sub">Supports Claude Code, Cursor, and Codex transcripts. Single self-contained HTML file, zero dependencies.</p>
+    <p class="sub">Supports Claude Code, Cursor, Codex CLI, Gemini CLI, OpenCode, and Kimi Code transcripts. Single self-contained HTML file, zero dependencies.</p>
     <div class="hero-actions">
       <div class="install-box" id="installNpm" title="Click to copy">
         <code>npm install -g claude-replay</code>
@@ -217,7 +217,7 @@ kbd { background: var(--bg-surface); border: 1px solid var(--border); padding: 1
   <div class="features">
     <h2>Features</h2>
     <div class="feature-grid">
-      <div class="feature-card"><h3>Multi-format</h3><p>Supports Claude Code, Cursor, and Codex CLI transcripts. Auto-detected.</p></div>
+      <div class="feature-card"><h3>Multi-format</h3><p>Supports Claude Code, Cursor, Codex CLI, Gemini CLI, OpenCode, and Kimi Code transcripts. Auto-detected.</p></div>
       <div class="feature-card"><h3>Self-contained</h3><p>Single HTML file with no external dependencies. Email it, host it, embed it.</p></div>
       <div class="feature-card"><h3>Web Editor</h3><p>Built-in editor to browse sessions, edit prompts, exclude turns, and add bookmarks.</p></div>
       <div class="feature-card"><h3>Interactive Player</h3><p>Playback with speed control, keyboard shortcuts, diff views, and chapter navigation.</p></div>

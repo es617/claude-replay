@@ -15,6 +15,7 @@ const CODEX_PATCH_FIXTURE = new URL("./fixture-codex-patch.jsonl", import.meta.u
 const CODEX_EDGES_FIXTURE = new URL("./fixture-codex-edges.jsonl", import.meta.url).pathname;
 const GEMINI_FIXTURE = new URL("./fixture-gemini.json", import.meta.url).pathname;
 const OPENCODE_FIXTURE = new URL("./fixture-opencode.jsonl", import.meta.url).pathname;
+const KIMI_CODE_FIXTURE = new URL("./fixture-kimi-code.jsonl", import.meta.url).pathname;
 
 describe("parseTranscript", () => {
   // Fixture produces 3 turns (orphan assistant after tool result merges into previous):
@@ -617,6 +618,92 @@ describe("OpenCode format", () => {
   });
 });
 
+describe("Kimi Code format", () => {
+  it("detects kimi-code format", () => {
+    assert.equal(detectFormat(KIMI_CODE_FIXTURE), "kimi-code");
+  });
+
+  it("does not confuse kimi-code with claude-code", () => {
+    assert.equal(detectFormat(FIXTURE), "claude-code");
+  });
+
+  it("parses turns from kimi-code session", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    // Fixture has 3 turn.prompt events → 3 turns
+    assert.equal(turns.length, 3);
+  });
+
+  it("extracts user text", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    assert.equal(turns[0].user_text, "Hello, what is 2+2?");
+    assert.equal(turns[1].user_text, "Read the file test.txt");
+    assert.equal(turns[2].user_text, "Run a command that fails");
+  });
+
+  it("extracts thinking blocks", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    const thinking = turns[0].blocks.filter((b) => b.kind === "thinking");
+    assert.equal(thinking.length, 1);
+    assert.match(thinking[0].text, /simple arithmetic/);
+  });
+
+  it("extracts text blocks", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    const text = turns[0].blocks.filter((b) => b.kind === "text");
+    assert.equal(text.length, 1);
+    assert.equal(text[0].text, "2 + 2 = 4");
+  });
+
+  it("maps tool calls with standard names", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    const readBlock = turns[1].blocks.find((b) => b.kind === "tool_use" && b.tool_call.name === "Read");
+    assert.ok(readBlock, "should have a Read tool_use block");
+    assert.equal(readBlock.tool_call.input.path, "/tmp/test.txt");
+  });
+
+  it("attaches tool results", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    const readBlock = turns[1].blocks.find((b) => b.kind === "tool_use" && b.tool_call.name === "Read");
+    assert.equal(readBlock.tool_call.result, "hello world");
+  });
+
+  it("marks error tool calls", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    const bashBlock = turns[2].blocks.find((b) => b.kind === "tool_use" && b.tool_call.name === "Bash");
+    assert.ok(bashBlock, "should have a Bash tool_use block");
+    assert.equal(bashBlock.tool_call.is_error, true);
+    assert.match(bashBlock.tool_call.result, /No such file/);
+  });
+
+  it("preserves timestamps as ISO strings", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    assert.ok(turns[0].timestamp, "should have a timestamp");
+    assert.match(turns[0].timestamp, /^\d{4}-\d{2}-\d{2}T/);
+    // Turn 2 is 60 seconds later
+    const t0 = new Date(turns[0].timestamp).getTime();
+    const t1 = new Date(turns[1].timestamp).getTime();
+    assert.equal(t1 - t0, 60000);
+  });
+
+  it("assigns sequential turn indices", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    assert.deepEqual(
+      turns.map((t) => t.index),
+      [1, 2, 3]
+    );
+  });
+
+  it("handles multiple steps in a turn (tool_use then text)", () => {
+    const turns = parseTranscript(KIMI_CODE_FIXTURE);
+    // Turn 2: Read tool call + thinking + text in step 2
+    const blocks = turns[1].blocks;
+    const kinds = blocks.map((b) => b.kind);
+    assert.ok(kinds.includes("thinking"));
+    assert.ok(kinds.includes("tool_use"));
+    assert.ok(kinds.includes("text"));
+  });
+});
+
 describe("Turn structure contract", () => {
   // Every format must produce turns matching the same shape.
   // This catches format parsers that forget fields or return wrong types.
@@ -626,6 +713,7 @@ describe("Turn structure contract", () => {
     { name: "codex", path: CODEX_FIXTURE },
     { name: "gemini", path: GEMINI_FIXTURE },
     { name: "opencode", path: OPENCODE_FIXTURE },
+    { name: "kimi-code", path: KIMI_CODE_FIXTURE },
   ];
 
   for (const { name, path } of fixtures) {

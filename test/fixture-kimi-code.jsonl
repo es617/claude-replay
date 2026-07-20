@@ -1,0 +1,25 @@
+{"type":"metadata","protocol_version":"1.4","created_at":1750000000000}
+{"type":"turn.prompt","input":[{"type":"text","text":"Hello, what is 2+2?"}],"origin":{"kind":"user"},"time":1750000000000}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"step-1a","turnId":"0","step":1}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"think-1a","turnId":"0","step":1,"part":{"type":"think","think":"The user is asking a simple arithmetic question. I can answer directly."}}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"text-1a","turnId":"0","step":1,"part":{"type":"text","text":"2 + 2 = 4"}}}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"step-1a","turnId":"0","step":1,"finishReason":"end_turn"}}
+{"type":"turn.prompt","input":[{"type":"text","text":"Read the file test.txt"}],"origin":{"kind":"user"},"time":1750000060000}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"step-2a","turnId":"1","step":1}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"think-2a","turnId":"1","step":1,"part":{"type":"think","think":"The user wants me to read a file. I'll use the Read tool."}}}
+{"type":"context.append_loop_event","event":{"type":"tool.call","uuid":"call_test1","turnId":"1","step":1,"toolCallId":"call_test1","name":"Read","args":{"path":"/tmp/test.txt"}}}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"step-2a","turnId":"1","step":1,"finishReason":"tool_use"}}
+{"type":"context.append_loop_event","event":{"type":"tool.result","parentUuid":"call_test1","toolCallId":"call_test1","result":{"output":"hello world"}}}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"step-2b","turnId":"1","step":2}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"think-2b","turnId":"1","step":2,"part":{"type":"think","think":"The file contains 'hello world'. I'll report this to the user."}}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"text-2b","turnId":"1","step":2,"part":{"type":"text","text":"The file contains: hello world"}}}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"step-2b","turnId":"1","step":2,"finishReason":"end_turn"}}
+{"type":"turn.prompt","input":[{"type":"text","text":"Run a command that fails"}],"origin":{"kind":"user"},"time":1750000120000}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"step-3a","turnId":"2","step":1}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"think-3a","turnId":"2","step":1,"part":{"type":"think","think":"The user wants to run a command. Let me use Bash."}}}
+{"type":"context.append_loop_event","event":{"type":"tool.call","uuid":"call_fail1","turnId":"2","step":1,"toolCallId":"call_fail1","name":"Bash","args":{"command":"cat /nonexistent/file"}}}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"step-3a","turnId":"2","step":1,"finishReason":"tool_use"}}
+{"type":"context.append_loop_event","event":{"type":"tool.result","parentUuid":"call_fail1","toolCallId":"call_fail1","result":{"output":"cat: /nonexistent/file: No such file or directory","isError":true}}}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"step-3b","turnId":"2","step":2}}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"text-3b","turnId":"2","step":2,"part":{"type":"text","text":"The command failed: file not found."}}}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"step-3b","turnId":"2","step":2,"finishReason":"end_turn"}}

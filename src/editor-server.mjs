@@ -279,7 +279,7 @@ function buildRenderOpts(options, session, overrides = {}) {
     redactSecrets: options.redactSecrets !== false,
     redactRules: options.redactRules || [],
     userLabel: options.userLabel || "User",
-    assistantLabel: options.assistantLabel || (session.format === "gemini" ? "Gemini" : session.format === "codex" ? "Codex" : session.format === "cursor" ? "Assistant" : session.format === "opencode" ? "OpenCode" : "Claude"),
+    assistantLabel: options.assistantLabel || (session.format === "gemini" ? "Gemini" : session.format === "codex" ? "Codex" : session.format === "cursor" ? "Assistant" : session.format === "opencode" ? "OpenCode" : session.format === "kimi-code" ? "Kimi" : "Claude"),
     title: options.title || "Replay",
     description: options.description || "",
     ogImage: options.ogImage || "",
@@ -501,6 +501,42 @@ function discoverSessions() {
       }
     }
     if (codexGroup.projects.length > 0) groups.push(codexGroup);
+  } catch { /* directory doesn't exist */ }
+
+  // Kimi Code: ~/.kimi-code/sessions/<project>/<session>/agents/<name>/wire.jsonl
+  const kimiBase = join(home, ".kimi-code", "sessions");
+  try {
+    const kimiGroup = { name: "Kimi Code", projects: [] };
+    for (const proj of readdirSync(kimiBase).sort()) {
+      const projPath = join(kimiBase, proj);
+      try { if (!statSync(projPath).isDirectory()) continue; } catch { continue; }
+      const kimiSessions = [];
+      for (const sessionDir of readdirSync(projPath)) {
+        if (!sessionDir.startsWith("session_")) continue;
+        const agentsDir = join(projPath, sessionDir, "agents");
+        let agentNames;
+        try { agentNames = readdirSync(agentsDir); } catch { continue; }
+        for (const agentName of agentNames) {
+          const wirePath = join(agentsDir, agentName, "wire.jsonl");
+          try {
+            const st = statSync(wirePath);
+            const label = agentName === "main" ? sessionDir : `${sessionDir}/${agentName}`;
+            kimiSessions.push({ file: label, path: wirePath, date: st.mtime.toISOString() });
+          } catch { /* no wire.jsonl for this agent */ }
+        }
+      }
+      if (kimiSessions.length === 0) continue;
+      kimiSessions.sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return b.date.localeCompare(a.date);
+      });
+      const parts = proj.replace(/^wd_/, "").split("_");
+      const displayName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
+      kimiGroup.projects.push({ name: displayName, dirName: proj, sessions: kimiSessions });
+    }
+    if (kimiGroup.projects.length > 0) groups.push(kimiGroup);
   } catch { /* directory doesn't exist */ }
 
   return groups;

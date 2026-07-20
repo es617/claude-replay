@@ -15,6 +15,7 @@ import * as claudeCode from "./claude-code.mjs";
 import * as cursor from "./cursor.mjs";
 import * as codex from "./codex.mjs";
 import * as gemini from "./gemini.mjs";
+import * as kimiCode from "./kimi-code.mjs";
 import * as opencode from "./opencode.mjs";
 import * as replay from "./replay.mjs";
 
@@ -28,6 +29,7 @@ export const formats = [
   replay,
   codex,
   opencode,
+  kimiCode,
   claudeCode,
   cursor,
 ];

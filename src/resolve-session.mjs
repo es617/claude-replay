@@ -106,5 +106,32 @@ export function resolveSessionId(sessionId, { home } = {}) {
     }
   } catch { /* directory doesn't exist */ }
 
+  // Kimi Code: ~/.kimi-code/sessions/<project>/<session>/agents/<name>/wire.jsonl
+  const kimiBase = join(homeDir, ".kimi-code", "sessions");
+  try {
+    for (const proj of readdirSync(kimiBase)) {
+      const projPath = join(kimiBase, proj);
+      try { if (!statSync(projPath).isDirectory()) continue; } catch { continue; }
+      for (const sessionDir of readdirSync(projPath)) {
+        if (!sessionDir.startsWith("session_")) continue;
+        const sessionIdFromDir = sessionDir.replace(/^session_/, "");
+        if (sessionIdFromDir !== sessionId && !sessionIdFromDir.includes(sessionId)) continue;
+        const agentsDir = join(projPath, sessionDir, "agents");
+        let agentNames;
+        try { agentNames = readdirSync(agentsDir); } catch { continue; }
+        for (const agentName of agentNames) {
+          const wirePath = join(agentsDir, agentName, "wire.jsonl");
+          try {
+            statSync(wirePath);
+            const label = agentName === "main" ? "Kimi Code" : `Kimi Code (${agentName})`;
+            const parts = proj.replace(/^wd_/, "").split("_");
+            const displayName = parts.length > 1 ? parts.slice(-2).join("-") : parts[0];
+            matches.push({ path: wirePath, project: displayName, group: label });
+          } catch { /* not found */ }
+        }
+      }
+    }
+  } catch { /* directory doesn't exist */ }
+
   return matches;
 }
