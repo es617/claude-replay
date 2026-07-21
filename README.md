@@ -1,15 +1,17 @@
 # claude-replay
 
 ![npm](https://img.shields.io/npm/v/claude-replay)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
+![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
+[![Mentioned in Awesome Claude Code](https://awesome.re/mentioned-badge.svg)](https://github.com/hesreallyhim/awesome-claude-code)
+
 ![Claude Code](https://img.shields.io/badge/Claude_Code-replay-blue)
 ![Cursor](https://img.shields.io/badge/Cursor-replay-purple)
 ![Codex CLI](https://img.shields.io/badge/Codex_CLI-replay-green)
 ![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-replay-orange)
 ![OpenCode](https://img.shields.io/badge/OpenCode-replay-red)
 ![Kimi Code](https://img.shields.io/badge/Kimi_Code-replay-teal)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Node.js](https://img.shields.io/badge/node-18%2B-green.svg)
-![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
 > Community tool — not affiliated with or endorsed by Anthropic.
 
