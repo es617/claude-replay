@@ -56,8 +56,9 @@ export function getPacedFileUrl(hash = "") {
   return "file://" + cache["paced"] + (hash ? "#" + hash : "");
 }
 
-export function getPacedWordingFileUrl(hash = "") {
-  if (!cache["paced-wording"]) {
+export function getPacedWordingFileUrl(hash = "", readingWpm = 238) {
+  const key = `paced-wording-${readingWpm}`;
+  if (!cache[key]) {
     const turns = parseTranscript(PACED_WORDING_FIXTURE);
     applyPacedTiming(turns);
     const html = render(turns, {
@@ -66,13 +67,13 @@ export function getPacedWordingFileUrl(hash = "") {
       redactSecrets: false,
       hasRealTimestamps: false,
       pacedWording: true,
-      readingWpm: 238,
+      readingWpm,
     });
-    const path = join(dir, "paced-wording.html");
+    const path = join(dir, key + ".html");
     writeFileSync(path, html);
-    cache["paced-wording"] = path;
+    cache[key] = path;
   }
-  return "file://" + cache["paced-wording"] + (hash ? "#" + hash : "");
+  return "file://" + cache[key] + (hash ? "#" + hash : "");
 }
 
 export function getPacedWordingFinalTurnFileUrl(hash = "") {

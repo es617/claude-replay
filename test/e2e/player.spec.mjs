@@ -23,6 +23,15 @@ async function gotoChapters(page, hash) {
   await waitForReady(page);
 }
 
+function clockToSeconds(clock) {
+  return clock.trim().split(":").reduce((total, part) => total * 60 + Number(part), 0);
+}
+
+async function timerState(page) {
+  const [elapsed, total] = (await page.locator("#progress-text").textContent()).split("/");
+  return { elapsed: clockToSeconds(elapsed), total: clockToSeconds(total) };
+}
+
 // ─── Splash screen ──────────────────────────────────────────
 
 test("loads with splash screen visible", async ({ page }) => {
@@ -140,6 +149,101 @@ test("paced wording resumes within a final user-only turn", async ({ page }) => 
   await page.locator("#btn-play").click();
   await page.waitForTimeout(300);
   expect(await litWords.count()).toBeGreaterThan(litAtPause);
+});
+
+test("paced wording step forward completes partially visible prose", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  const assistantWords = page.locator('.turn[data-index="1"] .assistant-text .paced-word');
+  const total = await assistantWords.count();
+  expect(total).toBeGreaterThan(100);
+
+  await page.locator("#btn-play").click();
+  await expect(assistantWords.first()).toHaveClass(/word-lit/);
+  await page.waitForTimeout(300);
+  const partial = await page.locator('.turn[data-index="1"] .assistant-text .paced-word.word-lit').count();
+  expect(partial).toBeGreaterThan(0);
+  expect(partial).toBeLessThan(total);
+
+  await page.locator("#btn-next").click();
+  await expect(page.locator('.turn[data-index="1"] .assistant-text .paced-word.word-lit')).toHaveCount(total);
+  await expect(page.locator('.turn[data-index="2"]')).toBeVisible();
+});
+
+test("paced wording step back dims hidden prose before replay", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  const block = page.locator('.turn[data-index="1"] .block-wrapper').first();
+  const words = block.locator(".assistant-text .paced-word");
+  const total = await words.count();
+
+  await page.locator("#btn-next").click();
+  await expect(block.locator(".paced-word.word-lit")).toHaveCount(total);
+  const afterUser = await timerState(page);
+
+  await page.locator("#btn-prev").click();
+  await expect(block).toHaveClass(/block-hidden/);
+  await expect(block.locator(".paced-word.word-lit")).toHaveCount(0);
+  const afterBack = await timerState(page);
+  expect(afterBack.elapsed).toBeLessThan(afterUser.elapsed);
+
+  await page.locator("#btn-play").click();
+  await expect(words.first()).toHaveClass(/word-lit/);
+  await page.waitForTimeout(300);
+  const replayed = await block.locator(".paced-word.word-lit").count();
+  expect(replayed).toBeGreaterThan(0);
+  expect(replayed).toBeLessThan(total);
+});
+
+test("paced wording timer follows configured word duration and manual boundaries", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  const userBoundary = await timerState(page);
+  expect(userBoundary.elapsed).toBeGreaterThan(0);
+  expect(userBoundary.total).toBeGreaterThan(70);
+
+  await page.locator("#btn-next").click();
+  const blockBoundary = await timerState(page);
+  expect(blockBoundary.elapsed).toBeGreaterThan(userBoundary.elapsed);
+  expect(blockBoundary.total).toBe(userBoundary.total);
+
+  await page.locator("#btn-prev").click();
+  const restoredUserBoundary = await timerState(page);
+  expect(restoredUserBoundary.elapsed).toBe(userBoundary.elapsed);
+  expect(restoredUserBoundary.total).toBe(userBoundary.total);
+
+  await page.goto(getPacedWordingFileUrl("", 600));
+  await waitForReady(page);
+  const fast = await timerState(page);
+  expect(userBoundary.total).toBeGreaterThan(fast.total * 1.5);
+});
+
+test("paced wording resumes only the remaining dwell delay", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  await page.locator("#btn-next").click();
+  await page.locator("#speed-btn").click();
+  await page.locator('#speed-popover button[data-speed="5"]').click();
+
+  await page.locator("#btn-play").click();
+  await page.waitForTimeout(550);
+  await page.locator("#btn-play").click();
+  await page.waitForTimeout(100);
+  await page.locator("#btn-play").click();
+
+  await expect(page.locator('.turn[data-index="2"]')).toBeVisible({ timeout: 800 });
+});
+
+test("paced wording final completion reaches the advertised total", async ({ page }) => {
+  await page.goto(getPacedWordingFinalTurnFileUrl());
+  await waitForReady(page);
+  await page.locator("#splash-play").click();
+  await page.locator("#speed-btn").click();
+  await page.locator('#speed-popover button[data-speed="5"]').click();
+
+  await expect(page.locator("#btn-play")).not.toHaveClass(/active/, { timeout: 5000 });
+  const completed = await timerState(page);
+  expect(completed.elapsed).toBe(completed.total);
 });
 
 // ─── Step forward ───────────────────────────────────────────

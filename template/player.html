@@ -1218,6 +1218,42 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   const hasRealTimestamps = /*HAS_REAL_TIMESTAMPS*/false;
   let usePaced = false;
 
+  function groupTurnSegments(blocks) {
+    const segments = [];
+    let toolRun = [];
+    for (const block of blocks || []) {
+      if (block.kind === "tool_use" && block.tool_call) {
+        toolRun.push(block);
+      } else {
+        if (toolRun.length > 0) {
+          segments.push({ type: "tools", blocks: toolRun });
+          toolRun = [];
+        }
+        segments.push({ type: "single", block });
+      }
+    }
+    if (toolRun.length > 0) segments.push({ type: "tools", blocks: toolRun });
+    return segments;
+  }
+
+  function segmentTimestamp(segment) {
+    if (segment.type === "single") return segment.block.timestamp || null;
+    return segment.blocks[0]?.timestamp || null;
+  }
+
+  function computeSegmentGaps(segments, limit = segments.length) {
+    const gaps = [0];
+    for (let i = 1; i < segments.length && i < limit; i++) {
+      const timestamp = segmentTimestamp(segments[i]);
+      const previousTimestamp = segmentTimestamp(segments[i - 1]);
+      const rawGap = timestamp && previousTimestamp
+        ? new Date(timestamp).getTime() - new Date(previousTimestamp).getTime()
+        : ANIMATE_FALLBACK_DELAY;
+      gaps.push(Math.min(Math.max(rawGap, ANIMATE_MIN_DELAY), ANIMATE_MAX_DELAY));
+    }
+    return gaps;
+  }
+
   function computeRealTiming() {
     const start = TURNS.length > 0 && TURNS[0].timestamp
       ? new Date(TURNS[0].timestamp).getTime() : null;
@@ -1252,14 +1288,15 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 
   const realTiming = computeRealTiming();
   const pacedTiming = computePacedTiming();
+  let pacedWordingTiming = null;
   let sessionStart = realTiming.start;
   let turnStartTimes = realTiming.starts;
   let turnEndTimes = realTiming.ends;
   let sessionTotalMs = realTiming.total;
 
   function switchTiming(paced) {
-    usePaced = paced;
-    const t = paced ? pacedTiming : realTiming;
+    usePaced = pacedWordingTiming ? true : paced;
+    const t = pacedWordingTiming || (paced ? pacedTiming : realTiming);
     sessionStart = t.start;
     turnStartTimes = t.starts;
     turnEndTimes = t.ends;
@@ -1646,6 +1683,15 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     for (const word of root.querySelectorAll(".paced-word")) word.classList.remove("word-lit");
   }
 
+  function reconcilePacedWordsToBlockState(turnEl) {
+    if (!pacedWording || !turnEl) return;
+    lightAllWords(turnEl.querySelector(".user-text") || turnEl);
+    for (const wrapper of turnEl.querySelectorAll(".block-wrapper")) {
+      if (wrapper.classList.contains("block-hidden")) dimAllWords(wrapper);
+      else lightAllWords(wrapper);
+    }
+  }
+
   function updateBookmarkVisibility() {
     for (const div of transcript.querySelectorAll(".bookmark-divider")) {
       const t = parseInt(div.dataset.turn, 10);
@@ -1934,7 +1980,15 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     }
 
     tick();
-    return function() { clearTimeout(timer); };
+    return function() {
+      clearTimeout(timer);
+      if (remaining > 0) {
+        const now = performance.now();
+        remaining -= (now - lastTick) * speed;
+        lastTick = now;
+      }
+      return Math.max(0, remaining);
+    };
   }
 
   function wordDelayMs(word, nextWord, index) {
@@ -1955,6 +2009,67 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (word.closest(boundary) !== nextWord.closest(boundary)) delay += base * PARAGRAPH_PAUSE_WORDS;
     }
     return Math.round(delay);
+  }
+
+  const wordTimingCache = new WeakMap();
+
+  function getWordTiming(root) {
+    if (!root) return { words: [], prefix: [0], total: 0 };
+    const cached = wordTimingCache.get(root);
+    if (cached) return cached;
+    const words = [...root.querySelectorAll(".paced-word")];
+    const prefix = [0];
+    for (let i = 0; i < words.length; i++) {
+      prefix.push(prefix[i] + wordDelayMs(words[i], words[i + 1] || null, i));
+    }
+    const timing = { words, prefix, total: prefix[prefix.length - 1] };
+    wordTimingCache.set(root, timing);
+    return timing;
+  }
+
+  function getLitWordTiming(root) {
+    const timing = getWordTiming(root);
+    let count = 0;
+    while (count < timing.words.length && timing.words[count].classList.contains("word-lit")) count++;
+    return {
+      duration: timing.prefix[count],
+      complete: count === timing.words.length,
+    };
+  }
+
+  function computePacedWordingTiming() {
+    let cursor = 0;
+    const starts = [];
+    const ends = [];
+    const stages = [];
+    const turns = turnElements();
+
+    for (let turnIndex = 0; turnIndex < TURNS.length; turnIndex++) {
+      const turn = TURNS[turnIndex];
+      const turnEl = turns[turnIndex];
+      const start = cursor;
+      starts.push(start);
+
+      cursor += getWordTiming(turnEl?.querySelector(".user-text")).total;
+      const userEnd = cursor;
+      const wrappers = [...(turnEl?.querySelectorAll(".block-wrapper") || [])];
+      const segments = groupTurnSegments(turn.blocks);
+      const gaps = computeSegmentGaps(segments, wrappers.length);
+      const blocks = [];
+
+      for (let blockIndex = 0; blockIndex < wrappers.length; blockIndex++) {
+        const gap = gaps[blockIndex] || 0;
+        cursor += gap;
+        cursor += getWordTiming(wrappers[blockIndex].querySelector(".assistant-text")).total;
+        blocks.push({ gap, end: cursor });
+      }
+
+      ends.push(cursor);
+      stages.push({ start, userEnd, blocks, contentEnd: cursor });
+      cursor += SHORT_TURN_DELAY_MS;
+    }
+
+    return { start: 0, starts, ends, total: cursor, stages };
   }
 
   function animateWords(root, startAt, onProgress, onComplete) {
@@ -2001,37 +2116,8 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     const wrappers = el.querySelectorAll(".block-wrapper");
     if (wrappers.length === 0) { onComplete(); return function(){}; }
 
-    // Rebuild segment structure to get timestamps
-    const segments = [];
-    let toolRun = [];
-    for (const block of turn.blocks) {
-      if (block.kind === "tool_use" && block.tool_call) {
-        toolRun.push(block);
-      } else {
-        if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); toolRun = []; }
-        segments.push({ type: "single", block });
-      }
-    }
-    if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); }
-
-    function getSegTs(seg) {
-      if (seg.type === "single") return seg.block.timestamp || null;
-      return (seg.blocks[0] && seg.blocks[0].timestamp) || null;
-    }
-
-    // Compute raw gaps (in real ms) between consecutive segments
-    const gaps = [0]; // first block: no wait
-    for (let si = 1; si < segments.length && si < wrappers.length; si++) {
-      const tsStr = getSegTs(segments[si]);
-      const prevTsStr = getSegTs(segments[si - 1]);
-      let gapMs;
-      if (tsStr && prevTsStr) {
-        gapMs = new Date(tsStr).getTime() - new Date(prevTsStr).getTime();
-      } else {
-        gapMs = ANIMATE_FALLBACK_DELAY;
-      }
-      gaps.push(Math.min(Math.max(gapMs, ANIMATE_MIN_DELAY), ANIMATE_MAX_DELAY));
-    }
+    const segments = groupTurnSegments(turn.blocks);
+    const gaps = computeSegmentGaps(segments, wrappers.length);
 
     let cancelled = false;
     let currentWaitCancel = null;
@@ -2104,32 +2190,8 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     if (!turn || !el) { queueMicrotask(onComplete); return function(){}; }
 
     const wrappers = [...el.querySelectorAll(".block-wrapper")];
-    const segments = [];
-    let toolRun = [];
-    for (const block of turn.blocks) {
-      if (block.kind === "tool_use" && block.tool_call) {
-        toolRun.push(block);
-      } else {
-        if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); toolRun = []; }
-        segments.push({ type: "single", block });
-      }
-    }
-    if (toolRun.length > 0) segments.push({ type: "tools", blocks: toolRun });
-
-    function segmentTimestamp(segment) {
-      if (segment.type === "single") return segment.block.timestamp || null;
-      return segment.blocks[0]?.timestamp || null;
-    }
-
-    const gaps = [0];
-    for (let i = 1; i < segments.length && i < wrappers.length; i++) {
-      const timestamp = segmentTimestamp(segments[i]);
-      const previousTimestamp = segmentTimestamp(segments[i - 1]);
-      const rawGap = timestamp && previousTimestamp
-        ? new Date(timestamp).getTime() - new Date(previousTimestamp).getTime()
-        : ANIMATE_FALLBACK_DELAY;
-      gaps.push(Math.min(Math.max(rawGap, ANIMATE_MIN_DELAY), ANIMATE_MAX_DELAY));
-    }
+    const segments = groupTurnSegments(turn.blocks);
+    const gaps = computeSegmentGaps(segments, wrappers.length);
 
     let state;
     if (startFrom?.mode === "paced-wording") {
@@ -2240,21 +2302,26 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   }
 
   // After all blocks in a turn are revealed, pause then advance
-  function dwellThenAdvance() {
-    const cancelWait = adaptiveWait(SHORT_TURN_DELAY_MS, () => {
+  function dwellThenAdvance(remainingMs = SHORT_TURN_DELAY_MS) {
+    const cancelWait = adaptiveWait(remainingMs, () => {
       if (!playing) return;
       animateCancelFn = null;
       playStep();
     });
     animateCancelFn = () => {
-      cancelWait();
-      animatePausedState = { turnIndex: currentTurn - 1, mode: "dwell" };
+      const remainingDwellMs = cancelWait();
+      animatePausedState = { turnIndex: currentTurn - 1, mode: "dwell", remainingMs: remainingDwellMs };
     };
   }
 
   function playStep() {
     if (!playing) return;
-    if (currentTurn >= TURNS.length) { stopPlay(); return; }
+    if (currentTurn >= TURNS.length) {
+      displayedTimeMs = sessionTotalMs;
+      updateTimerDisplay();
+      stopPlay();
+      return;
+    }
 
     // Show the turn container (header + user text) immediately
     const fromSplash = currentTurn === 0;
@@ -2333,7 +2400,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       const ps = animatePausedState;
       animatePausedState = null;
       if (ps.mode === "dwell") {
-        dwellThenAdvance();
+        dwellThenAdvance(ps.remainingMs);
         return;
       }
       animateCancelFn = animatePlaybackTurn(ps.turnIndex, () => {
@@ -2439,7 +2506,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (turns[0]) {
         turns[0].classList.add("visible");
         hideAllBlocks(turns[0]);
-        lightAllWords(turns[0].querySelector(".user-text") || turns[0]);
+        reconcilePacedWordsToBlockState(turns[0]);
         scrollToBottom(turns[0]);
       }
       updateBookmarkVisibility();
@@ -2459,11 +2526,12 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (prev) prev.classList.remove("block-active");
       w.classList.remove("block-hidden");
       w.classList.add("block-revealing", "block-active");
-      lightAllWords(w);
+      reconcilePacedWordsToBlockState(turnEl);
       syncTimerToBlock();
       scrollIntoView(w);
     } else if (currentTurn < TURNS.length) {
       // All blocks revealed — advance to next turn with blocks hidden
+      reconcilePacedWordsToBlockState(turnEl);
       const prev = turnEl.querySelector(".block-active");
       if (prev) prev.classList.remove("block-active");
       currentTurn++;
@@ -2472,12 +2540,15 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (nextEl) {
         nextEl.classList.add("visible");
         hideAllBlocks(nextEl);
-        lightAllWords(nextEl.querySelector(".user-text") || nextEl);
+        reconcilePacedWordsToBlockState(nextEl);
         scrollIntoView(nextEl);
       }
       updateBookmarkVisibility();
       updateProgress();
       setActiveTurn(currentTurn - 1);
+    } else {
+      reconcilePacedWordsToBlockState(turnEl);
+      syncTimerToBlock();
     }
   }
 
@@ -2495,6 +2566,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
         collapseExpanded(last);
         last.classList.add("block-hidden");
         last.classList.remove("block-revealing", "block-active");
+        reconcilePacedWordsToBlockState(turnEl);
         // Scroll down to show what remains
         const remaining = turnEl.querySelectorAll(".block-wrapper:not(.block-hidden)");
         if (remaining.length > 0) {
@@ -2579,6 +2651,28 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     const idx = currentTurn - 1;
     const turnEl = turnElements()[idx];
     if (!turnEl) return;
+
+    if (pacedWordingTiming) {
+      const stage = pacedWordingTiming.stages[idx];
+      if (!stage) return;
+      const userProgress = getLitWordTiming(turnEl.querySelector(".user-text"));
+      let elapsed = stage.start + userProgress.duration;
+      if (userProgress.complete) {
+        const wrappers = [...turnEl.querySelectorAll(".block-wrapper")];
+        for (let blockIndex = 0; blockIndex < wrappers.length; blockIndex++) {
+          const wrapper = wrappers[blockIndex];
+          if (wrapper.classList.contains("block-hidden")) break;
+          elapsed += stage.blocks[blockIndex]?.gap || 0;
+          const blockProgress = getLitWordTiming(wrapper.querySelector(".assistant-text"));
+          elapsed += blockProgress.duration;
+          if (!blockProgress.complete) break;
+        }
+      }
+      displayedTimeMs = Math.min(Math.round(elapsed), sessionTotalMs);
+      updateTimerDisplay();
+      return;
+    }
+
     const total = turnEl.querySelectorAll(".block-wrapper").length;
     const revealed = turnEl.querySelectorAll(".block-wrapper:not(.block-hidden)").length;
     const tStart = turnStartTimes[idx] - sessionStart;
@@ -3026,7 +3120,15 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   transcript.textContent = "";
   transcript.style.opacity = "";
   renderAllTurns();
-  if (pacedWording) preparePacedWording();
+  if (pacedWording) {
+    preparePacedWording();
+    pacedWordingTiming = computePacedWordingTiming();
+    sessionStart = pacedWordingTiming.start;
+    turnStartTimes = pacedWordingTiming.starts;
+    turnEndTimes = pacedWordingTiming.ends;
+    sessionTotalMs = pacedWordingTiming.total;
+    usePaced = true;
+  }
   document.body.dataset.playbackMode = pacedWording ? "paced-wording" : "sections";
   document.body.dataset.readingWpm = String(readingWpm);
   applyVisibility();
