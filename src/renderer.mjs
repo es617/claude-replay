@@ -161,7 +161,7 @@ function extractFileData(turns) {
 /**
  * Render turns into a self-contained HTML string.
  * @param {import('./parser.mjs').Turn[]} turns
- * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, theme?: Record<string,string>, userLabel?: string, assistantLabel?: string, title?: string, redactSecrets?: boolean }} opts
+ * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, theme?: Record<string,string>, userLabel?: string, assistantLabel?: string, title?: string, redactSecrets?: boolean, pacedWording?: boolean, readingWpm?: number }} opts
  * @returns {string}
  */
 export function render(turns, opts = {}) {
@@ -177,10 +177,13 @@ export function render(turns, opts = {}) {
     ogImage = "https://es617.dev/claude-replay/og.png",
     redactSecrets: redact = true,
     bookmarks = [],
+    pacedWording = false,
+    readingWpm: rawReadingWpm = 238,
   } = opts;
 
   // Validate inputs
   const speed = Number.isFinite(rawSpeed) ? Math.max(0.1, Math.min(rawSpeed, 10)) : 1.0;
+  const readingWpm = Number.isFinite(rawReadingWpm) ? Math.round(Math.max(80, Math.min(rawReadingWpm, 600))) : 238;
 
   let html;
   if (opts.minified === false) {
@@ -208,6 +211,8 @@ export function render(turns, opts = {}) {
   html = html.replace("/*USER_LABEL*/", escapeHtml(userLabel));
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
+  html = html.replace("/*PACED_WORDING*/false", String(pacedWording));
+  html = html.replace("/*READING_WPM*/238", String(readingWpm));
   const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
   const fontSize = opts.fontSize || "normal";
   html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");

@@ -55,6 +55,19 @@ describe("render", () => {
     assert.match(html, /2\.5x/);
   });
 
+  it("defaults paced wording to the standard 238 WPM reading rate", () => {
+    const html = render(SAMPLE_TURNS, { pacedWording: true, minified: false });
+    assert.match(html, /const pacedWordingRequested = true;/);
+    assert.match(html, /const readingWpm = 238;/);
+  });
+
+  it("injects and clamps the paced-wording reading rate", () => {
+    const slow = render(SAMPLE_TURNS, { pacedWording: true, readingWpm: 40, minified: false });
+    const fast = render(SAMPLE_TURNS, { pacedWording: true, readingWpm: 900, minified: false });
+    assert.match(slow, /const readingWpm = 80;/);
+    assert.match(fast, /const readingWpm = 600;/);
+  });
+
   it("respects showThinking=false", () => {
     const html = render(SAMPLE_TURNS, { showThinking: false, minified: false });
     // The thinking checkbox should NOT have "checked"
@@ -161,5 +174,7 @@ describe("render", () => {
     assert.doesNotMatch(html, /\/\*CHECKED_TOOLS\*\//);
     assert.doesNotMatch(html, /\/\*PAGE_DESCRIPTION\*\//);
     assert.doesNotMatch(html, /\/\*OG_IMAGE\*\//);
+    assert.doesNotMatch(html, /\/\*PACED_WORDING\*\//);
+    assert.doesNotMatch(html, /\/\*READING_WPM\*\//);
   });
 });

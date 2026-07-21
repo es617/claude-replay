@@ -272,6 +272,8 @@ function buildRenderOpts(options, session, overrides = {}) {
   const excludedSet = new Set(options.excludeTurns || []);
   return {
     speed: parseFloat(options.speed) || 1.0,
+    pacedWording: options.timing === "paced" && options.pacing === "paced-wording",
+    readingWpm: parseFloat(options.readingWpm) || 238,
     showThinking: options.showThinking !== false,
     showToolCalls: options.showToolCalls !== false,
     fontSize: options.fontSize || "normal",

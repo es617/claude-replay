@@ -296,6 +296,12 @@ The `--timing` flag controls how playback speed is derived:
 claude-replay session.jsonl --timing paced -o demo.html
 ```
 
+### Paced wording
+
+The editor offers an additional text-reveal option inside `Paced` timing. Choose **Paced wording** to show prose at once in a dimmed state, then illuminate it one whole word at a time. The base pace is tunable from 80–600 WPM and defaults to 238 WPM, the estimated average adult silent reading rate for English non-fiction in [Brysbaert's review and meta-analysis](https://doi.org/10.1016/j.jml.2019.104047).
+
+Paced wording varies the interval deterministically based on word length, adds bounded jitter, and pauses longer after punctuation and paragraph boundaries. It applies to user and assistant prose; thinking and tool blocks retain section-based reveal behavior. The regular speed control still scales playback live, and reduced-motion preferences fall back to fully visible prose.
+
 ## Player controls
 
 The generated HTML file is a fully self-contained interactive player:

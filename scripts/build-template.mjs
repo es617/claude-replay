@@ -36,6 +36,8 @@ const PLACEHOLDERS = [
   { pattern: "/*PAGE_DESCRIPTION*/", token: "__PLACEHOLDER_PAGE_DESCRIPTION__" },
   { pattern: "/*OG_IMAGE*/", token: "__PLACEHOLDER_OG_IMAGE__" },
   { pattern: "/*HAS_REAL_TIMESTAMPS*/false", token: "__PLACEHOLDER_HAS_REAL_TIMESTAMPS__false" },
+  { pattern: "/*PACED_WORDING*/false", token: "__PLACEHOLDER_PACED_WORDING__false" },
+  { pattern: "/*READING_WPM*/238", token: "__PLACEHOLDER_READING_WPM__238" },
   { pattern: "/*FONT_SIZE*/13px", token: "__PLACEHOLDER_FONT_SIZE__" },
   { pattern: '/*FONT_SIZE_NAME*/"normal"', token: '"__PLACEHOLDER_FONT_SIZE_NAME__"' },
 ];

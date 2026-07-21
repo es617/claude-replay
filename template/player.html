@@ -397,6 +397,16 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   word-break: break-word;
 }
 
+.paced-word {
+  opacity: 0.28;
+  transition: opacity 0.12s ease-out;
+}
+.paced-word.word-lit { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .paced-word { opacity: 1 !important; transition: none; }
+}
+
 /* Timestamp */
 .timestamp {
   font-size: 10px;
@@ -1191,6 +1201,18 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   const PEEK_OFFSET = 20;              // px of next dimmed turn visible below
   const SHORT_TURN_DELAY_MS = 5000;    // delay between turns during playback
   const TURN_SCROLL_MS = 600;          // duration of scroll between turns
+  const WORD_LENGTH_BASE_FACTOR = 0.82;
+  const WORD_LENGTH_PER_CHAR_FACTOR = 0.036;
+  const WORD_LENGTH_MAX_CHARS = 12;
+  const WORD_JITTER_MIN = 0.9;
+  const WORD_JITTER_BUCKETS = 201;
+  const WORD_JITTER_DIVISOR = 1000;
+  const CLAUSE_PAUSE_WORDS = 0.55;
+  const SENTENCE_PAUSE_WORDS = 1.4;
+  const PARAGRAPH_PAUSE_WORDS = 1.8;
+  const pacedWordingRequested = /*PACED_WORDING*/false;
+  const readingWpm = /*READING_WPM*/238;
+  const pacedWording = pacedWordingRequested && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Compute session timestamps for elapsed/total timer
   const hasRealTimestamps = /*HAS_REAL_TIMESTAMPS*/false;
@@ -1419,6 +1441,33 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     return html;
   }
 
+  function wrapPacedWords(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) {
+      if (/\S/.test(walker.currentNode.nodeValue || "")) textNodes.push(walker.currentNode);
+    }
+    for (const textNode of textNodes) {
+      const fragment = document.createDocumentFragment();
+      for (const part of textNode.nodeValue.split(/(\s+)/)) {
+        if (!part) continue;
+        if (/^\s+$/.test(part)) {
+          fragment.appendChild(document.createTextNode(part));
+        } else {
+          const word = document.createElement("span");
+          word.className = "paced-word";
+          word.textContent = part;
+          fragment.appendChild(word);
+        }
+      }
+      textNode.replaceWith(fragment);
+    }
+  }
+
+  function preparePacedWording() {
+    for (const root of $$(".user-text, .assistant-text")) wrapPacedWords(root);
+  }
+
   function truncate(text, max) {
     if (!text) return "";
     const s = typeof text === "string" ? text : JSON.stringify(text);
@@ -1576,6 +1625,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     for (const w of turnEl.querySelectorAll(".block-wrapper.block-hidden")) {
       w.classList.remove("block-hidden");
     }
+    lightAllWords(turnEl);
   }
 
   function hideAllBlocks(turnEl) {
@@ -1583,6 +1633,17 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       w.classList.add("block-hidden");
       w.classList.remove("block-revealing", "block-active");
     }
+    dimAllWords(turnEl);
+  }
+
+  function lightAllWords(root) {
+    if (!pacedWording) return;
+    for (const word of root.querySelectorAll(".paced-word")) word.classList.add("word-lit");
+  }
+
+  function dimAllWords(root) {
+    if (!pacedWording) return;
+    for (const word of root.querySelectorAll(".paced-word")) word.classList.remove("word-lit");
   }
 
   function updateBookmarkVisibility() {
@@ -1832,6 +1893,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
           // Active turn (last visible): optionally keep blocks hidden
           if (hideActiveBlocks && i === currentTurn - 1) {
             hideAllBlocks(el);
+            lightAllWords(el.querySelector(".user-text") || el);
           } else {
             revealAllBlocks(el);
           }
@@ -1856,22 +1918,72 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   // Adaptive wait: sleeps for gapMs/speed, but reads speed LIVE every tick
   // so changing speed mid-wait takes effect immediately.
   function adaptiveWait(gapMs, onDone) {
-    let elapsed = 0;
-    const tickMs = 100;
+    let remaining = gapMs;
+    let lastTick = performance.now();
     let timer = null;
 
     function tick() {
-      const remaining = gapMs - elapsed * speed;
+      const now = performance.now();
+      remaining -= (now - lastTick) * speed;
+      lastTick = now;
       if (remaining <= 0) {
         onDone();
         return;
       }
-      elapsed += tickMs;
-      timer = setTimeout(tick, tickMs);
+      timer = setTimeout(tick, Math.min(25, Math.max(4, remaining / speed)));
     }
 
     tick();
     return function() { clearTimeout(timer); };
+  }
+
+  function wordDelayMs(word, nextWord, index) {
+    const base = 60000 / readingWpm;
+    const text = word.textContent || "";
+    const letters = text.replace(/[^\p{L}\p{N}]/gu, "").length || text.length || 1;
+    const lengthFactor = WORD_LENGTH_BASE_FACTOR + Math.min(letters, WORD_LENGTH_MAX_CHARS) * WORD_LENGTH_PER_CHAR_FACTOR;
+    let hash = index + 2166136261;
+    for (const char of text) hash = Math.imul(hash ^ char.codePointAt(0), 16777619);
+    const jitter = WORD_JITTER_MIN + ((hash >>> 0) % WORD_JITTER_BUCKETS) / WORD_JITTER_DIVISOR;
+    let delay = base * lengthFactor * jitter;
+
+    if (/[.!?]["')\]]*$/.test(text)) delay += base * SENTENCE_PAUSE_WORDS;
+    else if (/[,;:]["')\]]*$/.test(text)) delay += base * CLAUSE_PAUSE_WORDS;
+
+    if (nextWord) {
+      const boundary = "p, li, h3, h4, h5, h6, td, th, pre";
+      if (word.closest(boundary) !== nextWord.closest(boundary)) delay += base * PARAGRAPH_PAUSE_WORDS;
+    }
+    return Math.round(delay);
+  }
+
+  function animateWords(root, startAt, onProgress, onComplete) {
+    const words = root ? [...root.querySelectorAll(".paced-word")] : [];
+    let index = Math.min(startAt || 0, words.length);
+    let waitCancel = null;
+    let cancelled = false;
+
+    function next() {
+      if (cancelled) return;
+      if (index >= words.length) {
+        onComplete();
+        return;
+      }
+      const word = words[index];
+      const nextWord = words[index + 1] || null;
+      word.classList.add("word-lit");
+      index++;
+      onProgress(index);
+      scrollIntoView(word);
+      waitCancel = adaptiveWait(wordDelayMs(word, nextWord, index - 1), next);
+    }
+
+    next();
+    return function() {
+      cancelled = true;
+      if (waitCancel) waitCancel();
+      return index;
+    };
   }
 
   /**
@@ -1986,13 +2098,158 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     return cancel;
   }
 
+  function animatePacedWordingTurn(turnIndex, onComplete, startFrom) {
+    const turn = TURNS[turnIndex];
+    const el = turnElements()[turnIndex];
+    if (!turn || !el) { queueMicrotask(onComplete); return function(){}; }
+
+    const wrappers = [...el.querySelectorAll(".block-wrapper")];
+    const segments = [];
+    let toolRun = [];
+    for (const block of turn.blocks) {
+      if (block.kind === "tool_use" && block.tool_call) {
+        toolRun.push(block);
+      } else {
+        if (toolRun.length > 0) { segments.push({ type: "tools", blocks: toolRun }); toolRun = []; }
+        segments.push({ type: "single", block });
+      }
+    }
+    if (toolRun.length > 0) segments.push({ type: "tools", blocks: toolRun });
+
+    function segmentTimestamp(segment) {
+      if (segment.type === "single") return segment.block.timestamp || null;
+      return segment.blocks[0]?.timestamp || null;
+    }
+
+    const gaps = [0];
+    for (let i = 1; i < segments.length && i < wrappers.length; i++) {
+      const timestamp = segmentTimestamp(segments[i]);
+      const previousTimestamp = segmentTimestamp(segments[i - 1]);
+      const rawGap = timestamp && previousTimestamp
+        ? new Date(timestamp).getTime() - new Date(previousTimestamp).getTime()
+        : ANIMATE_FALLBACK_DELAY;
+      gaps.push(Math.min(Math.max(rawGap, ANIMATE_MIN_DELAY), ANIMATE_MAX_DELAY));
+    }
+
+    let state;
+    if (startFrom?.mode === "paced-wording") {
+      state = { phase: startFrom.phase, blockIdx: startFrom.blockIdx, wordIdx: startFrom.wordIdx };
+    } else if (Number.isFinite(startFrom)) {
+      state = { phase: "block-wait", blockIdx: startFrom, wordIdx: 0 };
+    } else {
+      state = { phase: "user-words", blockIdx: 0, wordIdx: 0 };
+    }
+
+    let cancelled = false;
+    let waitCancel = null;
+    let wordCancel = null;
+
+    function waitThen(delay, callback) {
+      if (delay <= 0) { callback(); return; }
+      waitCancel = adaptiveWait(delay, () => {
+        waitCancel = null;
+        if (!cancelled) callback();
+      });
+    }
+
+    function animateRoot(root, onDone) {
+      const wordCount = root?.querySelectorAll(".paced-word").length || 0;
+      if (state.wordIdx >= wordCount) { state.wordIdx = 0; onDone(); return; }
+      wordCancel = animateWords(root, state.wordIdx, (index) => {
+        state.wordIdx = index;
+      }, () => {
+        wordCancel = null;
+        state.wordIdx = 0;
+        onDone();
+      });
+    }
+
+    function revealWrapper(wrapper) {
+      const previous = el.querySelector(".block-active");
+      if (previous) previous.classList.remove("block-active");
+      wrapper.classList.remove("block-hidden");
+      wrapper.classList.add("block-revealing", "block-active");
+    }
+
+    function finishBlock() {
+      state.blockIdx++;
+      state.wordIdx = 0;
+      state.phase = "block-wait";
+      runBlock();
+    }
+
+    function runBlockWords() {
+      const wrapper = wrappers[state.blockIdx];
+      const textRoot = wrapper?.querySelector(".assistant-text");
+      if (!textRoot) { finishBlock(); return; }
+      animateRoot(textRoot, finishBlock);
+    }
+
+    function runBlock() {
+      if (cancelled) return;
+      if (state.blockIdx >= wrappers.length) {
+        for (const active of el.querySelectorAll(".block-active")) active.classList.remove("block-active");
+        animatePausedState = null;
+        queueMicrotask(() => { if (!cancelled) onComplete(); });
+        return;
+      }
+      if (state.phase === "block-words") { runBlockWords(); return; }
+
+      const wrapper = wrappers[state.blockIdx];
+      waitThen(gaps[state.blockIdx] || 0, () => {
+        revealWrapper(wrapper);
+        const textRoot = wrapper.querySelector(".assistant-text");
+        if (textRoot) {
+          state.phase = "block-words";
+          runBlockWords();
+        } else {
+          finishBlock();
+        }
+      });
+    }
+
+    function runUserWords() {
+      const userRoot = el.querySelector(".user-text");
+      if (!userRoot) {
+        state.phase = "block-wait";
+        runBlock();
+        return;
+      }
+      animateRoot(userRoot, () => {
+        state.phase = "block-wait";
+        runBlock();
+      });
+    }
+
+    if (state.phase === "user-words") runUserWords();
+    else runBlock();
+
+    return function cancel() {
+      if (cancelled) return;
+      cancelled = true;
+      if (waitCancel) waitCancel();
+      if (wordCancel) state.wordIdx = wordCancel();
+      animatePausedState = { turnIndex, mode: "paced-wording", ...state };
+    };
+  }
+
+  function animatePlaybackTurn(turnIndex, onComplete, startFrom) {
+    return pacedWording
+      ? animatePacedWordingTurn(turnIndex, onComplete, startFrom)
+      : animateTurn(turnIndex, onComplete, startFrom);
+  }
+
   // After all blocks in a turn are revealed, pause then advance
   function dwellThenAdvance() {
-    animateCancelFn = adaptiveWait(SHORT_TURN_DELAY_MS, () => {
+    const cancelWait = adaptiveWait(SHORT_TURN_DELAY_MS, () => {
       if (!playing) return;
       animateCancelFn = null;
       playStep();
     });
+    animateCancelFn = () => {
+      cancelWait();
+      animatePausedState = { turnIndex: currentTurn - 1, mode: "dwell" };
+    };
   }
 
   function playStep() {
@@ -2019,14 +2276,14 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 
     // For turns with no blocks (e.g. /exit), scroll to them directly
     const wrappers = el.querySelectorAll(".block-wrapper");
-    if (wrappers.length === 0) {
+    if (wrappers.length === 0 && !pacedWording) {
       scrollToBottom(el);
       dwellThenAdvance();
       return;
     }
 
     // Animate blocks within the turn, then dwell before advancing
-    animateCancelFn = animateTurn(currentTurn - 1, () => {
+    animateCancelFn = animatePlaybackTurn(currentTurn - 1, () => {
       animateCancelFn = null;
       if (!playing) return;
       dwellThenAdvance();
@@ -2040,7 +2297,9 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       // Check if the last turn still has unrevealed blocks
       const lastEl = turnElements()[TURNS.length - 1];
       const hasHidden = lastEl && lastEl.querySelectorAll(".block-wrapper.block-hidden").length > 0;
-      if (hasHidden) {
+      const hasUnlitWords = pacedWording && lastEl?.querySelector(".paced-word:not(.word-lit)");
+      const hasPausedAnimation = animatePausedState?.turnIndex === TURNS.length - 1;
+      if (hasHidden || hasUnlitWords || hasPausedAnimation) {
         // Still have blocks to show — keep at last turn for resume logic below
         currentTurn = TURNS.length;
       } else {
@@ -2055,6 +2314,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
           w.classList.add("block-hidden");
           w.classList.remove("block-revealing");
         }
+        dimAllWords(transcript);
       }
     }
     playing = true;
@@ -2072,11 +2332,15 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     if (animatePausedState) {
       const ps = animatePausedState;
       animatePausedState = null;
-      animateCancelFn = animateTurn(ps.turnIndex, () => {
+      if (ps.mode === "dwell") {
+        dwellThenAdvance();
+        return;
+      }
+      animateCancelFn = animatePlaybackTurn(ps.turnIndex, () => {
         animateCancelFn = null;
         if (!playing) return;
         dwellThenAdvance();
-      }, ps.blockIdx);
+      }, ps.mode === "paced-wording" ? ps : ps.blockIdx);
       return;
     }
 
@@ -2088,7 +2352,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
         const total = turnEl.querySelectorAll(".block-wrapper").length;
         if (revealed < total) {
           // Partially revealed (from block-by-block stepping): animate remaining blocks
-          animateCancelFn = animateTurn(currentTurn - 1, () => {
+          animateCancelFn = animatePlaybackTurn(currentTurn - 1, () => {
             animateCancelFn = null;
             if (!playing) return;
             dwellThenAdvance();
@@ -2175,6 +2439,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (turns[0]) {
         turns[0].classList.add("visible");
         hideAllBlocks(turns[0]);
+        lightAllWords(turns[0].querySelector(".user-text") || turns[0]);
         scrollToBottom(turns[0]);
       }
       updateBookmarkVisibility();
@@ -2194,6 +2459,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (prev) prev.classList.remove("block-active");
       w.classList.remove("block-hidden");
       w.classList.add("block-revealing", "block-active");
+      lightAllWords(w);
       syncTimerToBlock();
       scrollIntoView(w);
     } else if (currentTurn < TURNS.length) {
@@ -2206,6 +2472,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       if (nextEl) {
         nextEl.classList.add("visible");
         hideAllBlocks(nextEl);
+        lightAllWords(nextEl.querySelector(".user-text") || nextEl);
         scrollIntoView(nextEl);
       }
       updateBookmarkVisibility();
@@ -2759,6 +3026,9 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   transcript.textContent = "";
   transcript.style.opacity = "";
   renderAllTurns();
+  if (pacedWording) preparePacedWording();
+  document.body.dataset.playbackMode = pacedWording ? "paced-wording" : "sections";
+  document.body.dataset.readingWpm = String(readingWpm);
   applyVisibility();
   const hashMatch = location.hash.match(/turn=(\d+)(r)?/);
   if (hashMatch) {

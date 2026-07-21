@@ -218,6 +218,18 @@ test("timing select has three options", async ({ page }) => {
   await expect(options).toHaveCount(3);
 });
 
+test("paced timing exposes paced-wording controls", async ({ page }) => {
+  await gotoEditor(page);
+  await expect(page.locator("#pacingStyleRow")).toBeHidden();
+  await expect(page.locator("#readingWpmRow")).toBeHidden();
+
+  await page.locator("#optTiming").selectOption("paced");
+  await expect(page.locator("#pacingStyleRow")).toBeVisible();
+  await page.locator("#optPacing").selectOption("paced-wording");
+  await expect(page.locator("#readingWpmRow")).toBeVisible();
+  await expect(page.locator("#optReadingWpm")).toHaveValue("238");
+});
+
 // ─── Help modal ────────────────────────────────────────────
 
 test("help button opens modal", async ({ page }) => {
