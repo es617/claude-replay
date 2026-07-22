@@ -307,7 +307,7 @@ The editor and CLI offer an additional text-reveal option inside `paced` timing.
 claude-replay session.jsonl --timing paced --pacing paced-wording --reading-wpm 300 -o demo.html
 ```
 
-The `paced-wording` mode varies the interval deterministically based on word length, adds bounded jitter, and pauses longer after punctuation and paragraph boundaries. It applies to user and assistant prose; thinking and tool blocks retain section-based reveal behavior. The regular speed control still scales playback live, and reduced-motion preferences disable word-by-word dimming in favor of the normal section-based reveal.
+The `paced-wording` mode varies the interval deterministically based on word length, adds bounded jitter, and pauses longer after punctuation and paragraph boundaries. It applies to user and assistant prose, while fenced code illuminates as one atomic block and thinking and tool blocks retain section-based reveal behavior. The regular speed control still scales playback live, and reduced-motion preferences disable word-by-word dimming in favor of the normal section-based reveal.
 
 For the complete timing formula and tuning reference, see [paced-word details](docs/paced-word-details.md).
 

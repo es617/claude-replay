@@ -334,7 +334,7 @@ if (hasReadingWpm && pacing !== "paced-wording") {
   console.error("Error: --reading-wpm requires --pacing paced-wording.");
   process.exit(1);
 }
-  const pacedWording = pacing === "paced-wording";
+const pacedWording = pacing === "paced-wording";
 
 let readingWpm = DEFAULT_READING_WPM;
 if (hasReadingWpm) {

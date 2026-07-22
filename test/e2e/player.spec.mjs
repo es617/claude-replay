@@ -103,12 +103,15 @@ test("paced wording preserves long-form structure and tokenizes by word", async 
     const assistantRoot = turn.querySelector(".assistant-text");
     const userWords = [...userRoot.querySelectorAll(".paced-word")];
     const assistantWords = [...assistantRoot.querySelectorAll(".paced-word")];
+    const codeBlock = assistantRoot.querySelector("pre");
     return {
       userWords: userWords.length,
       assistantWords: assistantWords.length,
       assistantParagraphs: assistantRoot.querySelectorAll("p").length,
       tokensContainWhitespace: [...userWords, ...assistantWords].some((word) => /\s/.test(word.textContent)),
       hasLongWholeWord: assistantWords.some((word) => word.textContent.includes("internationalization")),
+      codeBlockIsAtomic: codeBlock?.matches(".paced-code-block.paced-segment") || false,
+      codeBlockWordCount: codeBlock?.querySelectorAll(".paced-word").length ?? -1,
     };
   });
   expect(await user.count()).toBe(1);
@@ -118,6 +121,23 @@ test("paced wording preserves long-form structure and tokenizes by word", async 
   expect(structure.assistantParagraphs).toBe(3);
   expect(structure.tokensContainWhitespace).toBe(false);
   expect(structure.hasLongWholeWord).toBe(true);
+  expect(structure.codeBlockIsAtomic).toBe(true);
+  expect(structure.codeBlockWordCount).toBe(0);
+});
+
+test("paced wording reveals fenced code as one atomic segment", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1", 80));
+  await waitForReady(page);
+
+  const codeBlock = page.locator('.turn[data-index="1"] .assistant-text pre');
+  const firstProseWord = page.locator('.turn[data-index="1"] .assistant-text .paced-word').first();
+  await expect(codeBlock).toHaveClass(/paced-code-block/);
+  await expect(codeBlock).not.toHaveClass(/word-lit/);
+  await expect(codeBlock.locator(".paced-word")).toHaveCount(0);
+
+  await page.locator("#btn-play").click();
+  await expect(codeBlock).toHaveClass(/word-lit/, { timeout: 5000 });
+  await expect(firstProseWord).not.toHaveClass(/word-lit/);
 });
 
 test("paced wording lights manually navigated user prose while keeping blocks hidden", async ({ page }) => {

@@ -397,14 +397,14 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   word-break: break-word;
 }
 
-.paced-word {
+.paced-segment {
   opacity: 0.28;
   transition: opacity 0.12s ease-out;
 }
-.paced-word.word-lit { opacity: 1; }
+.paced-segment.word-lit { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .paced-word { opacity: 1 !important; transition: none; }
+  .paced-segment { opacity: 1 !important; transition: none; }
 }
 
 /* Timestamp */
@@ -1482,10 +1482,16 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   }
 
   function wrapPacedWords(root) {
+    for (const pre of root.querySelectorAll("pre")) {
+      pre.classList.add("paced-code-block", "paced-segment");
+    }
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const textNodes = [];
     while (walker.nextNode()) {
-      if (/\S/.test(walker.currentNode.nodeValue || "")) textNodes.push(walker.currentNode);
+      const textNode = walker.currentNode;
+      if (textNode.parentElement?.closest("pre")) continue;
+      if (/\S/.test(textNode.nodeValue || "")) textNodes.push(textNode);
     }
     for (const textNode of textNodes) {
       const fragment = document.createDocumentFragment();
@@ -1495,7 +1501,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
           fragment.appendChild(document.createTextNode(part));
         } else {
           const word = document.createElement("span");
-          word.className = "paced-word";
+          word.className = "paced-word paced-segment";
           word.textContent = part;
           fragment.appendChild(word);
         }
@@ -1678,12 +1684,12 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 
   function lightAllWords(root) {
     if (!pacedWording) return;
-    for (const word of root.querySelectorAll(".paced-word")) word.classList.add("word-lit");
+    for (const word of root.querySelectorAll(".paced-segment")) word.classList.add("word-lit");
   }
 
   function dimAllWords(root) {
     if (!pacedWording) return;
-    for (const word of root.querySelectorAll(".paced-word")) word.classList.remove("word-lit");
+    for (const word of root.querySelectorAll(".paced-segment")) word.classList.remove("word-lit");
   }
 
   function reconcilePacedWordsToBlockState(turnEl) {
@@ -2025,7 +2031,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     if (!root) return { words: [], prefix: [0], total: 0 };
     const cached = wordTimingCache.get(root);
     if (cached) return cached;
-    const words = [...root.querySelectorAll(".paced-word")];
+    const words = [...root.querySelectorAll(".paced-segment")];
     const prefix = [0];
     for (let i = 0; i < words.length; i++) {
       prefix.push(prefix[i] + wordDelayMs(words[i], words[i + 1] || null, i));
@@ -2081,7 +2087,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   }
 
   function animateWords(root, startAt, onProgress, onComplete) {
-    const words = root ? [...root.querySelectorAll(".paced-word")] : [];
+    const words = root ? [...root.querySelectorAll(".paced-segment")] : [];
     let index = Math.min(startAt || 0, words.length);
     let waitCancel = null;
     let cancelled = false;
@@ -2223,7 +2229,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     }
 
     function animateRoot(root, onDone) {
-      const wordCount = root?.querySelectorAll(".paced-word").length || 0;
+      const wordCount = root?.querySelectorAll(".paced-segment").length || 0;
       if (state.wordIdx >= wordCount) { state.wordIdx = 0; onDone(); return; }
       wordCancel = animateWords(root, state.wordIdx, (index) => {
         state.wordIdx = index;
@@ -2372,7 +2378,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
       // Check if the last turn still has unrevealed blocks
       const lastEl = turnElements()[TURNS.length - 1];
       const hasHidden = lastEl && lastEl.querySelectorAll(".block-wrapper.block-hidden").length > 0;
-      const hasUnlitWords = pacedWording && lastEl?.querySelector(".paced-word:not(.word-lit)");
+      const hasUnlitWords = pacedWording && lastEl?.querySelector(".paced-segment:not(.word-lit)");
       const hasPausedAnimation = animatePausedState?.turnIndex === TURNS.length - 1;
       if (hasHidden || hasUnlitWords || hasPausedAnimation) {
         // Still have blocks to show — keep at last turn for resume logic below

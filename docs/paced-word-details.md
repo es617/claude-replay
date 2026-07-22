@@ -27,7 +27,7 @@ Punctuation and structure add these pauses, expressed as multiples of the base i
 | Period, question mark, or exclamation mark | `1.40 × base_ms` |
 | Paragraph, list item, heading, table cell, or preformatted-block transition | `1.80 × base_ms` |
 
-Straight single or double quotes, `)`, and `]` may follow punctuation without changing its classification. Sentence and structural pauses can both apply to the same word. The jitter is derived from a stable hash of the word and its position, so it feels less mechanical while remaining reproducible for testing and replay.
+Straight single or double quotes, `)`, and `]` may follow punctuation without changing its classification. Sentence and structural pauses can both apply to the same word. The jitter is derived from a stable hash of the word and its position, so it feels less mechanical while remaining reproducible for testing and replay. Fenced code is treated as one atomic pacing segment: the entire `<pre>` illuminates together and receives one nominal delay before prose pacing continues.
 
 The session timer uses the same per-word delays. It also includes the gap between assistant sections: the timestamp delta when both timestamps exist, otherwise 800 ms, with every gap clamped to 600 ms–10 seconds. A 5-second dwell follows each turn, including the final turn. Thinking and tool sections are still revealed as whole sections and therefore do not receive per-word delay.
 
