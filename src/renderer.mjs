@@ -6,6 +6,11 @@ import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { themeToCss, getTheme } from "./themes.mjs";
 import { redactSecrets, redactObject } from "./secrets.mjs";
+import {
+  DEFAULT_READING_WPM,
+  READING_WPM_TEMPLATE_PLACEHOLDER,
+  normalizeReadingWpm,
+} from "./reading-rate.mjs";
 
 const TEMPLATE_PATH = new URL("../template/player.html", import.meta.url);
 const TEMPLATE_MIN_PATH = new URL("../template/player.min.html", import.meta.url);
@@ -178,12 +183,12 @@ export function render(turns, opts = {}) {
     redactSecrets: redact = true,
     bookmarks = [],
     pacedWording = false,
-    readingWpm: rawReadingWpm = 238,
+    readingWpm: rawReadingWpm = DEFAULT_READING_WPM,
   } = opts;
 
   // Validate inputs
   const speed = Number.isFinite(rawSpeed) ? Math.max(0.1, Math.min(rawSpeed, 10)) : 1.0;
-  const readingWpm = Number.isFinite(rawReadingWpm) ? Math.round(Math.max(80, Math.min(rawReadingWpm, 600))) : 238;
+  const readingWpm = normalizeReadingWpm(rawReadingWpm);
 
   let html;
   if (opts.minified === false) {
@@ -212,7 +217,7 @@ export function render(turns, opts = {}) {
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
   html = html.replace("/*PACED_WORDING*/false", String(pacedWording));
-  html = html.replace("/*READING_WPM*/238", String(readingWpm));
+  html = html.replace(READING_WPM_TEMPLATE_PLACEHOLDER, String(readingWpm));
   const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
   const fontSize = opts.fontSize || "normal";
   html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");

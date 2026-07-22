@@ -10,6 +10,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { transform } from "esbuild";
+import { READING_WPM_TEMPLATE_PLACEHOLDER } from "../src/reading-rate.mjs";
 
 const TEMPLATE = new URL("../template/player.html", import.meta.url);
 const OUTPUT = new URL("../template/player.min.html", import.meta.url);
@@ -37,7 +38,7 @@ const PLACEHOLDERS = [
   { pattern: "/*OG_IMAGE*/", token: "__PLACEHOLDER_OG_IMAGE__" },
   { pattern: "/*HAS_REAL_TIMESTAMPS*/false", token: "__PLACEHOLDER_HAS_REAL_TIMESTAMPS__false" },
   { pattern: "/*PACED_WORDING*/false", token: "__PLACEHOLDER_PACED_WORDING__false" },
-  { pattern: "/*READING_WPM*/238", token: "__PLACEHOLDER_READING_WPM__238" },
+  { pattern: READING_WPM_TEMPLATE_PLACEHOLDER, token: "__PLACEHOLDER_READING_WPM_VALUE__" },
   { pattern: "/*FONT_SIZE*/13px", token: "__PLACEHOLDER_FONT_SIZE__" },
   { pattern: '/*FONT_SIZE_NAME*/"normal"', token: '"__PLACEHOLDER_FONT_SIZE_NAME__"' },
 ];

@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseTranscript, applyPacedTiming } from "../../src/parser.mjs";
 import { render } from "../../src/renderer.mjs";
+import { DEFAULT_READING_WPM } from "../../src/reading-rate.mjs";
 
 const FIXTURE = new URL("./fixture.jsonl", import.meta.url).pathname;
 const PACED_WORDING_FIXTURE = new URL("./fixture-paced-wording.jsonl", import.meta.url).pathname;
@@ -56,7 +57,7 @@ export function getPacedFileUrl(hash = "") {
   return "file://" + cache["paced"] + (hash ? "#" + hash : "");
 }
 
-export function getPacedWordingFileUrl(hash = "", readingWpm = 238) {
+export function getPacedWordingFileUrl(hash = "", readingWpm = DEFAULT_READING_WPM) {
   const key = `paced-wording-${readingWpm}`;
   if (!cache[key]) {
     const turns = parseTranscript(PACED_WORDING_FIXTURE);

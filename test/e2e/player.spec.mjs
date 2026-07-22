@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { getFileUrl, getUncompressedFileUrl, getChapterFileUrl, getPacedFileUrl, getPacedWordingFileUrl, getPacedWordingFinalTurnFileUrl, waitForReady } from "./setup.mjs";
+import { DEFAULT_READING_WPM } from "../../src/reading-rate.mjs";
 
 // Helpers
 const blockCount = (page, turn, hidden = false) =>
@@ -66,7 +67,7 @@ test("paced wording illuminates whole words and pauses in place", async ({ page 
   await waitForReady(page);
 
   await expect(page.locator("body")).toHaveAttribute("data-playback-mode", "paced-wording");
-  await expect(page.locator("body")).toHaveAttribute("data-reading-wpm", "238");
+  await expect(page.locator("body")).toHaveAttribute("data-reading-wpm", String(DEFAULT_READING_WPM));
   const words = page.locator('.turn[data-index="1"] .user-text .paced-word');
   const total = await words.count();
   expect(total).toBeGreaterThan(60);

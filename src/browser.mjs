@@ -10,6 +10,11 @@ export { redactSecrets, redactObject } from "./secrets.mjs";
 
 import { themeToCss, getTheme } from "./themes.mjs";
 import { redactObject } from "./secrets.mjs";
+import {
+  DEFAULT_READING_WPM,
+  READING_WPM_TEMPLATE_PLACEHOLDER,
+  normalizeReadingWpm,
+} from "./reading-rate.mjs";
 
 function escapeHtml(str) {
   return str
@@ -104,11 +109,11 @@ export function renderFromTemplate(template, turns, opts = {}) {
     redactRules,
     bookmarks = [],
     pacedWording = false,
-    readingWpm: rawReadingWpm = 238,
+    readingWpm: rawReadingWpm = DEFAULT_READING_WPM,
   } = opts;
 
   const speed = Number.isFinite(rawSpeed) ? Math.max(0.1, Math.min(rawSpeed, 10)) : 1.0;
-  const readingWpm = Number.isFinite(rawReadingWpm) ? Math.round(Math.max(80, Math.min(rawReadingWpm, 600))) : 238;
+  const readingWpm = normalizeReadingWpm(rawReadingWpm);
 
   let html = template;
   html = html.replace("/*THEME_CSS*/", themeToCss(theme));
@@ -124,7 +129,7 @@ export function renderFromTemplate(template, turns, opts = {}) {
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
   html = html.replace("/*PACED_WORDING*/false", String(pacedWording));
-  html = html.replace("/*READING_WPM*/238", String(readingWpm));
+  html = html.replace(READING_WPM_TEMPLATE_PLACEHOLDER, String(readingWpm));
   const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
   const fontSize = opts.fontSize || "normal";
   html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");
