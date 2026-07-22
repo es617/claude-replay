@@ -1195,23 +1195,26 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   const FILES = await decodeData("/*FILES_DATA*/");
 
   const SPEED_STEPS = [0.5, 1, 2, 3, 5];
-  const ANIMATE_MIN_DELAY = 600;       // minimum ms between consecutive block reveals
-  const ANIMATE_FALLBACK_DELAY = 800;  // ms between blocks when timestamps missing
-  const ANIMATE_MAX_DELAY = 10000;     // max ms between blocks (before speed scaling)
   const PEEK_OFFSET = 20;              // px of next dimmed turn visible below
-  const SHORT_TURN_DELAY_MS = 5000;    // delay between turns during playback
   const TURN_SCROLL_MS = 600;          // duration of scroll between turns
-  const WORD_LENGTH_BASE_FACTOR = 0.82;
-  const WORD_LENGTH_PER_CHAR_FACTOR = 0.036;
-  const WORD_LENGTH_MAX_CHARS = 12;
-  const WORD_JITTER_MIN = 0.9;
-  const WORD_JITTER_BUCKETS = 201;
-  const WORD_JITTER_DIVISOR = 1000;
-  const CLAUSE_PAUSE_WORDS = 0.55;
-  const SENTENCE_PAUSE_WORDS = 1.4;
-  const PARAGRAPH_PAUSE_WORDS = 1.8;
   const pacedWordingRequested = /*PACED_WORDING*/false;
   const readingWpm = /*READING_WPM*/0;
+  const pacedWordingTuning = Object.freeze(/*PACED_WORDING_TUNING*/{});
+  const {
+    segmentGapMinMs: ANIMATE_MIN_DELAY,
+    segmentGapFallbackMs: ANIMATE_FALLBACK_DELAY,
+    segmentGapMaxMs: ANIMATE_MAX_DELAY,
+    turnDwellMs: SHORT_TURN_DELAY_MS,
+    wordLengthBaseFactor: WORD_LENGTH_BASE_FACTOR,
+    wordLengthPerCharFactor: WORD_LENGTH_PER_CHAR_FACTOR,
+    wordLengthMaxChars: WORD_LENGTH_MAX_CHARS,
+    wordJitterMin: WORD_JITTER_MIN,
+    wordJitterBuckets: WORD_JITTER_BUCKETS,
+    wordJitterDivisor: WORD_JITTER_DIVISOR,
+    clausePauseWords: CLAUSE_PAUSE_WORDS,
+    sentencePauseWords: SENTENCE_PAUSE_WORDS,
+    structuralPauseWords: PARAGRAPH_PAUSE_WORDS,
+  } = pacedWordingTuning;
   const pacedWording = pacedWordingRequested && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Compute session timestamps for elapsed/total timer

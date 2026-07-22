@@ -333,6 +333,30 @@ Straight single or double quotes, `)`, and `]` may follow punctuation without ch
 
 The session timer uses the same per-word delays. It also includes the gap between assistant sections: the timestamp delta when both timestamps exist, otherwise 800 ms, with every gap clamped to 600 ms–10 seconds. A 5-second dwell follows each turn, including the final turn. Thinking and tool sections are still revealed as whole sections and therefore do not receive per-word delay.
 
+#### Tuning paced wording
+
+All tunable numeric timing heuristics listed below live in the exported `PACED_WORDING_TUNING` object in `src/reading-rate.mjs`. This is the single tuning point used by both the Node renderer and the static website's browser renderer; the generated player receives a serialized copy when it is rendered. The local editor uses the Node renderer.
+
+The parameters are heuristics rather than an authoritative model of human reading. They are grouped by unit and purpose:
+
+| Parameters | Meaning |
+|---|---|
+| `segmentGapMinMs`, `segmentGapFallbackMs`, `segmentGapMaxMs` | Minimum, missing-timestamp fallback, and maximum assistant-section gaps, in milliseconds |
+| `turnDwellMs` | Pause after each turn, in milliseconds |
+| `wordLengthBaseFactor`, `wordLengthPerCharFactor`, `wordLengthMaxChars` | Linear word-length adjustment and the character-count cap |
+| `wordJitterMin`, `wordJitterBuckets`, `wordJitterDivisor` | Range and resolution of deterministic hash jitter |
+| `clausePauseWords`, `sentencePauseWords`, `structuralPauseWords` | Extra delay after punctuation or a structural boundary, in base-word intervals |
+
+The section-gap and turn-dwell fields are shared with regular section-based paced playback, so changing those four values affects both variants. Word-length, jitter, and linguistic-pause fields apply only when **Paced wording** is selected. WPM and playback speed remain user-facing controls rather than hyperparameters, while punctuation classification, hashing constants, scrolling, and scheduling are implementation mechanics rather than tuning values.
+
+For visual tuning, launch the editor with the deliberately long fixture:
+
+```bash
+node ./bin/claude-replay.mjs editor ./test/e2e/fixture-paced-wording.jsonl
+```
+
+Select **Paced**, then **Paced wording**, and compare several WPM settings. After changing the tuning object, run `npm run build`, `npm test`, and the paced-wording browser tests. Keep the relational invariants covered by `test/test-reading-rate.mjs`; they protect the configuration from nonsensical combinations without pinning every experimental value in a second location.
+
 ## Player controls
 
 The generated HTML file is a fully self-contained interactive player:

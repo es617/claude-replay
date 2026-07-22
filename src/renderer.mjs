@@ -8,6 +8,8 @@ import { themeToCss, getTheme } from "./themes.mjs";
 import { redactSecrets, redactObject } from "./secrets.mjs";
 import {
   DEFAULT_READING_WPM,
+  PACED_WORDING_TUNING,
+  PACED_WORDING_TUNING_TEMPLATE_PLACEHOLDER,
   READING_WPM_TEMPLATE_PLACEHOLDER,
   normalizeReadingWpm,
 } from "./reading-rate.mjs";
@@ -218,6 +220,7 @@ export function render(turns, opts = {}) {
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
   html = html.replace("/*PACED_WORDING*/false", String(pacedWording));
   html = html.replace(READING_WPM_TEMPLATE_PLACEHOLDER, String(readingWpm));
+  html = html.replace(PACED_WORDING_TUNING_TEMPLATE_PLACEHOLDER, JSON.stringify(PACED_WORDING_TUNING));
   const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
   const fontSize = opts.fontSize || "normal";
   html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");

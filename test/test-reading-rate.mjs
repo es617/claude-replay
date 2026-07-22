@@ -4,6 +4,7 @@ import {
   DEFAULT_READING_WPM,
   MIN_READING_WPM,
   MAX_READING_WPM,
+  PACED_WORDING_TUNING,
   normalizeReadingWpm,
 } from "../src/reading-rate.mjs";
 
@@ -29,5 +30,23 @@ describe("reading rate policy", () => {
     for (const value of [undefined, null, "fast", NaN, Infinity, -Infinity]) {
       assert.equal(normalizeReadingWpm(value), DEFAULT_READING_WPM);
     }
+  });
+
+  it("exposes a valid, immutable paced-wording tuning surface", () => {
+    const tuning = PACED_WORDING_TUNING;
+    assert.ok(Object.isFrozen(tuning));
+    assert.ok(Object.values(tuning).every((value) => Number.isFinite(value) && value > 0));
+
+    assert.ok(tuning.segmentGapMinMs <= tuning.segmentGapFallbackMs);
+    assert.ok(tuning.segmentGapFallbackMs <= tuning.segmentGapMaxMs);
+    assert.ok(tuning.wordLengthPerCharFactor < tuning.wordLengthBaseFactor);
+    assert.ok(tuning.clausePauseWords < tuning.sentencePauseWords);
+    assert.ok(tuning.sentencePauseWords <= tuning.structuralPauseWords);
+
+    assert.ok(Number.isInteger(tuning.wordLengthMaxChars));
+    assert.ok(Number.isInteger(tuning.wordJitterBuckets));
+    assert.ok(Number.isInteger(tuning.wordJitterDivisor));
+    const jitterMax = tuning.wordJitterMin + (tuning.wordJitterBuckets - 1) / tuning.wordJitterDivisor;
+    assert.ok(tuning.wordJitterMin < 1 && jitterMax > 1);
   });
 });

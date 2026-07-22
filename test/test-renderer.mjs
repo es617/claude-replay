@@ -2,7 +2,12 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "../src/renderer.mjs";
 import { getTheme } from "../src/themes.mjs";
-import { DEFAULT_READING_WPM, MIN_READING_WPM, MAX_READING_WPM } from "../src/reading-rate.mjs";
+import {
+  DEFAULT_READING_WPM,
+  MIN_READING_WPM,
+  MAX_READING_WPM,
+  PACED_WORDING_TUNING,
+} from "../src/reading-rate.mjs";
 
 const SAMPLE_TURNS = [
   {
@@ -69,6 +74,11 @@ describe("render", () => {
     assert.match(selected, /const readingWpm = 317;/);
     assert.match(slow, new RegExp(`const readingWpm = ${MIN_READING_WPM};`));
     assert.match(fast, new RegExp(`const readingWpm = ${MAX_READING_WPM};`));
+  });
+
+  it("injects the shared paced-wording tuning configuration", () => {
+    const html = render(SAMPLE_TURNS, { pacedWording: true, minified: false });
+    assert.ok(html.includes(`const pacedWordingTuning = Object.freeze(${JSON.stringify(PACED_WORDING_TUNING)});`));
   });
 
   it("respects showThinking=false", () => {
@@ -179,5 +189,6 @@ describe("render", () => {
     assert.doesNotMatch(html, /\/\*OG_IMAGE\*\//);
     assert.doesNotMatch(html, /\/\*PACED_WORDING\*\//);
     assert.doesNotMatch(html, /\/\*READING_WPM\*\//);
+    assert.doesNotMatch(html, /\/\*PACED_WORDING_TUNING\*\//);
   });
 });
