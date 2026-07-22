@@ -238,6 +238,8 @@ The extracted JSONL can be fed back into `claude-replay` to regenerate with diff
 | `--user-label NAME` | Label for user messages (default: `User`) |
 | `--assistant-label NAME` | Label for assistant messages (default: auto-detected) |
 | `--timing MODE` | Timestamp mode: `auto`, `real`, `paced` (default: `auto`) |
+| `--pacing MODE` | Paced reveal mode: `sections` or `paced-wording` (default: `sections`); requires `--timing paced` |
+| `--reading-wpm N` | Base paced-wording rate from 80–600 WPM (default: 238); requires `--pacing paced-wording` |
 | `--theme NAME` | Built-in theme (default: `tokyo-night`) |
 | `--theme-file FILE` | Custom theme JSON file (overrides `--theme`) |
 | `--no-minify` | Use unminified template (default: minified if available) |
@@ -298,7 +300,12 @@ claude-replay session.jsonl --timing paced -o demo.html
 
 ### Paced wording
 
-The editor offers an additional text-reveal option inside `Paced` timing. Choose **Paced wording** to show prose at once in a dimmed state, then illuminate it one whole word at a time. The base pace is tunable from 80–600 WPM and defaults to 238 WPM, the estimated average adult silent reading rate for English non-fiction in [Brysbaert's review and meta-analysis](https://doi.org/10.1016/j.jml.2019.104047).
+The editor and CLI offer an additional text-reveal option inside `Paced` timing. Choose **Paced wording** in the editor, or pass `--timing paced --pacing paced-wording` on the CLI, to show prose at once in a dimmed state and then illuminate it one whole word at a time. The base pace is tunable from 80–600 WPM and defaults to 238 WPM, the estimated average adult silent reading rate for English non-fiction in [Brysbaert's review and meta-analysis](https://doi.org/10.1016/j.jml.2019.104047).
+
+```bash
+# Generate a paced-wording replay at 300 words per minute
+claude-replay session.jsonl --timing paced --pacing paced-wording --reading-wpm 300 -o demo.html
+```
 
 Paced wording varies the interval deterministically based on word length, adds bounded jitter, and pauses longer after punctuation and paragraph boundaries. It applies to user and assistant prose; thinking and tool blocks retain section-based reveal behavior. The regular speed control still scales playback live, and reduced-motion preferences disable word-by-word dimming in favor of the normal section-based reveal.
 

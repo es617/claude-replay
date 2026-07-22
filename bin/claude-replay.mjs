@@ -13,6 +13,11 @@ import { parseTranscript, filterTurns, detectFormat, applyPacedTiming } from "..
 import { render } from "../src/renderer.mjs";
 import { getTheme, loadThemeFile, listThemes } from "../src/themes.mjs";
 import { extractData } from "../src/extract.mjs";
+import {
+  DEFAULT_READING_WPM,
+  MIN_READING_WPM,
+  MAX_READING_WPM,
+} from "../src/reading-rate.mjs";
 
 const options = {
   port: { type: "string" },
@@ -38,6 +43,8 @@ const options = {
   "user-label": { type: "string", default: "User" },
   "assistant-label": { type: "string" },
   timing: { type: "string" },
+  pacing: { type: "string" },
+  "reading-wpm": { type: "string" },
   mark: { type: "string", multiple: true },
   bookmarks: { type: "string" },
   "no-minify": { type: "boolean", default: false },
@@ -156,6 +163,8 @@ Options:
   --user-label NAME       Label for user messages (default: User)
   --assistant-label NAME  Label for assistant messages (default: auto-detected)
   --timing MODE           Timestamp mode: auto, real, paced (default: auto)
+  --pacing MODE           Paced reveal: sections, paced-wording; requires --timing paced
+  --reading-wpm N         Paced-wording rate: ${MIN_READING_WPM}-${MAX_READING_WPM} (default: ${DEFAULT_READING_WPM}); requires paced-wording
   --mark "N:Label"        Add a bookmark at turn N (repeatable)
   --bookmarks FILE        JSON file with bookmarks [{turn, label}]
   --no-minify             Use unminified template (default: minified if available)
@@ -307,6 +316,38 @@ if (!["auto", "real", "paced"].includes(timing)) {
   process.exit(1);
 }
 
+const pacing = values.pacing || "sections";
+const hasReadingWpm = values["reading-wpm"] !== undefined;
+if (!["sections", "paced-wording"].includes(pacing)) {
+  console.error(`Error: unknown --pacing mode "${pacing}". Use sections or paced-wording.`);
+  process.exit(1);
+}
+if (values.pacing !== undefined && timing !== "paced") {
+  console.error("Error: --pacing requires --timing paced.");
+  process.exit(1);
+}
+if (hasReadingWpm && timing !== "paced") {
+  console.error("Error: --reading-wpm requires --timing paced.");
+  process.exit(1);
+}
+if (hasReadingWpm && pacing !== "paced-wording") {
+  console.error("Error: --reading-wpm requires --pacing paced-wording.");
+  process.exit(1);
+}
+  const pacedWording = pacing === "paced-wording";
+
+let readingWpm = DEFAULT_READING_WPM;
+if (hasReadingWpm) {
+  readingWpm = Number(values["reading-wpm"]);
+  if (!Number.isFinite(readingWpm)
+      || !Number.isInteger(readingWpm)
+      || readingWpm < MIN_READING_WPM
+      || readingWpm > MAX_READING_WPM) {
+    console.error(`Error: --reading-wpm must be an integer between ${MIN_READING_WPM} and ${MAX_READING_WPM}.`);
+    process.exit(1);
+  }
+}
+
 const speed = parseFloat(values.speed) || 1.0;
 
 // Derive title: CLI override > parent folder name > filename
@@ -453,6 +494,8 @@ function buildReplay() {
     ogImage: values["og-image"],
     bookmarks,
     hasRealTimestamps,
+    pacedWording,
+    readingWpm,
     minified: !values["no-minify"],
     compress: !values["no-compress"],
   });
