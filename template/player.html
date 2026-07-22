@@ -1991,6 +1991,11 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
     };
   }
 
+  /**
+   * Compute a word's nominal delay before live player-speed scaling.
+   * Combines the WPM base interval with length, deterministic jitter,
+   * punctuation, and structural-boundary adjustments documented in README.md.
+   */
   function wordDelayMs(word, nextWord, index) {
     const base = 60000 / readingWpm;
     const text = word.textContent || "";

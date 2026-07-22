@@ -300,7 +300,38 @@ claude-replay session.jsonl --timing paced -o demo.html
 
 The editor offers an additional text-reveal option inside `Paced` timing. Choose **Paced wording** to show prose at once in a dimmed state, then illuminate it one whole word at a time. The base pace is tunable from 80–600 WPM and defaults to 238 WPM, the estimated average adult silent reading rate for English non-fiction in [Brysbaert's review and meta-analysis](https://doi.org/10.1016/j.jml.2019.104047).
 
-Paced wording varies the interval deterministically based on word length, adds bounded jitter, and pauses longer after punctuation and paragraph boundaries. It applies to user and assistant prose; thinking and tool blocks retain section-based reveal behavior. The regular speed control still scales playback live, and reduced-motion preferences fall back to fully visible prose.
+Paced wording varies the interval deterministically based on word length, adds bounded jitter, and pauses longer after punctuation and paragraph boundaries. It applies to user and assistant prose; thinking and tool blocks retain section-based reveal behavior. The regular speed control still scales playback live, and reduced-motion preferences disable word-by-word dimming in favor of the normal section-based reveal.
+
+#### Pacing algorithm
+
+The configured WPM is a **base rate**, not the final measured throughput. For each word, the player first computes a base interval:
+
+```text
+base_ms = 60,000 / reading_wpm
+```
+
+It then computes the word's nominal delay before applying the player speed:
+
+```text
+length_factor = 0.82 + 0.036 × min(letter_or_digit_count, 12)
+jitter       = deterministic value from 0.90 through 1.10
+word_delay   = round(base_ms × length_factor × jitter + punctuation_pause + structural_pause)
+wall_time    = word_delay / player_speed  (at a constant speed)
+```
+
+Punctuation is excluded from `letter_or_digit_count`. If a token contains no letters or digits, the implementation uses its full text length instead, falling back to 1 for an empty token.
+
+Punctuation and structure add these pauses, expressed as multiples of the base interval:
+
+| Boundary after the word | Added delay |
+|---|---:|
+| Comma, semicolon, or colon | `0.55 × base_ms` |
+| Period, question mark, or exclamation mark | `1.40 × base_ms` |
+| Paragraph, list item, heading, table cell, or preformatted-block transition | `1.80 × base_ms` |
+
+Straight single or double quotes, `)`, and `]` may follow punctuation without changing its classification. Sentence and structural pauses can both apply to the same word. The jitter is derived from a stable hash of the word and its position, so it feels less mechanical while remaining reproducible for testing and replay.
+
+The session timer uses the same per-word delays. It also includes the gap between assistant sections: the timestamp delta when both timestamps exist, otherwise 800 ms, with every gap clamped to 600 ms–10 seconds. A 5-second dwell follows each turn, including the final turn. Thinking and tool sections are still revealed as whole sections and therefore do not receive per-word delay.
 
 ## Player controls
 
