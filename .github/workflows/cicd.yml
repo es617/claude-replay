@@ -14,6 +14,7 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -23,6 +24,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         node-version: ["18", "20", "22"]
@@ -35,6 +37,7 @@ jobs:
 
   test-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -51,6 +54,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -69,6 +73,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [lint, test, test-e2e, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
@@ -100,6 +105,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, 'rc')
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       id-token: write
     steps:
@@ -119,6 +125,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, 'rc')
     needs: publish-npm
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       packages: write
     steps:
