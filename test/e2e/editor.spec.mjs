@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { DEFAULT_READING_WPM } from "../../src/reading-rate.mjs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -216,6 +217,18 @@ test("timing select has three options", async ({ page }) => {
   await gotoEditor(page);
   const options = page.locator("#optTiming option");
   await expect(options).toHaveCount(3);
+});
+
+test("paced timing exposes paced-wording controls", async ({ page }) => {
+  await gotoEditor(page);
+  await expect(page.locator("#pacingStyleRow")).toBeHidden();
+  await expect(page.locator("#readingWpmRow")).toBeHidden();
+
+  await page.locator("#optTiming").selectOption("paced");
+  await expect(page.locator("#pacingStyleRow")).toBeVisible();
+  await page.locator("#optPacing").selectOption("paced-wording");
+  await expect(page.locator("#readingWpmRow")).toBeVisible();
+  await expect(page.locator("#optReadingWpm")).toHaveValue(String(DEFAULT_READING_WPM));
 });
 
 // ─── Help modal ────────────────────────────────────────────

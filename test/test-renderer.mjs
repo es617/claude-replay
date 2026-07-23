@@ -2,6 +2,12 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "../src/renderer.mjs";
 import { getTheme } from "../src/themes.mjs";
+import {
+  DEFAULT_READING_WPM,
+  MIN_READING_WPM,
+  MAX_READING_WPM,
+  PACED_WORDING_TUNING,
+} from "../src/reading-rate.mjs";
 
 const SAMPLE_TURNS = [
   {
@@ -53,6 +59,26 @@ describe("render", () => {
   it("sets initial speed", () => {
     const html = render(SAMPLE_TURNS, { speed: 2.5, minified: false });
     assert.match(html, /2\.5x/);
+  });
+
+  it("defaults paced wording to the configured standard reading rate", () => {
+    const html = render(SAMPLE_TURNS, { pacedWording: true, minified: false });
+    assert.match(html, /const pacedWordingRequested = true;/);
+    assert.match(html, new RegExp(`const readingWpm = ${DEFAULT_READING_WPM};`));
+  });
+
+  it("injects and clamps the paced-wording reading rate", () => {
+    const selected = render(SAMPLE_TURNS, { pacedWording: true, readingWpm: 317, minified: false });
+    const slow = render(SAMPLE_TURNS, { pacedWording: true, readingWpm: MIN_READING_WPM - 40, minified: false });
+    const fast = render(SAMPLE_TURNS, { pacedWording: true, readingWpm: MAX_READING_WPM + 300, minified: false });
+    assert.match(selected, /const readingWpm = 317;/);
+    assert.match(slow, new RegExp(`const readingWpm = ${MIN_READING_WPM};`));
+    assert.match(fast, new RegExp(`const readingWpm = ${MAX_READING_WPM};`));
+  });
+
+  it("injects the shared paced-wording tuning configuration", () => {
+    const html = render(SAMPLE_TURNS, { pacedWording: true, minified: false });
+    assert.ok(html.includes(`const pacedWordingTuning = Object.freeze(${JSON.stringify(PACED_WORDING_TUNING)});`));
   });
 
   it("respects showThinking=false", () => {
@@ -161,5 +187,8 @@ describe("render", () => {
     assert.doesNotMatch(html, /\/\*CHECKED_TOOLS\*\//);
     assert.doesNotMatch(html, /\/\*PAGE_DESCRIPTION\*\//);
     assert.doesNotMatch(html, /\/\*OG_IMAGE\*\//);
+    assert.doesNotMatch(html, /\/\*PACED_WORDING\*\//);
+    assert.doesNotMatch(html, /\/\*READING_WPM\*\//);
+    assert.doesNotMatch(html, /\/\*PACED_WORDING_TUNING\*\//);
   });
 });

@@ -4,6 +4,11 @@ import { execFile, spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, writeFileSync, unlinkSync, copyFileSync, existsSync } from "node:fs";
+import {
+  DEFAULT_READING_WPM,
+  MIN_READING_WPM,
+  MAX_READING_WPM,
+} from "../src/reading-rate.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = resolve(__dirname, "..", "bin", "claude-replay.mjs");
@@ -46,6 +51,8 @@ describe("CLI flags", () => {
     assert.equal(code, 0);
     assert.match(stdout, /Usage:/);
     assert.match(stdout, /--list-themes/);
+    assert.match(stdout, /--pacing/);
+    assert.match(stdout, /--reading-wpm/);
   });
 
   it("-h prints usage and exits", async () => {
@@ -70,6 +77,80 @@ describe("CLI flags", () => {
     const { code, stdout } = await run([FIXTURE]);
     assert.equal(code, 0);
     assert.match(stdout, /<!DOCTYPE html>/);
+  });
+
+  it("enables paced wording with a configurable reading rate", async () => {
+    const selectedWpm = Math.round((MIN_READING_WPM + MAX_READING_WPM) / 2);
+    const { code, stdout } = await run([
+      FIXTURE,
+      "--timing", "paced",
+      "--pacing", "paced-wording",
+      "--reading-wpm", String(selectedWpm),
+      "--no-minify",
+    ]);
+    assert.equal(code, 0);
+    assert.match(stdout, /const pacedWordingRequested = true;/);
+    assert.match(stdout, new RegExp(`const readingWpm = ${selectedWpm};`));
+  });
+
+  it("uses the shared default reading rate for CLI paced wording", async () => {
+    const { code, stdout } = await run([
+      FIXTURE, "--timing", "paced", "--pacing", "paced-wording", "--no-minify",
+    ]);
+    assert.equal(code, 0);
+    assert.match(stdout, new RegExp(`const readingWpm = ${DEFAULT_READING_WPM};`));
+  });
+
+  it("supports explicit section pacing without enabling paced wording", async () => {
+    const { code, stdout } = await run([
+      FIXTURE, "--timing", "paced", "--pacing", "sections", "--no-minify",
+    ]);
+    assert.equal(code, 0);
+    assert.match(stdout, /const pacedWordingRequested = false;/);
+  });
+
+  it("requires explicit paced timing for paced-wording options", async () => {
+    for (const args of [
+      [FIXTURE, "--pacing", "paced-wording"],
+      [FIXTURE, "--timing", "real", "--pacing", "paced-wording"],
+      [FIXTURE, "--reading-wpm", String(DEFAULT_READING_WPM)],
+    ]) {
+      const { code, stderr } = await run(args);
+      assert.notEqual(code, 0);
+      assert.match(stderr, /requires --timing paced/);
+    }
+  });
+
+  it("rejects unknown paced reveal modes", async () => {
+    const { code, stderr } = await run([
+      FIXTURE, "--timing", "paced", "--pacing", "letter-by-letter",
+    ]);
+    assert.notEqual(code, 0);
+    assert.match(stderr, /unknown --pacing mode/);
+  });
+
+  it("rejects reading WPM when paced wording is disabled", async () => {
+    const { code, stderr } = await run([
+      FIXTURE, "--timing", "paced", "--reading-wpm", String(DEFAULT_READING_WPM),
+    ]);
+    assert.notEqual(code, 0);
+    assert.match(stderr, /--reading-wpm requires --pacing paced-wording/);
+  });
+
+  it("rejects invalid reading WPM values", async () => {
+    const invalidValues = [
+      "fast",
+      String(MIN_READING_WPM - 1),
+      String(MIN_READING_WPM + 0.5),
+      String(MAX_READING_WPM + 1),
+    ];
+    for (const value of invalidValues) {
+      const { code, stderr } = await run([
+        FIXTURE, "--timing", "paced", "--pacing", "paced-wording", "--reading-wpm", value,
+      ]);
+      assert.notEqual(code, 0);
+      assert.match(stderr, new RegExp(`integer between ${MIN_READING_WPM} and ${MAX_READING_WPM}`));
+    }
   });
 
   it("editor with nonexistent .jsonl file shows error", async () => {

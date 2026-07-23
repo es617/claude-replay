@@ -6,5 +6,6 @@ export default defineConfig({
   use: {
     browserName: "chromium",
     headless: true,
+    channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
   },
 });

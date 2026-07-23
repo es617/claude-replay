@@ -404,6 +404,7 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
   margin-bottom: 8px;
   font-size: 12px;
 }
+.opt-row[hidden] { display: none; }
 
 .opt-row label {
   min-width: 100px;
@@ -870,6 +871,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
             <option value="paced">Paced</option>
           </select>
         </div>
+        <div class="opt-row" id="pacingStyleRow" hidden>
+          <label for="optPacing" title="How paced playback reveals prose">Text reveal</label>
+          <select id="optPacing" title="Reveal full sections or illuminate prose word by word">
+            <option value="sections" selected>Whole sections</option>
+            <option value="paced-wording">Paced wording</option>
+          </select>
+        </div>
+        <div class="opt-row" id="readingWpmRow" hidden>
+          <label for="optReadingWpm" title="Base reading pace before natural pauses">Base WPM</label>
+          <input type="number" id="optReadingWpm" value="/*DEFAULT_READING_WPM*/" min="/*MIN_READING_WPM*/" max="/*MAX_READING_WPM*/" step="1" title="Base reading pace in words per minute (/*MIN_READING_WPM*/ - /*MAX_READING_WPM*/)">
+        </div>
 
         <div class="opt-group-label">Content</div>
         <div class="opt-row">
@@ -1136,6 +1148,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
     desc:      $("optDescription"),
     ogImage:   $("optOgImage"),
     timing:    $("optTiming"),
+    pacing:    $("optPacing"),
+    readingWpm: $("optReadingWpm"),
     minify:    $("optMinify"),
     compress:  $("optCompress"),
   };
@@ -1617,6 +1631,8 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
       description: opt.desc.value || "",
       ogImage: opt.ogImage.value || "",
       timing: opt.timing.value,
+      pacing: opt.pacing.value,
+      readingWpm: parseFloat(opt.readingWpm.value) || parseFloat(opt.readingWpm.defaultValue),
       minified: opt.minify.checked,
       compress: opt.compress.checked,
       excludeTurns: Array.from(excludedTurns),
@@ -1759,6 +1775,17 @@ body.sidebar-collapsed .sidebar-edge-toggle { left: 16px; }
 
   // Options: immediate change + debounced text input
   Object.values(opt).forEach((el) => el.addEventListener("change", () => schedulePreview()));
+  function updatePacingControls() {
+    const paced = opt.timing.value === "paced";
+    const wordByWord = paced && opt.pacing.value === "paced-wording";
+    $("pacingStyleRow").hidden = !paced;
+    opt.pacing.disabled = !paced;
+    $("readingWpmRow").hidden = !wordByWord;
+    opt.readingWpm.disabled = !wordByWord;
+  }
+  opt.timing.addEventListener("change", updatePacingControls);
+  opt.pacing.addEventListener("change", updatePacingControls);
+  updatePacingControls();
   [opt.userLabel, opt.asstLabel, opt.desc, opt.ogImage].forEach((el) => {
     el.addEventListener("input", debounce(() => schedulePreview(), 300));
   });

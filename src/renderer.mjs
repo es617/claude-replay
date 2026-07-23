@@ -6,6 +6,13 @@ import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { themeToCss, getTheme } from "./themes.mjs";
 import { redactSecrets, redactObject } from "./secrets.mjs";
+import {
+  DEFAULT_READING_WPM,
+  PACED_WORDING_TUNING,
+  PACED_WORDING_TUNING_TEMPLATE_PLACEHOLDER,
+  READING_WPM_TEMPLATE_PLACEHOLDER,
+  normalizeReadingWpm,
+} from "./reading-rate.mjs";
 
 const TEMPLATE_PATH = new URL("../template/player.html", import.meta.url);
 const TEMPLATE_MIN_PATH = new URL("../template/player.min.html", import.meta.url);
@@ -161,7 +168,7 @@ function extractFileData(turns) {
 /**
  * Render turns into a self-contained HTML string.
  * @param {import('./parser.mjs').Turn[]} turns
- * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, theme?: Record<string,string>, userLabel?: string, assistantLabel?: string, title?: string, redactSecrets?: boolean }} opts
+ * @param {{ speed?: number, showThinking?: boolean, showToolCalls?: boolean, theme?: Record<string,string>, userLabel?: string, assistantLabel?: string, title?: string, redactSecrets?: boolean, pacedWording?: boolean, readingWpm?: number }} opts
  * @returns {string}
  */
 export function render(turns, opts = {}) {
@@ -177,10 +184,13 @@ export function render(turns, opts = {}) {
     ogImage = "https://es617.dev/claude-replay/og.png",
     redactSecrets: redact = true,
     bookmarks = [],
+    pacedWording = false,
+    readingWpm: rawReadingWpm = DEFAULT_READING_WPM,
   } = opts;
 
   // Validate inputs
   const speed = Number.isFinite(rawSpeed) ? Math.max(0.1, Math.min(rawSpeed, 10)) : 1.0;
+  const readingWpm = normalizeReadingWpm(rawReadingWpm);
 
   let html;
   if (opts.minified === false) {
@@ -208,6 +218,9 @@ export function render(turns, opts = {}) {
   html = html.replace("/*USER_LABEL*/", escapeHtml(userLabel));
   html = html.replace("/*ASSISTANT_LABEL*/", escapeHtml(assistantLabel));
   html = html.replace("/*HAS_REAL_TIMESTAMPS*/false", String(opts.hasRealTimestamps || false));
+  html = html.replace("/*PACED_WORDING*/false", String(pacedWording));
+  html = html.replace(READING_WPM_TEMPLATE_PLACEHOLDER, String(readingWpm));
+  html = html.replace(PACED_WORDING_TUNING_TEMPLATE_PLACEHOLDER, JSON.stringify(PACED_WORDING_TUNING));
   const fontSizeMap = { small: "11px", normal: "13px", large: "15px" };
   const fontSize = opts.fontSize || "normal";
   html = html.replace("/*FONT_SIZE*/13px", fontSizeMap[fontSize] || "13px");

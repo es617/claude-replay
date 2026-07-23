@@ -13,6 +13,7 @@ import { extractTitle } from "./formats/claude-code.mjs";
 import { render } from "./renderer.mjs";
 import { extractData } from "./extract.mjs";
 import { getTheme, listThemes } from "./themes.mjs";
+import { DEFAULT_READING_WPM, MIN_READING_WPM, MAX_READING_WPM } from "./reading-rate.mjs";
 
 const EDITOR_HTML_PATH = new URL("../template/editor.html", import.meta.url);
 const PKG = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8"));
@@ -272,6 +273,8 @@ function buildRenderOpts(options, session, overrides = {}) {
   const excludedSet = new Set(options.excludeTurns || []);
   return {
     speed: parseFloat(options.speed) || 1.0,
+    pacedWording: options.timing === "paced" && options.pacing === "paced-wording",
+    readingWpm: parseFloat(options.readingWpm) || DEFAULT_READING_WPM,
     showThinking: options.showThinking !== false,
     showToolCalls: options.showToolCalls !== false,
     fontSize: options.fontSize || "normal",
@@ -784,7 +787,10 @@ export function startEditor(port, { open = true, host = "127.0.0.1", initialFile
     ...(envOrigins ? envOrigins.split(",").map((s) => s.trim()).filter(Boolean) : []),
   ]);
 
-  const editorHtml = readFileSync(EDITOR_HTML_PATH, "utf-8");
+  const editorHtml = readFileSync(EDITOR_HTML_PATH, "utf-8")
+    .replaceAll("/*DEFAULT_READING_WPM*/", String(DEFAULT_READING_WPM))
+    .replaceAll("/*MIN_READING_WPM*/", String(MIN_READING_WPM))
+    .replaceAll("/*MAX_READING_WPM*/", String(MAX_READING_WPM));
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);

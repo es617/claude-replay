@@ -182,6 +182,28 @@ describe("editor-server API", () => {
     assert.match(data.html, /<!DOCTYPE html>/);
   });
 
+  it("POST /api/preview configures paced wording inside paced timing", async () => {
+    const loadRes = await fetch(`${baseUrl}/api/load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: FIXTURE_PATH }),
+    });
+    const { sessionId } = await loadRes.json();
+
+    const res = await fetch(`${baseUrl}/api/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        options: { timing: "paced", pacing: "paced-wording", readingWpm: 321 },
+      }),
+    });
+    assert.equal(res.status, 200);
+    const { html } = await res.json();
+    assert.match(html, /const pacedWordingRequested = true;/);
+    assert.match(html, /const readingWpm = 321;/);
+  });
+
   it("POST /api/export returns HTML with Content-Disposition header", async () => {
     const loadRes = await fetch(`${baseUrl}/api/load`, {
       method: "POST",

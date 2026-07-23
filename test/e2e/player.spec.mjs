@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { getFileUrl, getUncompressedFileUrl, getChapterFileUrl, getPacedFileUrl, waitForReady } from "./setup.mjs";
+import { getFileUrl, getUncompressedFileUrl, getChapterFileUrl, getPacedFileUrl, getPacedWordingFileUrl, getPacedWordingFinalTurnFileUrl, waitForReady } from "./setup.mjs";
+import { DEFAULT_READING_WPM } from "../../src/reading-rate.mjs";
 
 // Helpers
 const blockCount = (page, turn, hidden = false) =>
@@ -21,6 +22,15 @@ async function goto(page, hash) {
 async function gotoChapters(page, hash) {
   await page.goto(getChapterFileUrl(hash));
   await waitForReady(page);
+}
+
+function clockToSeconds(clock) {
+  return clock.trim().split(":").reduce((total, part) => total * 60 + Number(part), 0);
+}
+
+async function timerState(page) {
+  const [elapsed, total] = (await page.locator("#progress-text").textContent()).split("/");
+  return { elapsed: clockToSeconds(elapsed), total: clockToSeconds(total) };
 }
 
 // ─── Splash screen ──────────────────────────────────────────
@@ -50,6 +60,211 @@ test("clicking play hides splash and starts revealing blocks", async ({ page }) 
   expect(await isSplashVisible(page)).toBe(false);
   // Wait for at least one block to be revealed in turn 1
   await expect(page.locator('.turn[data-index="1"] .block-wrapper:not(.block-hidden)').first()).toBeVisible({ timeout: 5000 });
+});
+
+test("paced wording illuminates whole words and pauses in place", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl());
+  await waitForReady(page);
+
+  await expect(page.locator("body")).toHaveAttribute("data-playback-mode", "paced-wording");
+  await expect(page.locator("body")).toHaveAttribute("data-reading-wpm", String(DEFAULT_READING_WPM));
+  const words = page.locator('.turn[data-index="1"] .user-text .paced-word');
+  const total = await words.count();
+  expect(total).toBeGreaterThan(60);
+  await expect(page.locator('.turn[data-index="1"] .user-text .paced-word:not(.word-lit)')).toHaveCount(total);
+
+  await page.locator("#splash-play").click();
+  await expect(words.first()).toHaveClass(/word-lit/);
+  await page.waitForTimeout(300);
+  const litBeforePause = await page.locator('.turn[data-index="1"] .user-text .paced-word.word-lit').count();
+  expect(litBeforePause).toBeGreaterThan(1);
+  expect(litBeforePause).toBeLessThan(total);
+
+  await page.locator("#btn-play").click();
+  const litAtPause = await page.locator('.turn[data-index="1"] .user-text .paced-word.word-lit').count();
+  await page.waitForTimeout(350);
+  const litAfterPause = await page.locator('.turn[data-index="1"] .user-text .paced-word.word-lit').count();
+  expect(litAfterPause).toBe(litAtPause);
+
+  await page.locator("#btn-play").click();
+  await page.waitForTimeout(350);
+  const litAfterResume = await page.locator('.turn[data-index="1"] .user-text .paced-word.word-lit').count();
+  expect(litAfterResume).toBeGreaterThan(litAtPause);
+});
+
+test("paced wording preserves long-form structure and tokenizes by word", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl());
+  await waitForReady(page);
+
+  const user = page.locator('.turn[data-index="1"] .user-text');
+  const assistant = page.locator('.turn[data-index="1"] .assistant-text');
+  const structure = await page.locator('.turn[data-index="1"]').evaluate((turn) => {
+    const userRoot = turn.querySelector(".user-text");
+    const assistantRoot = turn.querySelector(".assistant-text");
+    const userWords = [...userRoot.querySelectorAll(".paced-word")];
+    const assistantWords = [...assistantRoot.querySelectorAll(".paced-word")];
+    const codeBlock = assistantRoot.querySelector("pre");
+    return {
+      userWords: userWords.length,
+      assistantWords: assistantWords.length,
+      assistantParagraphs: assistantRoot.querySelectorAll("p").length,
+      tokensContainWhitespace: [...userWords, ...assistantWords].some((word) => /\s/.test(word.textContent)),
+      hasLongWholeWord: assistantWords.some((word) => word.textContent.includes("internationalization")),
+      codeBlockIsAtomic: codeBlock?.matches(".paced-code-block.paced-segment") || false,
+      codeBlockWordCount: codeBlock?.querySelectorAll(".paced-word").length ?? -1,
+    };
+  });
+  expect(await user.count()).toBe(1);
+  expect(await assistant.count()).toBe(1);
+  expect(structure.userWords).toBeGreaterThan(60);
+  expect(structure.assistantWords).toBeGreaterThan(100);
+  expect(structure.assistantParagraphs).toBe(3);
+  expect(structure.tokensContainWhitespace).toBe(false);
+  expect(structure.hasLongWholeWord).toBe(true);
+  expect(structure.codeBlockIsAtomic).toBe(true);
+  expect(structure.codeBlockWordCount).toBe(0);
+});
+
+test("paced wording reveals fenced code as one atomic segment", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1", 80));
+  await waitForReady(page);
+
+  const codeBlock = page.locator('.turn[data-index="1"] .assistant-text pre');
+  const firstProseWord = page.locator('.turn[data-index="1"] .assistant-text .paced-word').first();
+  await expect(codeBlock).toHaveClass(/paced-code-block/);
+  await expect(codeBlock).not.toHaveClass(/word-lit/);
+  await expect(codeBlock.locator(".paced-word")).toHaveCount(0);
+
+  await page.locator("#btn-play").click();
+  await expect(codeBlock).toHaveClass(/word-lit/, { timeout: 5000 });
+  await expect(firstProseWord).not.toHaveClass(/word-lit/);
+});
+
+test("paced wording lights manually navigated user prose while keeping blocks hidden", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=2"));
+  await waitForReady(page);
+
+  const words = page.locator('.turn[data-index="2"] .user-text .paced-word');
+  const total = await words.count();
+  expect(total).toBeGreaterThan(20);
+  await expect(page.locator('.turn[data-index="2"] .user-text .paced-word.word-lit')).toHaveCount(total);
+  expect(await visibleBlockCount(page, 2)).toBe(0);
+});
+
+test("paced wording resumes within a final user-only turn", async ({ page }) => {
+  await page.goto(getPacedWordingFinalTurnFileUrl());
+  await waitForReady(page);
+  const litWords = page.locator('.turn[data-index="1"] .user-text .paced-word.word-lit');
+  const total = await page.locator('.turn[data-index="1"] .user-text .paced-word').count();
+  expect(total).toBeGreaterThan(30);
+
+  await page.locator("#splash-play").click();
+  await page.waitForTimeout(250);
+  await page.locator("#btn-play").click();
+  const litAtPause = await litWords.count();
+  expect(litAtPause).toBeGreaterThan(1);
+  expect(litAtPause).toBeLessThan(total);
+  await page.waitForTimeout(300);
+  expect(await litWords.count()).toBe(litAtPause);
+
+  await page.locator("#btn-play").click();
+  await page.waitForTimeout(300);
+  expect(await litWords.count()).toBeGreaterThan(litAtPause);
+});
+
+test("paced wording step forward completes partially visible prose", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  const assistantWords = page.locator('.turn[data-index="1"] .assistant-text .paced-word');
+  const total = await assistantWords.count();
+  expect(total).toBeGreaterThan(100);
+
+  await page.locator("#btn-play").click();
+  await expect(assistantWords.first()).toHaveClass(/word-lit/);
+  await page.waitForTimeout(300);
+  const partial = await page.locator('.turn[data-index="1"] .assistant-text .paced-word.word-lit').count();
+  expect(partial).toBeGreaterThan(0);
+  expect(partial).toBeLessThan(total);
+
+  await page.locator("#btn-next").click();
+  await expect(page.locator('.turn[data-index="1"] .assistant-text .paced-word.word-lit')).toHaveCount(total);
+  await expect(page.locator('.turn[data-index="2"]')).toBeVisible();
+});
+
+test("paced wording step back dims hidden prose before replay", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  const block = page.locator('.turn[data-index="1"] .block-wrapper').first();
+  const words = block.locator(".assistant-text .paced-word");
+  const total = await words.count();
+
+  await page.locator("#btn-next").click();
+  await expect(block.locator(".paced-word.word-lit")).toHaveCount(total);
+  const afterUser = await timerState(page);
+
+  await page.locator("#btn-prev").click();
+  await expect(block).toHaveClass(/block-hidden/);
+  await expect(block.locator(".paced-word.word-lit")).toHaveCount(0);
+  const afterBack = await timerState(page);
+  expect(afterBack.elapsed).toBeLessThan(afterUser.elapsed);
+
+  await page.locator("#btn-play").click();
+  await expect(words.first()).toHaveClass(/word-lit/);
+  await page.waitForTimeout(300);
+  const replayed = await block.locator(".paced-word.word-lit").count();
+  expect(replayed).toBeGreaterThan(0);
+  expect(replayed).toBeLessThan(total);
+});
+
+test("paced wording timer follows configured word duration and manual boundaries", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  const userBoundary = await timerState(page);
+  expect(userBoundary.elapsed).toBeGreaterThan(0);
+  expect(userBoundary.total).toBeGreaterThan(70);
+
+  await page.locator("#btn-next").click();
+  const blockBoundary = await timerState(page);
+  expect(blockBoundary.elapsed).toBeGreaterThan(userBoundary.elapsed);
+  expect(blockBoundary.total).toBe(userBoundary.total);
+
+  await page.locator("#btn-prev").click();
+  const restoredUserBoundary = await timerState(page);
+  expect(restoredUserBoundary.elapsed).toBe(userBoundary.elapsed);
+  expect(restoredUserBoundary.total).toBe(userBoundary.total);
+
+  await page.goto(getPacedWordingFileUrl("", 600));
+  await waitForReady(page);
+  const fast = await timerState(page);
+  expect(userBoundary.total).toBeGreaterThan(fast.total * 1.5);
+});
+
+test("paced wording resumes only the remaining dwell delay", async ({ page }) => {
+  await page.goto(getPacedWordingFileUrl("turn=1"));
+  await waitForReady(page);
+  await page.locator("#btn-next").click();
+  await page.locator("#speed-btn").click();
+  await page.locator('#speed-popover button[data-speed="5"]').click();
+
+  await page.locator("#btn-play").click();
+  await page.waitForTimeout(550);
+  await page.locator("#btn-play").click();
+  await page.waitForTimeout(100);
+  await page.locator("#btn-play").click();
+
+  await expect(page.locator('.turn[data-index="2"]')).toBeVisible({ timeout: 800 });
+});
+
+test("paced wording final completion reaches the advertised total", async ({ page }) => {
+  await page.goto(getPacedWordingFinalTurnFileUrl());
+  await waitForReady(page);
+  await page.locator("#splash-play").click();
+  await page.locator("#speed-btn").click();
+  await page.locator('#speed-popover button[data-speed="5"]').click();
+
+  await expect(page.locator("#btn-play")).not.toHaveClass(/active/, { timeout: 5000 });
+  const completed = await timerState(page);
+  expect(completed.elapsed).toBe(completed.total);
 });
 
 // ─── Step forward ───────────────────────────────────────────

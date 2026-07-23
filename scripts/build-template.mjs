@@ -10,6 +10,10 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { transform } from "esbuild";
+import {
+  PACED_WORDING_TUNING_TEMPLATE_PLACEHOLDER,
+  READING_WPM_TEMPLATE_PLACEHOLDER,
+} from "../src/reading-rate.mjs";
 
 const TEMPLATE = new URL("../template/player.html", import.meta.url);
 const OUTPUT = new URL("../template/player.min.html", import.meta.url);
@@ -36,6 +40,9 @@ const PLACEHOLDERS = [
   { pattern: "/*PAGE_DESCRIPTION*/", token: "__PLACEHOLDER_PAGE_DESCRIPTION__" },
   { pattern: "/*OG_IMAGE*/", token: "__PLACEHOLDER_OG_IMAGE__" },
   { pattern: "/*HAS_REAL_TIMESTAMPS*/false", token: "__PLACEHOLDER_HAS_REAL_TIMESTAMPS__false" },
+  { pattern: "/*PACED_WORDING*/false", token: "__PLACEHOLDER_PACED_WORDING__false" },
+  { pattern: READING_WPM_TEMPLATE_PLACEHOLDER, token: "__PLACEHOLDER_READING_WPM_VALUE__" },
+  { pattern: PACED_WORDING_TUNING_TEMPLATE_PLACEHOLDER, token: "__PLACEHOLDER_PACED_WORDING_TUNING__" },
   { pattern: "/*FONT_SIZE*/13px", token: "__PLACEHOLDER_FONT_SIZE__" },
   { pattern: '/*FONT_SIZE_NAME*/"normal"', token: '"__PLACEHOLDER_FONT_SIZE_NAME__"' },
 ];
@@ -92,10 +99,14 @@ for (const { pattern, token } of PLACEHOLDERS) {
   out = out.replaceAll(token, pattern);
 }
 
-// Verify all placeholders were restored
-for (const { token } of PLACEHOLDERS) {
+// Verify all placeholders were restored and remain available to renderers.
+for (const { pattern, token } of PLACEHOLDERS) {
   if (out.includes(token)) {
     console.error(`Error: token ${token} was not restored — minification may have altered it`);
+    process.exit(1);
+  }
+  if (!out.includes(pattern)) {
+    console.error(`Error: placeholder ${pattern} is missing after minification`);
     process.exit(1);
   }
 }

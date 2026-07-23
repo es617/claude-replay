@@ -7,8 +7,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseTranscript, applyPacedTiming } from "../../src/parser.mjs";
 import { render } from "../../src/renderer.mjs";
+import { DEFAULT_READING_WPM } from "../../src/reading-rate.mjs";
 
 const FIXTURE = new URL("./fixture.jsonl", import.meta.url).pathname;
+const PACED_WORDING_FIXTURE = new URL("./fixture-paced-wording.jsonl", import.meta.url).pathname;
 const dir = mkdtempSync(join(tmpdir(), "claude-replay-e2e-"));
 const cache = {};
 
@@ -53,6 +55,47 @@ export function getPacedFileUrl(hash = "") {
     cache["paced"] = path;
   }
   return "file://" + cache["paced"] + (hash ? "#" + hash : "");
+}
+
+export function getPacedWordingFileUrl(hash = "", readingWpm = DEFAULT_READING_WPM) {
+  const key = `paced-wording-${readingWpm}`;
+  if (!cache[key]) {
+    const turns = parseTranscript(PACED_WORDING_FIXTURE);
+    applyPacedTiming(turns);
+    const html = render(turns, {
+      title: "E2E Paced Wording Test",
+      minified: false,
+      redactSecrets: false,
+      hasRealTimestamps: false,
+      pacedWording: true,
+      readingWpm,
+    });
+    const path = join(dir, key + ".html");
+    writeFileSync(path, html);
+    cache[key] = path;
+  }
+  return "file://" + cache[key] + (hash ? "#" + hash : "");
+}
+
+export function getPacedWordingFinalTurnFileUrl(hash = "") {
+  if (!cache["paced-wording-final"]) {
+    const turns = parseTranscript(PACED_WORDING_FIXTURE);
+    const finalTurn = turns[turns.length - 1];
+    finalTurn.index = 1;
+    applyPacedTiming([finalTurn]);
+    const html = render([finalTurn], {
+      title: "E2E Paced Wording Final Turn Test",
+      minified: false,
+      redactSecrets: false,
+      hasRealTimestamps: false,
+      pacedWording: true,
+      readingWpm: 600,
+    });
+    const path = join(dir, "paced-wording-final.html");
+    writeFileSync(path, html);
+    cache["paced-wording-final"] = path;
+  }
+  return "file://" + cache["paced-wording-final"] + (hash ? "#" + hash : "");
 }
 
 export function getChapterFileUrl(hash = "") {
