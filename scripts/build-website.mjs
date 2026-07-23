@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { build } from "esbuild";
 import { listThemes } from "../src/themes.mjs";
+import { DEFAULT_READING_WPM, MIN_READING_WPM, MAX_READING_WPM } from "../src/reading-rate.mjs";
 
 // Bundle browser.mjs for the browser
 const result = await build({
@@ -139,6 +140,7 @@ kbd { background: var(--bg-surface); border: 1px solid var(--border); padding: 1
 /* Options */
 .options-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
 .options-bar label { color: var(--text-dim); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.options-bar label:has(input:disabled), .options-bar label:has(select:disabled) { opacity: 0.45; }
 .options-bar .tip { cursor: help; color: var(--text-dim); font-size: 10px; border: 1px solid var(--border); border-radius: 50%; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; }
 .options-bar select, .options-bar input[type="number"], .options-bar input[type="text"] { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: 12px; }
 .options-bar select { min-width: 120px; }
@@ -207,6 +209,13 @@ kbd { background: var(--bg-surface); border: 1px solid var(--border); padding: 1
             <option value="paced">Paced</option>
           </select>
         </label>
+        <label id="revealLabel">Reveal <span class="tip" title="How paced playback shows prose: whole sections at once, or word by word at reading pace. Active with Paced timing.">?</span>
+          <select id="optPacing" disabled>
+            <option value="sections" selected>Whole sections</option>
+            <option value="paced-wording">Word by word</option>
+          </select>
+        </label>
+        <label id="readingWpmLabel">WPM <span class="tip" title="Base reading pace in words per minute (${MIN_READING_WPM} - ${MAX_READING_WPM}). Active with word-by-word reveal.">?</span> <input type="number" id="optReadingWpm" value="${DEFAULT_READING_WPM}" min="${MIN_READING_WPM}" max="${MAX_READING_WPM}" step="1" disabled></label>
         <label>Title <span class="tip" title="Custom title shown in the replay header and browser tab">?</span> <input type="text" id="optTitle" placeholder="auto"></label>
         <label>Redact <span class="tip" title="Comma-separated text to replace with [REDACTED] in the output">?</span> <input type="text" id="optRedact" placeholder="text1, text2..."></label>
       </div>
@@ -298,6 +307,7 @@ function gatherOptions() {
   const redactRules = redactText
     ? redactText.split(",").map((s) => ({ search: s.trim(), replacement: "[REDACTED]" })).filter((r) => r.search)
     : [];
+  const pacedWording = $("optTiming").value === "paced" && $("optPacing").value === "paced-wording";
   return {
     theme,
     title: $("optTitle").value || "Replay — " + currentFileName.replace(".jsonl", ""),
@@ -305,7 +315,9 @@ function gatherOptions() {
     redactSecrets: true,
     redactRules,
     bookmarks: currentTurns._bookmarks || [],
-    hasRealTimestamps: currentTurns.some((t) => t.timestamp),
+    pacedWording,
+    readingWpm: parseFloat($("optReadingWpm").value) || ${DEFAULT_READING_WPM},
+    hasRealTimestamps: !pacedWording && currentTurns.some((t) => t.timestamp),
   };
 }
 
@@ -354,9 +366,19 @@ $("tryDemo").addEventListener("click", (e) => {
 });
 
 // Options
-for (const id of ["optTheme", "optTiming"]) {
+function updatePacingControls() {
+  const paced = $("optTiming").value === "paced";
+  const wordByWord = paced && $("optPacing").value === "paced-wording";
+  $("optPacing").disabled = !paced;
+  $("optReadingWpm").disabled = !wordByWord;
+}
+for (const id of ["optTheme", "optTiming", "optPacing"]) {
   $(id).addEventListener("change", scheduleRender);
 }
+$("optTiming").addEventListener("change", updatePacingControls);
+$("optPacing").addEventListener("change", updatePacingControls);
+$("optReadingWpm").addEventListener("input", scheduleRender);
+updatePacingControls();
 $("optTitle").addEventListener("input", scheduleRender);
 $("optRedact").addEventListener("input", scheduleRender);
 
