@@ -8,16 +8,15 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
-  id-token: write  # trusted publishing to npm
+  contents: read
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
       - run: npx --yes oxlint@latest --deny-warnings src/ bin/
@@ -27,10 +26,10 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        node-version: ["18", "20", "22"]
+        node-version: ["18", "20", "22", "24"]
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node-version }}
       - run: node --test test/test-*.mjs
@@ -39,13 +38,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
-      - run: npm install
+      - run: npm ci
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('package-lock.json') }}
@@ -56,15 +55,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "18"
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - run: npm pack --dry-run
       - run: npm pack
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: package
           path: "*.tgz"
@@ -74,9 +73,11 @@ jobs:
     needs: [lint, test, test-e2e, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write # create GitHub releases
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: package
       - name: Extract changelog
@@ -107,17 +108,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
-      # Pin to npm 11.x: npm@latest (12.x) dropped Node 20 support (requires
-      # node >=22.22.2). npm 11 supports Node 20.17+ and OIDC trusted publishing.
-      - run: npm install -g npm@11
-      - run: npm install
+      # OIDC trusted publishing needs npm >= 11.5.1; ensure a recent npm
+      # regardless of what the runner's node 24 bundles.
+      - run: npm install -g npm@latest
+      - run: npm ci
       - run: npm run build
       - run: npm publish --provenance --access public
 
@@ -127,9 +129,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Wait for npm propagation
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -142,12 +145,12 @@ jobs:
             echo "Waiting for npm... (attempt $i, got: $PUBLISHED)"
             sleep 10
           done
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           push: true

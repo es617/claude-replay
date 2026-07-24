@@ -5,19 +5,23 @@ on:
     - cron: "0 6 */2 * *" # Every 2 days at 6am UTC
   workflow_dispatch: # Manual trigger
 
+permissions:
+  contents: read
+
 jobs:
   check-formats:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
       HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
       HAS_CURSOR: ${{ secrets.CURSOR_API_KEY != '' }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
-      - run: npm install
+      - run: npm ci
       - run: mkdir -p /tmp/test-project
 
       # ── Install CLI tools ───────────────────────────────
@@ -145,7 +149,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: format-check-sessions
           path: /tmp/format-artifacts/
