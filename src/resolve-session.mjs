@@ -133,5 +133,29 @@ export function resolveSessionId(sessionId, { home } = {}) {
     }
   } catch { /* directory doesn't exist */ }
 
+  // Hermes Agent: ~/.hermes/sessions/session_*.json
+  const hermesBase = join(homeDir, ".hermes", "sessions");
+  try {
+    for (const f of readdirSync(hermesBase)) {
+      if (!f.endsWith(".json")) continue;
+      const stem = f.replace(/\.json$/, "");
+      // Match by exact filename, stem, or session ID substring
+      if (
+        f === sessionId ||
+        f === sessionId + ".json" ||
+        stem === sessionId ||
+        stem.includes(sessionId)
+      ) {
+        matches.push({
+          path: join(hermesBase, f),
+          project: stem.replace(/^session_/, "").slice(0, 30),
+          group: "Hermes",
+        });
+      }
+    }
+  } catch {
+    /* directory doesn't exist */
+  }
+
   return matches;
 }
