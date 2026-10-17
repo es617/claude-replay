@@ -127,6 +127,18 @@ interface Turn {
   timestamp: string;       // ISO 8601 or empty string
   system_events?: string[];
   bookmark?: string;
+  response?: {
+    model?: string;
+    cost?: number;         // USD, when reported by the source
+    tokens?: {
+      input?: number;
+      output?: number;
+      reasoning?: number;
+      cache_read?: number;
+      cache_write?: number;
+      total?: number;
+    };
+  };
 }
 
 interface AssistantBlock {

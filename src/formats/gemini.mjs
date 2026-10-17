@@ -5,7 +5,7 @@
  * Messages have type "user" or "gemini" with thoughts, toolCalls, and content.
  */
 
-import { cleanSystemTags, filterEmptyTurns } from "./shared.mjs";
+import { cleanSystemTags, filterEmptyTurns, mergeResponseMetadata } from "./shared.mjs";
 
 export const name = "gemini";
 
@@ -75,14 +75,18 @@ export function parse(text) {
   let currentUserText = "";
   let currentTimestamp = "";
   let currentBlocks = [];
+  let currentResponse;
 
   function finalizeTurn() {
     if (!currentUserText && currentBlocks.length === 0) return;
     turnIndex++;
-    turns.push({ index: turnIndex, user_text: currentUserText, blocks: currentBlocks, timestamp: currentTimestamp });
+    const turn = { index: turnIndex, user_text: currentUserText, blocks: currentBlocks, timestamp: currentTimestamp };
+    if (currentResponse) turn.response = currentResponse;
+    turns.push(turn);
     currentUserText = "";
     currentTimestamp = "";
     currentBlocks = [];
+    currentResponse = undefined;
   }
 
   for (const msg of data.messages) {
@@ -97,6 +101,7 @@ export function parse(text) {
     }
 
     if (type === "gemini") {
+      currentResponse = mergeResponseMetadata(currentResponse, { model: msg.model, cost: msg.cost, tokens: msg.tokens ?? msg.usage });
       const thoughts = msg.thoughts ?? [];
       for (const thought of thoughts) {
         const subject = (thought.subject ?? "").trim();

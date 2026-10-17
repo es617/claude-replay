@@ -201,7 +201,7 @@ export function extractTitle(text) {
 
 // ── parsing ─────────────────────────────────────────────────────────────────
 
-function buildTurnsFromHermesMessages(messages) {
+function buildTurnsFromHermesMessages(messages, sessionModel = "") {
   const turns = [];
   let turnIndex = 0;
 
@@ -277,6 +277,8 @@ function buildTurnsFromHermesMessages(messages) {
       }
       currentTurn.blocks.push(...blocks);
       if (!currentTurn.timestamp) currentTurn.timestamp = ts;
+      const model = msg.model || sessionModel;
+      if (model) currentTurn.response = { ...(currentTurn.response ?? {}), model };
       continue;
     }
 
@@ -340,7 +342,7 @@ export function parse(text) {
   try {
     const obj = JSON.parse(trimmed);
     if (Array.isArray(obj.messages)) {
-      return buildTurnsFromHermesMessages(obj.messages);
+      return buildTurnsFromHermesMessages(obj.messages, obj.model);
     }
   } catch {
     // not single object — try JSONL of many Hermes session objects
@@ -354,7 +356,7 @@ export function parse(text) {
     try {
       const obj = JSON.parse(t);
       if (Array.isArray(obj.messages)) {
-        allMessages.push(...obj.messages);
+        allMessages.push(...obj.messages.map((message) => ({ ...message, model: message.model || obj.model })));
       } else if (obj.role) {
         // Fallback: raw messages JSONL (unlikely but handle)
         allMessages.push(obj);

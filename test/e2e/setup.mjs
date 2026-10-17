@@ -40,6 +40,26 @@ export function getUncompressedFileUrl(hash = "") {
   return "file://" + buildHtml("uncompressed", { compress: false }) + (hash ? "#" + hash : "");
 }
 
+export function getResponseMetadataFileUrl(hash = "") {
+  if (!cache["response-metadata"]) {
+    const turns = parseTranscript(FIXTURE);
+    turns[0].response = {
+      model: "anthropic/claude-test",
+      cost: 0.0123,
+      tokens: { input: 1200, output: 34, reasoning: 5, cache_read: 800, total: 1239 },
+    };
+    const html = render(turns, {
+      title: "E2E Response Metadata Test",
+      minified: false,
+      redactSecrets: false,
+    });
+    const path = join(dir, "response-metadata.html");
+    writeFileSync(path, html);
+    cache["response-metadata"] = path;
+  }
+  return "file://" + cache["response-metadata"] + (hash ? "#" + hash : "");
+}
+
 export function getPacedFileUrl(hash = "") {
   if (!cache["paced"]) {
     const turns = parseTranscript(FIXTURE);

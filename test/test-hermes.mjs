@@ -17,6 +17,12 @@ describe("hermes", () => {
     assert.equal(turns.length, 2);
   });
 
+  it("preserves the session model on each response", () => {
+    const text = readFileSync(HERMES_FIXTURE, "utf-8");
+    const turns = parseTranscriptFromText(text);
+    assert.deepEqual(turns.map((turn) => turn.response?.model), ["test-model", "test-model"]);
+  });
+
   it("turns have required fields", () => {
     const text = readFileSync(HERMES_FIXTURE, "utf-8");
     const turns = parseTranscriptFromText(text);

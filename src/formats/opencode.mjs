@@ -5,6 +5,8 @@
  * Each step is grouped into turns by step_finish reason="stop".
  */
 
+import { mergeResponseMetadata } from "./shared.mjs";
+
 export const name = "opencode";
 
 /**
@@ -46,19 +48,28 @@ export function parse(text) {
   let turnIndex = 0;
   let currentBlocks = [];
   let currentTimestamp = "";
+  let currentResponse;
 
   function finalizeTurn() {
     if (currentBlocks.length === 0) return;
     turnIndex++;
-    turns.push({ index: turnIndex, user_text: "", blocks: currentBlocks, timestamp: currentTimestamp });
+    const turn = { index: turnIndex, user_text: "", blocks: currentBlocks, timestamp: currentTimestamp };
+    if (currentResponse) turn.response = currentResponse;
+    turns.push(turn);
     currentBlocks = [];
     currentTimestamp = "";
+    currentResponse = undefined;
   }
 
   for (const evt of events) {
     const type = evt.type;
     const part = evt.part ?? {};
     const ts = evt.timestamp ? new Date(evt.timestamp).toISOString() : null;
+    currentResponse = mergeResponseMetadata(currentResponse, {
+      model: part.model ?? evt.model ?? (evt.providerID || evt.modelID
+        ? { providerID: evt.providerID, modelID: evt.modelID }
+        : undefined),
+    });
 
     if (type === "step_start") {
       if (!currentTimestamp && ts) currentTimestamp = ts;
@@ -113,6 +124,14 @@ export function parse(text) {
     }
 
     if (type === "step_finish") {
+      currentResponse = mergeResponseMetadata(currentResponse, {
+        cost: part.cost,
+        tokens: {
+          ...(part.tokens ?? {}),
+          cache_read: part.tokens?.cache?.read,
+          cache_write: part.tokens?.cache?.write,
+        },
+      });
       const reason = part.reason ?? "";
       if (reason === "stop") finalizeTurn();
       continue;

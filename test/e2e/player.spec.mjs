@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getFileUrl, getUncompressedFileUrl, getChapterFileUrl, getPacedFileUrl, getPacedWordingFileUrl, getPacedWordingFinalTurnFileUrl, waitForReady } from "./setup.mjs";
+import { getFileUrl, getUncompressedFileUrl, getResponseMetadataFileUrl, getChapterFileUrl, getPacedFileUrl, getPacedWordingFileUrl, getPacedWordingFinalTurnFileUrl, waitForReady } from "./setup.mjs";
 import { DEFAULT_READING_WPM } from "../../src/reading-rate.mjs";
 
 // Helpers
@@ -50,6 +50,20 @@ test("#turn=2 skips splash and shows turn 2", async ({ page }) => {
   await goto(page, "turn=2");
   expect(await isSplashVisible(page)).toBe(false);
   await expect(page.locator('.turn[data-index="2"]')).toBeVisible();
+});
+
+test("shows recorded model, cost, and token usage on a response", async ({ page }) => {
+  await page.goto(getResponseMetadataFileUrl("turn=1r"));
+  await waitForReady(page);
+  const metadata = page.locator('.turn[data-index="1"] .response-meta');
+  await expect(metadata).toBeVisible();
+  await expect(metadata).toContainText("anthropic/claude-test");
+  await expect(metadata).toContainText("$0.0123");
+  await expect(metadata).toContainText("1,239 tokens");
+  await expect(metadata).toContainText("in 1,200");
+  await expect(metadata).toContainText("out 34");
+  await expect(metadata).toContainText("reasoning 5");
+  await expect(metadata).toContainText("cache read 800");
 });
 
 // ─── Play / Pause ───────────────────────────────────────────

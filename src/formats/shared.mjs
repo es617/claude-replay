@@ -6,8 +6,52 @@
 /**
  * @typedef {{ tool_use_id: string, name: string, input: object, result: string|null, resultTimestamp: string|null, is_error: boolean }} ToolCall
  * @typedef {{ kind: string, text: string, tool_call: ToolCall|null, timestamp: string|null }} AssistantBlock
- * @typedef {{ index: number, user_text: string, blocks: AssistantBlock[], timestamp: string }} Turn
+ * @typedef {{ input?: number, output?: number, reasoning?: number, cache_read?: number, cache_write?: number, total?: number }} TokenUsage
+ * @typedef {{ model?: string, cost?: number, tokens?: TokenUsage }} ResponseMetadata
+ * @typedef {{ index: number, user_text: string, blocks: AssistantBlock[], timestamp: string, response?: ResponseMetadata }} Turn
  */
+
+/** Merge model, dollar cost, and token usage recorded for one or more model calls. */
+export function mergeResponseMetadata(target, metadata) {
+  if (!metadata || typeof metadata !== "object") return target;
+  const result = target ?? {};
+  const rawModel = metadata.model;
+  const model = typeof rawModel === "string"
+    ? rawModel.trim()
+    : rawModel && typeof rawModel === "object"
+      ? [rawModel.providerID ?? rawModel.provider, rawModel.modelID ?? rawModel.id ?? rawModel.name].filter(Boolean).join("/")
+      : "";
+  if (model) {
+    if (!result.model) result.model = model;
+    else if (!result.model.split(", ").includes(model)) result.model += `, ${model}`;
+  }
+  const cost = metadata.cost == null ? NaN : Number(metadata.cost);
+  if (Number.isFinite(cost) && cost >= 0) result.cost = (result.cost ?? 0) + cost;
+
+  const raw = metadata.tokens ?? metadata.usage;
+  if (raw && typeof raw === "object") {
+    const aliases = {
+      input: ["input", "input_tokens", "prompt_tokens"],
+      output: ["output", "output_tokens", "completion_tokens"],
+      reasoning: ["reasoning", "thoughts", "reasoning_tokens"],
+      cache_read: ["cache_read", "cached", "cache_read_input_tokens"],
+      cache_write: ["cache_write", "cache_creation_input_tokens"],
+      total: ["total", "total_tokens"],
+    };
+    const normalized = {};
+    for (const [key, names] of Object.entries(aliases)) {
+      const value = names.map((name) => raw[name]).find((candidate) => candidate != null && Number.isFinite(Number(candidate)));
+      if (value !== undefined) normalized[key] = Number(value);
+    }
+    if (Object.keys(normalized).length) {
+      result.tokens ??= {};
+      for (const [key, value] of Object.entries(normalized)) {
+        result.tokens[key] = (result.tokens[key] ?? 0) + value;
+      }
+    }
+  }
+  return Object.keys(result).length ? result : undefined;
+}
 
 /**
  * Strip system tags, IDE context, and command metadata from user text.
@@ -53,11 +97,13 @@ export function isToolResultOnly(content) {
 
 /**
  * Collect all assistant content blocks starting from index `start`.
- * Returns [blocks, nextIndex].
+ * Returns [blocks, nextIndex, responseMetadata].
  */
 export function collectAssistantBlocks(entries, start) {
   const blocks = [];
   const seenKeys = new Set();
+  const seenResponseIds = new Set();
+  let response;
   let i = start;
 
   while (i < entries.length) {
@@ -66,7 +112,19 @@ export function collectAssistantBlocks(entries, start) {
     if (role !== "assistant") break;
 
     const entryTs = entry.timestamp ?? null;
-    const content = entry.message?.content ?? [];
+    const message = entry.message ?? {};
+    const responseId = entry.uuid ?? entry.id ?? message.id;
+    if (!responseId || !seenResponseIds.has(responseId)) {
+      response = mergeResponseMetadata(response, {
+        model: message.model ?? entry.model ?? (entry.providerID || entry.modelID
+          ? { providerID: entry.providerID, modelID: entry.modelID }
+          : undefined),
+        cost: message.cost ?? entry.cost,
+        tokens: message.usage ?? message.tokens ?? entry.usage ?? entry.tokens,
+      });
+      if (responseId) seenResponseIds.add(responseId);
+    }
+    const content = message.content ?? [];
     if (Array.isArray(content)) {
       for (const block of content) {
         const btype = block.type;
@@ -108,7 +166,7 @@ export function collectAssistantBlocks(entries, start) {
     i++;
   }
 
-  return [blocks, i];
+  return [blocks, i, response];
 }
 
 /**
@@ -214,24 +272,30 @@ export function buildTurnsFromEntries(entries) {
       });
       userText = userText.trim();
 
-      const [assistantBlocks, nextI] = collectAssistantBlocks(entries, i);
+      const [assistantBlocks, nextI, response] = collectAssistantBlocks(entries, i);
       i = nextI;
       i = attachToolResults(assistantBlocks, entries, i);
 
       turnIndex++;
       const turn = { index: turnIndex, user_text: userText, blocks: assistantBlocks, timestamp };
       if (systemEvents.length) turn.system_events = systemEvents;
+      if (response) turn.response = response;
       turns.push(turn);
     } else if (role === "assistant") {
-      const [assistantBlocks, nextI] = collectAssistantBlocks(entries, i);
+      const [assistantBlocks, nextI, response] = collectAssistantBlocks(entries, i);
       i = nextI;
       i = attachToolResults(assistantBlocks, entries, i);
 
       if (turns.length > 0) {
-        turns[turns.length - 1].blocks.push(...assistantBlocks);
+        const turn = turns[turns.length - 1];
+        turn.blocks.push(...assistantBlocks);
+        const mergedResponse = mergeResponseMetadata(turn.response, response);
+        if (mergedResponse) turn.response = mergedResponse;
       } else {
         turnIndex++;
-        turns.push({ index: turnIndex, user_text: "", blocks: assistantBlocks, timestamp: entry.timestamp ?? "" });
+        const turn = { index: turnIndex, user_text: "", blocks: assistantBlocks, timestamp: entry.timestamp ?? "" };
+        if (response) turn.response = response;
+        turns.push(turn);
       }
     } else {
       i++;

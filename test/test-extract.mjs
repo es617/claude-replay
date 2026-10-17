@@ -9,6 +9,7 @@ const SAMPLE_TURNS = [
     user_text: "Hello",
     blocks: [{ kind: "text", text: "Hi there!", tool_call: null }],
     timestamp: "2025-06-01T10:00:00Z",
+    response: { model: "test-model", cost: 0.001, tokens: { input: 10, output: 2, total: 12 } },
   },
   {
     index: 2,
@@ -40,6 +41,7 @@ describe("extract", () => {
     const data = extractData(html);
     assert.equal(data.turns.length, 2);
     assert.equal(data.turns[0].user_text, "Hello");
+    assert.deepEqual(data.turns[0].response, SAMPLE_TURNS[0].response);
     assert.equal(data.turns[1].blocks[0].tool_call.name, "Read");
   });
 

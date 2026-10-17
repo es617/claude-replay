@@ -131,6 +131,19 @@ describe("render", () => {
     assert.doesNotMatch(html, /jdoe/);
   });
 
+  it("embeds response model, cost, and token metadata when available", () => {
+    const turns = structuredClone(SAMPLE_TURNS);
+    turns[0].response = {
+      model: "claude-test-model",
+      cost: 0.0123,
+      tokens: { input: 1200, output: 34, total: 1234 },
+    };
+    const html = render(turns, { minified: false, compress: false });
+    assert.match(html, /claude-test-model/);
+    assert.match(html, /\\"cost\\":0\.0123/);
+    assert.match(html, /function renderResponseMeta/);
+  });
+
   it("renders custom title and labels", () => {
     const html = render(SAMPLE_TURNS, {
       minified: false,

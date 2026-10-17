@@ -746,6 +746,18 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
 .role-label.role-user-label { color: var(--accent); }
 .role-label.role-assistant-label { color: var(--cyan); }
 .role-label.role-system-label { color: var(--text); font-style: italic; }
+.response-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.response-meta-model { color: var(--text); }
 
 /* Collapsible long content */
 .collapsible-wrap { position: relative; }
@@ -1729,6 +1741,30 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
   // § RENDERING
   // ═══════════════════════════════════════════
 
+  function renderResponseMeta(response) {
+    if (!response || typeof response !== "object") return "";
+    const items = [];
+    if (response.model) items.push(`<span class="response-meta-model">${escapeHtml(String(response.model))}</span>`);
+    if (Number.isFinite(response.cost)) {
+      const digits = response.cost < 0.01 ? 6 : 4;
+      items.push(`<span>$${response.cost.toFixed(digits).replace(/0+$/, "").replace(/\.$/, "")}</span>`);
+    }
+    const tokens = response.tokens;
+    if (tokens && typeof tokens === "object") {
+      const formatTokens = (value) => Number(value).toLocaleString("en-US");
+      if (Number.isFinite(tokens.total)) items.push(`<span>${formatTokens(tokens.total)} tokens</span>`);
+      const details = [
+        ["in", tokens.input], ["out", tokens.output], ["reasoning", tokens.reasoning],
+        ["cache read", tokens.cache_read], ["cache write", tokens.cache_write],
+      ].filter(([, value]) => Number.isFinite(value));
+      if (details.length) {
+        const title = details.map(([name, value]) => `${name}: ${formatTokens(value)}`).join(" · ");
+        items.push(`<span title="${escapeHtml(title)}">${details.map(([name, value]) => `${name} ${formatTokens(value)}`).join(" · ")}</span>`);
+      }
+    }
+    return items.length ? `<div class="response-meta">${items.join("")}</div>` : "";
+  }
+
   function renderTurn(turn, displayNum) {
     const el = document.createElement("div");
     el.className = "turn";
@@ -1851,6 +1887,7 @@ body.in-iframe .more-open-link + hr.more-divider { display: block; }
         }
       }
 
+      html += renderResponseMeta(turn.response);
       html += `</div>`; // close role-assistant
     }
 

@@ -79,6 +79,23 @@ describe("parseTranscript", () => {
     assert.equal(turns[0].timestamp, "2025-06-01T10:00:00Z");
   });
 
+  it("preserves Claude-style model and usage metadata", () => {
+    const text = [
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello" } }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant", model: "claude-test", content: [{ type: "text", text: "Hi" }],
+          usage: { input_tokens: 12, output_tokens: 3, cache_read_input_tokens: 4 },
+        },
+      }),
+    ].join("\n");
+    const [turn] = parseTranscriptFromText(text);
+    assert.deepEqual(turn.response, {
+      model: "claude-test", tokens: { input: 12, output: 3, cache_read: 4 },
+    });
+  });
+
   it("detects and parses sessions with leading metadata entries", () => {
     // Real Claude Code sessions start with queue-operation, session-id, etc.
     // before the first user/assistant entry. Detection must scan past these.
@@ -530,6 +547,14 @@ describe("Gemini format", () => {
       [1, 2, 3, 4]
     );
   });
+
+  it("preserves model and aggregates token usage per response", () => {
+    const turns = parseTranscript(GEMINI_FIXTURE);
+    assert.equal(turns[0].response.model, "gemini-2.5-flash");
+    assert.deepEqual(turns[1].response.tokens, {
+      input: 450, output: 90, reasoning: 15, cache_read: 150, total: 735,
+    });
+  });
 });
 
 describe("OpenCode format", () => {
@@ -616,6 +641,16 @@ describe("OpenCode format", () => {
     assert.equal(turns[0].blocks[1].kind, "tool_use");
     assert.equal(turns[0].blocks[2].kind, "thinking");
     assert.equal(turns[0].blocks[3].kind, "text");
+  });
+
+  it("aggregates recorded cost and token usage per response", () => {
+    const turns = parseTranscript(OPENCODE_FIXTURE);
+    assert.equal(turns[0].response.cost, 0.0187143);
+    assert.deepEqual(turns[0].response.tokens, {
+      input: 4, output: 294, reasoning: 0,
+      cache_read: 39816, cache_write: 626, total: 40740,
+    });
+    assert.equal(turns[1].response.cost, 0.005);
   });
 });
 
